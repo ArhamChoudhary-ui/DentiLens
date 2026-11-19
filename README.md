@@ -1,5 +1,11 @@
 # DentiLens XR
 
+## Team
+
+Team name: Rajasthani
+
+College: Vellore Institute of Technology, Vellore
+
 DentiLens XR is a dental video review prototype. The intended experience is to
 upload examination footage, identify visible dental regions, create timestamped
 review bookmarks, and produce concise highlights from the source video.
