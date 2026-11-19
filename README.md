@@ -73,6 +73,12 @@ validation and complete submission outputs remain separate pending work.
 The supplied guide, manifest, vocabulary and two examples are preserved under
 `reference/student_package/`. The received package lacks `validate.py`.
 
+The supplied nine-slide presentation template is preserved unchanged at
+`reference/submission/Submission_Final_forGithub.pptx`. Its cover has placeholders
+for the track, team, college and member details. The content sections cover the
+problem, solution, architecture, track output, differentiation and demo/setup,
+followed by a "Brownie Slides" section and closing slide. The template is blank.
+
 ## Model attribution
 
 AlphaDent by Sosnin et al. Published model release and source are available at
