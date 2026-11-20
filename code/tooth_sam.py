@@ -12,16 +12,32 @@ from dental_modes import TRAINED_MODES, fdi_name
 from grounded_sam import GroundedBoxDetector, GroundedSegmenter
 
 
-class ToothSegmenter:
-    model_name = 'DentiLens intraoral YOLOv8n + SAM 2.1 tiny'
-    prompt = None
-    limitations = ['Experimental predictions require professional review.',
-                   'Still-image detection metrics do not establish video performance.']
+def fdi_crop(image, regions):
+    tooth_boxes = [(float(score), box.detach().cpu().tolist())
+                   for box, score, label in zip(regions['boxes'], regions['scores'], regions['text_labels'])
+                   if 'teeth' in label.lower()]
+    if not tooth_boxes:
+        return None
+    _, (left, top, right, bottom) = max(tooth_boxes, key=lambda item: item[0])
+    side = 1.65 * max(right - left, bottom - top)
+    x, y = (left + right) / 2, (top + bottom) / 2
+    return (max(0, int(x - side / 2)), max(0, int(y - side / 2)),
+            min(image.width, int(x + side / 2)), min(image.height, int(y + side / 2)))
 
-    def __init__(self, weights, model_directory, confidence=0.35, device='cpu', mode='tooth-sam2'):
+
+def overlap_fraction(box, region):
+    x1, y1, x2, y2 = box
+    left, top, right, bottom = region
+    intersection = max(0, min(x2, right) - max(x1, left)) * max(0, min(y2, bottom) - max(y1, top))
+    area = (x2 - x1) * (y2 - y1)
+    return intersection / area if area > 0 else 0.0
+
+
+class DentalBoxDetector:
+    def __init__(self, weights, confidence, device, mode):
         from ultralytics import YOLO
 
-        weights, model_directory = Path(weights), Path(model_directory)
+        weights = Path(weights)
         self.confidence, self.device = confidence, device
         self.mode = mode
         self.model_name = 'DentiLens YOLOv8n · ' + TRAINED_MODES[mode][1]
@@ -37,6 +53,45 @@ class ToothSegmenter:
             raise ValueError('Detector classes differ from the selected mode')
         self.image_size = metadata['training']['image_size']
         self.provenance = {'detector': metadata}
+
+    def detect_boxes(self, frame, crop=None):
+        height, width = frame.shape[:2]
+        x_offset, y_offset = 0, 0
+        detector_input = frame
+        if crop is not None:
+            x_offset, y_offset, right, bottom = crop
+            if right <= x_offset or bottom <= y_offset:
+                return [], []
+            detector_input = frame[y_offset:bottom, x_offset:right]
+        prediction = self.detector.predict(detector_input, imgsz=self.image_size, conf=self.confidence,
+                                          iou=0.45, agnostic_nms=True, max_det=32, device=self.device,
+                                          verbose=False)[0]
+        boxes, rows = [], []
+        for box in prediction.boxes:
+            x1, y1, x2, y2 = box.xyxy[0].detach().cpu().tolist()
+            x1, x2 = np.clip([x1 + x_offset, x2 + x_offset], 0, width).tolist()
+            y1, y2 = np.clip([y1 + y_offset, y2 + y_offset], 0, height).tolist()
+            if x2 <= x1 or y2 <= y1:
+                continue
+            class_id = int(box.cls.item())
+            if self.mode == 'cavity-review' and class_id != 0:
+                continue
+            boxes.append([x1, y1, x2, y2])
+            rows.append({'model_class_id': class_id, 'model_label': self.names[class_id],
+                         'confidence': float(box.conf.item()),
+                         'bbox_xyxy_normalized': [x1/width, y1/height,
+                                                  x2/width, y2/height]})
+        return rows, boxes
+
+
+class ToothSegmenter(DentalBoxDetector):
+    prompt = None
+    limitations = ['Experimental predictions require professional review.',
+                   'Still-image detection metrics do not establish video performance.']
+
+    def __init__(self, weights, model_directory, confidence=0.35, device='cpu', mode='tooth-sam2'):
+        super().__init__(weights, confidence, device, mode)
+        model_directory = Path(model_directory)
         if mode in ('cavity-review', 'tooth-fdi'):
             self.tooth_locator = GroundedBoxDetector(model_directory, device)
             self.provenance.update(self.tooth_locator.provenance)
@@ -73,19 +128,6 @@ class ToothSegmenter:
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 3)
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
 
-    def fdi_crop(self, image):
-        regions = self.tooth_locator.detect(image, 'teeth.', 0.5)
-        tooth_boxes = [(float(score), box.detach().cpu().tolist())
-                       for box, score, label in zip(regions['boxes'], regions['scores'], regions['text_labels'])
-                       if 'teeth' in label.lower()]
-        if not tooth_boxes:
-            return None
-        _, (left, top, right, bottom) = max(tooth_boxes, key=lambda item: item[0])
-        side = 1.65 * max(right - left, bottom - top)
-        x, y = (left + right) / 2, (top + bottom) / 2
-        return (max(0, int(x - side / 2)), max(0, int(y - side / 2)),
-                min(image.width, int(x + side / 2)), min(image.height, int(y + side / 2)))
-
     def cavity_candidates(self, image, rows, boxes, frame):
         if not rows:
             return rows, frame
@@ -95,11 +137,7 @@ class ToothSegmenter:
                        zip(detection['boxes'], detection['text_labels']) if 'teeth' in label.lower()]
         retained = []
         for row, box in zip(rows, boxes):
-            x1, y1, x2, y2 = box
-            area = (x2 - x1) * (y2 - y1)
-            overlaps = (max(0, min(x2, tx2) - max(x1, tx1)) * max(0, min(y2, ty2) - max(y1, ty1))
-                        for tx1, ty1, tx2, ty2 in tooth_boxes)
-            if max(overlaps, default=0) < area * 0.5:
+            if max((overlap_fraction(box, region) for region in tooth_boxes), default=0) < 0.5:
                 self.observation_counts['rejected_outside_tooth_regions'] += 1
                 continue
             row['category'] = 'cavity_candidate'
@@ -112,34 +150,12 @@ class ToothSegmenter:
         scale = min(1.0, 960 / max(width, height))
         frame = cv2.resize(source_frame, (round(width * scale), round(height * scale)))
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        x_offset, y_offset = 0, 0
-        detector_input = frame
+        crop = None
         if self.mode == 'tooth-fdi':
-            crop = self.fdi_crop(image)
+            crop = fdi_crop(image, self.tooth_locator.detect(image, 'teeth.', 0.5))
             if crop is None:
                 return [], frame
-            x_offset, y_offset, right, bottom = crop
-            if right <= x_offset or bottom <= y_offset:
-                return [], frame
-            detector_input = frame[y_offset:bottom, x_offset:right]
-        prediction = self.detector.predict(detector_input, imgsz=self.image_size, conf=self.confidence,
-                                          iou=0.45, agnostic_nms=True, max_det=32, device=self.device,
-                                          verbose=False)[0]
-        boxes, rows = [], []
-        for box in prediction.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].detach().cpu().tolist()
-            x1, x2 = np.clip([x1 + x_offset, x2 + x_offset], 0, image.width).tolist()
-            y1, y2 = np.clip([y1 + y_offset, y2 + y_offset], 0, image.height).tolist()
-            if x2 <= x1 or y2 <= y1:
-                continue
-            class_id = int(box.cls.item())
-            if self.mode == 'cavity-review' and class_id != 0:
-                continue
-            boxes.append([x1, y1, x2, y2])
-            rows.append({'model_class_id': class_id, 'model_label': self.names[class_id],
-                         'confidence': float(box.conf.item()),
-                         'bbox_xyxy_normalized': [x1/image.width, y1/image.height,
-                                                  x2/image.width, y2/image.height]})
+        rows, boxes = self.detect_boxes(frame, crop)
         if self.mode == 'cavity-review':
             return self.cavity_candidates(image, rows, boxes, frame)
         if self.mode == 'tooth-fdi':

@@ -1,0 +1,76 @@
+{
+  "braces_video": {
+    "input_sha256": "c5315b92a43a4a53212e279d2cd563f9b1b2feb9636303f2f39a4d6e659e2390",
+    "sampled_frames": 14,
+    "comparison_scope": "Same input and sampling settings. Counts describe suggestions, not correctness.",
+    "standalone_fdi_observations": 3,
+    "combined_observations": 6,
+    "combined_frames_with_observations": 3,
+    "combined_counts": {
+      "candidates_before_tooth_filter": 2,
+      "rejected_outside_tooth_regions": 2,
+      "conflicting_tooth_identities": 0
+    },
+    "at_20_seconds": [
+      {
+        "number": "21",
+        "name": "upper left central incisor",
+        "status": "type agreement"
+      },
+      {
+        "number": "11",
+        "name": "upper right central incisor",
+        "status": "type agreement"
+      }
+    ]
+  },
+  "cavity_positive_still_photos": {
+    "scope": "App settings checked on the five cavity-positive still photos. Multiple flags may overlap the same box.",
+    "inspection_cases": [
+      {
+        "test_image_index": 14,
+        "annotated_cavity_boxes": 5,
+        "retained_flags": 13,
+        "flags_with_iou_at_least_0_5": 3,
+        "flags_with_nearby_tooth": 0
+      },
+      {
+        "test_image_index": 22,
+        "annotated_cavity_boxes": 17,
+        "retained_flags": 6,
+        "flags_with_iou_at_least_0_5": 5,
+        "flags_with_nearby_tooth": 1
+      },
+      {
+        "test_image_index": 28,
+        "annotated_cavity_boxes": 5,
+        "retained_flags": 9,
+        "flags_with_iou_at_least_0_5": 1,
+        "flags_with_nearby_tooth": 1
+      },
+      {
+        "test_image_index": 30,
+        "annotated_cavity_boxes": 5,
+        "retained_flags": 0,
+        "flags_with_iou_at_least_0_5": 0,
+        "flags_with_nearby_tooth": 0
+      },
+      {
+        "test_image_index": 37,
+        "annotated_cavity_boxes": 13,
+        "retained_flags": 0,
+        "flags_with_iou_at_least_0_5": 0,
+        "flags_with_nearby_tooth": 0
+      }
+    ],
+    "summary": {
+      "candidates_before_tooth_filter": 28,
+      "rejected_outside_tooth_regions": 0,
+      "conflicting_tooth_identities": 1
+    }
+  },
+  "limits": [
+    "Video has no verified clinical annotations or orientation.",
+    "The positive-only photo check is a geometry spot check, not a complete evaluation."
+  ]
+}

@@ -321,3 +321,28 @@ If the browser reports a refused connection, start `bash run_app.sh` in
 Terminal from the repository directory and keep Terminal open. Then load
 `http://127.0.0.1:8501/`. Double-clicking the launcher in Finder also runs
 it. Opening the launcher as a file preview displays its script.
+
+### Names, numbering, and possible cavities in one run
+
+Choose **Tooth names, FDI numbers and possible cavities** after uploading an
+MP4, or pass `--engine combined-review` to the CLI. The mode requires the three
+local detector checkpoints and Grounding DINO. One tooth-region pass supplies
+the crop for the two identity models and filters cavity candidates.
+
+When the models cover the same tooth and agree on its type, the review shows the
+suggested FDI number and anatomical name together. The review withholds the
+number when the two types disagree. A type-only observation still appears if
+the numbering model misses it. Orange boxes are possible cavity flags. An
+overlapping tooth suggestion appears only when the association is unambiguous
+by box overlap. Verify both suggestions during review.
+
+Use **All findings**, **Teeth**, or **Possible cavities** in the timeline. Pick
+**All findings at selected frame** in the reel builder to export tooth and cavity
+suggestions together when they appear on that frame.
+
+The local **combined-braces-demo** shows FDI 11 and 21 suggestions at 20 seconds.
+On that clip the combined mode produced six tooth suggestions across 14 sampled
+frames, versus three for FDI alone. No cavity flags passed the filter. The
+[smoke test record](reference/combined-review-smoke-test.json) also reports a
+five-photo geometry check. The combined mode reuses the existing checkpoints.
+These checks do not establish clinical accuracy or improved video accuracy.

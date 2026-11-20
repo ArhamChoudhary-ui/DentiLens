@@ -11,7 +11,7 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'code'))
-from dental_modes import TRAINED_MODES
+from dental_modes import COMBINED_LABEL, COMBINED_MODE, TRAINED_MODES
 from annotated_reel import context_windows, export_annotated_reel, review_marks
 from review_preview import focused_tooth_preview
 RESULTS = ROOT / 'results'
@@ -39,6 +39,10 @@ with upload_tab:
     available = []
     sam_ready = (ROOT / 'models/grounded/sam2/model.safetensors').is_file()
     dino_ready = (ROOT / 'models/grounded/dino/model.safetensors').is_file()
+    if dino_ready and all((ROOT / 'models' / f'{name}.{extension}').is_file()
+                          for name in ('tooth-fdi', 'tooth-types', 'cavity-review')
+                          for extension in ('pt', 'json')):
+        available.append((COMBINED_LABEL, COMBINED_MODE))
     if sam_ready and dino_ready:
         available.append(('Tooth outlines only', 'grounded-sam2'))
         available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
@@ -60,9 +64,9 @@ with upload_tab:
         if mode == 'tooth-sam2':
             st.warning('This experimental detector produced glove and face false positives on the supplied videos. '
                        'Its still-image test score does not establish reliable video segmentation.')
-        if mode == 'tooth-fdi':
+        if mode in ('tooth-fdi', COMBINED_MODE):
             st.info('Use footage in standard orientation. Confirm jaw and patient side before saving a tooth number.')
-        if mode == 'cavity-review':
+        if mode in ('cavity-review', COMBINED_MODE):
             st.info('Flags are for visual review. A frame without a flag does not rule out decay.')
         st.caption('Analysis samples one frame per second. You can export an annotated reel from the review tab.')
         if uploaded is not None:
@@ -145,8 +149,13 @@ with review_tab:
             entries[path.stem] = json.loads(path.read_text())
         with left:
             st.subheader('Timestamped visual review')
-            lanes = ['Possible cavities', 'Manual bookmarks'] if report.get('capabilities', {}).get(
-                'possible_cavity_flags') else ['Teeth', 'Instruments', 'Manual bookmarks']
+            combined = report.get('analysis_mode') == COMBINED_MODE
+            if combined:
+                lanes = ['All findings', 'Teeth', 'Possible cavities', 'Manual bookmarks']
+            elif features.get('possible_cavity_flags'):
+                lanes = ['Possible cavities', 'Manual bookmarks']
+            else:
+                lanes = ['Teeth', 'Instruments', 'Manual bookmarks']
             lane = st.radio('Timeline', lanes, horizontal=True,
                             key=f'lane-{selected.name}')
             moments = {}
@@ -157,7 +166,8 @@ with review_tab:
                     label = observation['model_label']
                     category = observation.get('category')
                     matches_lane = (
-                        (lane == 'Teeth' and 'mirror' not in label and category != 'cavity_candidate')
+                        lane == 'All findings'
+                        or (lane == 'Teeth' and 'mirror' not in label and category != 'cavity_candidate')
                         or (lane == 'Instruments' and 'mirror' in label)
                         or (lane == 'Possible cavities' and category == 'cavity_candidate'))
                     if not matches_lane:
@@ -177,22 +187,36 @@ with review_tab:
                 moment = moments[marker]
                 timestamp = moment['timestamp_sec']
                 if 'evidence' in moment:
+                    cavity = moment.get('category') == 'cavity_candidate'
+                    conflict = moment.get('identity_status') == 'conflicting'
                     if 'fdi_number' in moment:
                         st.write(f"**Suggested FDI {moment['fdi_number']} · {moment['tooth_name']}**")
-                        preview = focused_tooth_preview(source, moment)
+                    elif cavity:
+                        st.write('**Possible cavity · review suggested**')
+                        if moment.get('nearby_tooth_suggestion'):
+                            st.caption(f"Overlaps the suggested {moment['nearby_tooth_suggestion']}. Verify both predictions.")
+                    elif conflict:
+                        st.write('**Uncertain tooth identity**')
+                        st.caption(f"The number model suggested FDI {moment['fdi_candidate']}. "
+                                   f"The type model suggested {moment['type_candidate']}.")
+                    elif features.get('tooth_type_suggestions'):
+                        st.write(f"Suggested tooth type · {moment['model_label']}")
+                    if combined or 'fdi_number' in moment:
+                        color = (70, 185, 255) if cavity else (104, 208, 220) if conflict else (70, 230, 125)
+                        preview = focused_tooth_preview(source, moment, color=color)
                         if preview is not None:
-                            st.image(preview, width='stretch', caption='Selected tooth · model suggestion')
+                            st.image(preview, width='stretch', caption='Selected finding · model suggestion')
+                            with st.expander('All predictions on this frame'):
+                                st.image(str(selected / moment['evidence']), width='stretch')
                         else:
-                            st.image(str(selected / moment['evidence']), width='stretch')
-                        with st.expander('All predictions on this frame'):
                             st.image(str(selected / moment['evidence']), width='stretch')
                     else:
                         st.image(str(selected / moment['evidence']), width='stretch')
-                        if report.get('capabilities', {}).get('tooth_type_suggestions'):
-                            st.write(f"Suggested tooth type · {moment['model_label']}")
+                    if moment.get('identity_status') == 'type agreement':
+                        st.caption('Both models agree on tooth type. Check the side and jaw before saving the number.')
                     if 'confidence' in moment:
                         st.caption(f"Model score {moment['confidence']:.0%} · verify against the source footage.")
-                    if lane == 'Possible cavities':
+                    if cavity:
                         st.caption('Orange boxes mark areas flagged for visual review.')
             else:
                 message = ('No possible cavity flags passed the threshold. Review the source footage.'
@@ -228,7 +252,9 @@ with review_tab:
                     if not manual and 'model_label' in moments[marker]:
                         suggestion = moments[marker]
                         record['model_suggestion'] = {
-                            field: suggestion[field] for field in ('model_label', 'fdi_number', 'tooth_name', 'confidence')
+                            field: suggestion[field] for field in ('model_label', 'fdi_number', 'tooth_name',
+                                'tooth_type', 'identity_status', 'fdi_candidate', 'type_candidate',
+                                'nearby_tooth_suggestion', 'confidence')
                             if field in suggestion}
                     with tempfile.NamedTemporaryFile(mode='w', dir=review_dir, delete=False) as stream:
                         json.dump(record, stream, indent=2)
@@ -256,6 +282,8 @@ with review_tab:
                 choices = []
                 if marker is not None and entries.get(marker, {}).get('decision') != 'Dismiss':
                     choices.append('Selected moment')
+                    if combined and 'source_frame' in moment:
+                        choices.append('All findings at selected frame')
                 if confirmed:
                     choices.append('Confirmed moments')
                 if report['highlights'] and report['observations']:
@@ -264,6 +292,11 @@ with review_tab:
                     content = st.selectbox('Reel contents', choices, key=f'reel-content-{selected.name}')
                     if content == 'Selected moment':
                         marks = review_marks(report, entries, [marker])
+                        windows = context_windows([moment['timestamp_sec']], report['duration_sec'])
+                    elif content == 'All findings at selected frame':
+                        keys = [f'model-{index}' for index, row in enumerate(report['observations'])
+                                if row['source_frame'] == moment['source_frame']]
+                        marks = review_marks(report, entries, keys)
                         windows = context_windows([moment['timestamp_sec']], report['duration_sec'])
                     elif content == 'Confirmed moments':
                         chosen = st.multiselect('Moments to include', confirmed, default=confirmed,

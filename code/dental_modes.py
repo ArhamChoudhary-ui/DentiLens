@@ -4,6 +4,8 @@ TOOTH_TYPES = ('central incisor', 'lateral incisor', 'canine', 'first premolar',
 FDI_CLASSES = tuple(str(10 * quadrant + position)
                     for quadrant in range(1, 5) for position in range(1, 9))
 CAVITY_CLASSES = ('possible cavity', 'normal appearance')
+COMBINED_MODE = 'combined-review'
+COMBINED_LABEL = 'Tooth names, FDI numbers and possible cavities'
 TRAINED_MODES = {
     'tooth-sam2': ('tooth-detector', 'Trained tooth outlines (experimental)', ('tooth',)),
     'tooth-types': ('tooth-types', 'Tooth type names (experimental)', TOOTH_TYPES),

@@ -68,6 +68,10 @@ def mark_text(mark):
         label = mark.get('model_label', 'Manual bookmark')
     status = 'Reviewer confirmed' if review.get('decision') == 'Confirm' else 'AI suggestion'
     extras = []
+    if mark.get('nearby_tooth_suggestion'):
+        extras.append('Overlaps suggested ' + mark['nearby_tooth_suggestion'])
+    if mark.get('identity_status') == 'conflicting':
+        extras.append(f"FDI {mark['fdi_candidate']} or {mark['type_candidate']}")
     if review.get('flag'):
         extras.append('Flagged for review')
     if review.get('note'):

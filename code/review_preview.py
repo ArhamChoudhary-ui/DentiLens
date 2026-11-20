@@ -2,7 +2,7 @@
 import cv2
 
 
-def focused_tooth_preview(source, observation):
+def focused_tooth_preview(source, observation, color=(70, 230, 125)):
     if source is None or not source.is_file():
         return None
     capture = cv2.VideoCapture(str(source))
@@ -26,5 +26,5 @@ def focused_tooth_preview(source, observation):
     thickness = max(2, crop.shape[1] // 220)
     a, b = (x1 - crop_left, y1 - crop_top), (x2 - crop_left - 1, y2 - crop_top - 1)
     cv2.rectangle(crop, a, b, (15, 15, 15), thickness + 3)
-    cv2.rectangle(crop, a, b, (70, 230, 125), thickness)
+    cv2.rectangle(crop, a, b, color, thickness)
     return cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)

@@ -10,7 +10,7 @@ import tempfile
 import cv2
 import numpy as np
 
-from dental_modes import TRAINED_MODES
+from dental_modes import COMBINED_MODE, TRAINED_MODES
 
 
 def pick_highlights(observations, duration, clip_seconds=4.0):
@@ -175,14 +175,15 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                 'schema_version': 'dentilens-dental-1', 'video': video.name,
                 'input_sha256': input_digest,
                 'duration_sec': duration, 'fps': fps, 'frames_decoded': decoded,
+                'analysis_mode': getattr(predictor, 'mode', None),
                 'sampled_frames': sampled, 'effective_sample_fps': fps / step,
                 'model': model_description,
                 'observations': observations, 'highlights': highlights,
                 'highlight_duration_sec': sum(clip['end_sec']-clip['start_sec'] for clip in highlights),
                 'capabilities': {'visual_observations': True, 'procedure_action_recognition': False,
-                                 'individual_tooth_numbering': getattr(predictor, 'mode', None) == 'tooth-fdi',
-                                 'tooth_type_suggestions': getattr(predictor, 'mode', None) in ('tooth-fdi', 'tooth-types'),
-                                 'possible_cavity_flags': getattr(predictor, 'mode', None) == 'cavity-review'},
+                                 'individual_tooth_numbering': getattr(predictor, 'mode', None) in ('tooth-fdi', COMBINED_MODE),
+                                 'tooth_type_suggestions': getattr(predictor, 'mode', None) in ('tooth-fdi', 'tooth-types', COMBINED_MODE),
+                                 'possible_cavity_flags': getattr(predictor, 'mode', None) in ('cavity-review', COMBINED_MODE)},
                 'limitations': ['Model predictions on dental video require evaluation against annotations.',
                                 'CFR video timing required. Fast events may fall between sampled frames.',
                                 'Observation counts include repeated detections across frames.',
@@ -210,7 +211,7 @@ def main():
     parser.add_argument('--confidence', type=float,
                         help='Defaults to 0.50 for text-guided and cavity modes, or 0.35 for the other trained modes')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', *TRAINED_MODES], default='grounded-sam2')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', COMBINED_MODE, *TRAINED_MODES], default='grounded-sam2')
     parser.add_argument('--tooth-weights', type=Path, help='Override the local checkpoint for the selected trained mode')
     parser.add_argument('--model-directory', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/grounded')
@@ -223,6 +224,11 @@ def main():
         if args.engine in ('grounded-sam2', 'teeth-mirror'):
             from grounded_sam import GroundedSegmenter
             predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device, include_mirror=args.engine == 'teeth-mirror')
+        elif args.engine == COMBINED_MODE:
+            from combined_review import CombinedReview
+
+            models_root = Path(__file__).resolve().parents[1] / 'models'
+            predictor = CombinedReview(models_root, args.model_directory, args.confidence, args.device)
         elif args.engine in TRAINED_MODES:
             from tooth_sam import ToothSegmenter
 
