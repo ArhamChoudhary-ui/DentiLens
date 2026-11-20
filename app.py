@@ -1,4 +1,5 @@
 """Local dental video upload and review application."""
+from collections import deque
 import json
 from pathlib import Path
 import subprocess
@@ -11,7 +12,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'code'))
 from dental_modes import TRAINED_MODES
-from dental_video import export_clips
+from annotated_reel import context_windows, export_annotated_reel, review_marks
 from review_preview import focused_tooth_preview
 RESULTS = ROOT / 'results'
 RUNTIME = ROOT / 'runtime'
@@ -63,8 +64,7 @@ with upload_tab:
             st.info('Use footage in standard orientation. Confirm jaw and patient side before saving a tooth number.')
         if mode == 'cavity-review':
             st.info('Flags are for visual review. A frame without a flag does not rule out decay.')
-        st.caption('One frame per second is analyzed. CPU processing can take several minutes. '
-                   'Highlights use original footage and omit audio.')
+        st.caption('Analysis samples one frame per second. You can export an annotated reel from the review tab.')
         if uploaded is not None:
             st.video(uploaded)
         if st.button('Analyze video', type='primary', disabled=uploaded is None or choice is None):
@@ -74,19 +74,33 @@ with upload_tab:
             source.write_bytes(uploaded.getbuffer())
             destination = RESULTS / f'upload-{identifier}'
             command = [sys.executable, str(ROOT / 'code/dental_video.py'), str(source),
-                       str(destination), '--engine', mode, '--device', 'cpu']
+                       str(destination), '--engine', mode, '--device', 'cpu', '--progress']
             with st.status('Analyzing video…', expanded=True) as status:
-                st.write('Running the selected model and saving timestamped evidence.')
-                completed = subprocess.run(command, capture_output=True, text=True)
-                if completed.returncode:
+                progress = st.progress(0.0, text='Loading the selected model…')
+                diagnostics = deque(maxlen=25)
+                with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                      text=True, errors='replace') as process:
+                    for line in process.stdout:
+                        parts = line.split()
+                        if len(parts) == 3 and parts[0] == 'DENTILENS_PROGRESS':
+                            current, total = map(int, parts[1:])
+                            message = (f'Analyzed {current} of {total} frames'
+                                       if current < total else 'Saving evidence and highlights…')
+                            progress.progress(min(0.99, current / total), text=message)
+                        else:
+                            diagnostics.append(line)
+                    exit_code = process.wait()
+                if exit_code:
+                    progress.empty()
                     status.update(label='Analysis could not finish', state='error')
-                    st.error('Check that the video is a readable MP4 and the model files are installed.')
+                    st.error('Analysis stopped. Open processing details to see the error.')
                     with st.expander('Processing details'):
-                        st.code(completed.stderr[-5000:])
+                        st.code(''.join(diagnostics)[-5000:])
                 else:
                     (destination / 'source.json').write_text(json.dumps({
                         'path': str(source), 'display_name': uploaded.name}, indent=2))
                     st.session_state['last_result'] = destination.name
+                    progress.progress(1.0, text='Analysis complete')
                     status.update(label='Analysis ready', state='complete')
                     st.success(f'{choice[0]} finished. Open “Review saved results” to inspect the output.')
 
@@ -183,10 +197,15 @@ with review_tab:
             else:
                 message = ('No possible cavity flags passed the threshold. Review the source footage.'
                            if lane == 'Possible cavities' else 'No moments in this lane yet.')
+                if not report['observations'] and lane != 'Possible cavities':
+                    message = 'No predictions passed this model’s threshold. You can still add a manual bookmark.'
                 st.info(message)
             source_ready = source is not None and source.is_file()
             if source_ready:
-                st.video(str(source), start_time=timestamp)
+                with st.expander('Original video', expanded=not moments):
+                    st.video(str(source), start_time=timestamp)
+            else:
+                st.info('The source MP4 is unavailable. Saved evidence and notes are still available.')
 
             manual = marker is None or st.checkbox('Add a bookmark at another time',
                                                      key=f'manual-{selected.name}-{marker}')
@@ -226,49 +245,58 @@ with review_tab:
                     st.text(current['note'])
                 st.caption('On-screen preview of a future glasses display.')
         with right:
-            st.subheader('Review highlights')
-            confirmed = sorted((key for key, value in entries.items() if value['decision'] == 'Confirm'),
-                               key=lambda key: entries[key]['timestamp_sec'])
+            st.subheader('Annotated review reel')
             if entries:
                 st.download_button('Download reviewer notes',
                     json.dumps({'video': display_name, 'bookmarks': list(entries.values())}, indent=2),
                     file_name='dentilens-reviewed-bookmarks.json', mime='application/json')
-            if source_ready and confirmed:
-                chosen = st.multiselect('Moments for reviewed reel', confirmed, default=confirmed,
-                    format_func=lambda key: f"{entries[key]['timestamp_sec']:.2f} s · "
-                                            f"{entries[key]['tooth'] or 'Confirmed moment'}")
-                reel_key = (str(selected), tuple((key, entries[key]['timestamp_sec']) for key in chosen))
-                if st.button('Build reviewed reel', disabled=not chosen):
-                    windows = []
-                    duration = report['duration_sec']
-                    for time in sorted(entries[key]['timestamp_sec'] for key in chosen):
-                        start = min(max(0, time - 1), max(0, duration - 3))
-                        end = min(start + 3, duration)
-                        if windows and start <= windows[-1]['end_sec']:
-                            windows[-1]['end_sec'] = max(windows[-1]['end_sec'], end)
-                        else:
-                            windows.append(dict(start_sec=start, end_sec=end))
-                    try:
-                        with tempfile.TemporaryDirectory() as directory:
-                            target = Path(directory) / 'reviewed.mp4'
-                            export_clips(source, target, windows)
-                            st.session_state['reviewed_reel'] = (reel_key, target.read_bytes())
-                    except (subprocess.SubprocessError, OSError):
-                        st.error('The reviewed reel could not be exported.')
-                reel = st.session_state.get('reviewed_reel')
-                if reel and reel[0] == reel_key:
-                    st.video(reel[1])
-                    st.download_button('Download reviewed reel', reel[1],
-                                       file_name='dentilens-reviewed.mp4', mime='video/mp4')
-
+            confirmed = sorted((key for key, value in entries.items() if value['decision'] == 'Confirm'),
+                               key=lambda key: entries[key]['timestamp_sec'])
+            if source_ready:
+                choices = []
+                if marker is not None and entries.get(marker, {}).get('decision') != 'Dismiss':
+                    choices.append('Selected moment')
+                if confirmed:
+                    choices.append('Confirmed moments')
+                if report['highlights'] and report['observations']:
+                    choices.append('AI highlights')
+                if choices:
+                    content = st.selectbox('Reel contents', choices, key=f'reel-content-{selected.name}')
+                    if content == 'Selected moment':
+                        marks = review_marks(report, entries, [marker])
+                        windows = context_windows([moment['timestamp_sec']], report['duration_sec'])
+                    elif content == 'Confirmed moments':
+                        chosen = st.multiselect('Moments to include', confirmed, default=confirmed,
+                            format_func=lambda key: f"{entries[key]['timestamp_sec']:.2f} s · "
+                                                    f"{entries[key]['tooth'] or 'Confirmed moment'}")
+                        marks = review_marks(report, entries, chosen)
+                        windows = context_windows([item['timestamp_sec'] for item in marks], report['duration_sec'])
+                    else:
+                        windows = report['highlights']
+                        marks = review_marks(report, entries)
+                    reel_key = (selected.name, content, json.dumps([windows, marks], sort_keys=True))
+                    st.caption('Playback briefly pauses on each annotated frame. The reel includes source times, '
+                               'model labels and saved review decisions. Exported reels are silent.')
+                    if st.button('Build annotated reel', disabled=not marks):
+                        try:
+                            with st.spinner('Rendering annotated video…'), tempfile.TemporaryDirectory() as directory:
+                                target = Path(directory) / 'reviewed.mp4'
+                                export_annotated_reel(source, target, report, windows, marks, selected)
+                                st.session_state['annotated_reel'] = (reel_key, target.read_bytes())
+                        except (ValueError, OSError, RuntimeError) as exc:
+                            st.error(f'Could not build the reel. {exc}')
+                    reel = st.session_state.get('annotated_reel')
+                    if reel and reel[0] == reel_key:
+                        st.video(reel[1])
+                        st.download_button('Download annotated reel', reel[1],
+                                           file_name='dentilens-annotated.mp4', mime='video/mp4')
+                else:
+                    st.info('Select a prediction or save a confirmed bookmark to export a reel.')
             if (selected / 'highlights.mp4').is_file():
-                st.video(str(selected / 'highlights.mp4'))
-                st.caption('Selected from model observations; not a clinical importance assessment.')
-                st.download_button('Download highlight', (selected / 'highlights.mp4').read_bytes(),
-                                   file_name='dentilens-highlight.mp4', mime='video/mp4')
-            else:
-                st.info('No highlight was generated. A highlight requires a prediction and at least '
-                        'four seconds within the 15% duration budget.')
+                with st.expander('Original AI highlight'):
+                    st.video(str(selected / 'highlights.mp4'))
+                    st.download_button('Download original highlight', (selected / 'highlights.mp4').read_bytes(),
+                                       file_name='dentilens-highlight.mp4', mime='video/mp4')
             st.download_button('Download analysis report', (selected / 'report.json').read_bytes(),
                                file_name='dentilens-report.json', mime='application/json')
             with st.expander('Capabilities and limitations'):

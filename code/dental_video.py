@@ -65,7 +65,7 @@ def export_clips(video, destination, highlights):
                     str(destination)], capture_output=True, check=True, timeout=600)
 
 
-def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu', predictor=None):
+def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu', predictor=None, progress=None):
     video, weights, output = Path(video).resolve(), Path(weights).resolve(), Path(output).resolve()
     if not video.is_file() or video.suffix.lower() != '.mp4':
         raise ValueError('Provide an existing MP4 video')
@@ -151,6 +151,8 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                     if not cv2.imwrite(str(evidence / f'frame-{index:08d}.jpg'), annotated):
                         raise ValueError('Could not save source-frame evidence')
                     observations.extend(frame_observations)
+                if progress is not None:
+                    progress(sampled, (int(expected_frames) - 1) // step + 1)
             if decoded != int(expected_frames):
                 raise ValueError(f'Incomplete video decode: {decoded}/{int(expected_frames)} frames')
             duration = decoded / fps
@@ -212,6 +214,7 @@ def main():
     parser.add_argument('--tooth-weights', type=Path, help='Override the local checkpoint for the selected trained mode')
     parser.add_argument('--model-directory', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/grounded')
+    parser.add_argument('--progress', action='store_true', help='Print sampled frame counts during analysis')
     args = parser.parse_args()
     if args.confidence is None:
         args.confidence = 0.5 if args.engine in ('grounded-sam2', 'teeth-mirror', 'cavity-review') else 0.35
@@ -226,8 +229,12 @@ def main():
             checkpoint = TRAINED_MODES[args.engine][0]
             weights = args.tooth_weights or Path(__file__).resolve().parents[1] / f'models/{checkpoint}.pt'
             predictor = ToothSegmenter(weights, args.model_directory, args.confidence, args.device, mode=args.engine)
+        def report_progress(current, total):
+            print(f'DENTILENS_PROGRESS {current} {total}', flush=True)
+
         report = analyze(args.video, args.weights, args.output, args.sample_fps,
-                         args.confidence, args.device, predictor=predictor)
+                         args.confidence, args.device, predictor=predictor,
+                         progress=report_progress if args.progress else None)
     except Exception as exc:
         parser.exit(1, f'Analysis failed: {exc}\n')
     print(f"Analyzed {report['sampled_frames']} frames; {len(report['observations'])} visual observations")

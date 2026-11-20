@@ -298,3 +298,26 @@ incisor suggestions. The cavity model initially flagged gloves and a
 mirror on the exam clip. The tooth overlap filter removed all five
 candidates in the rerun. The annotated photo spot check still showed both
 extra flags and missed labeled areas.
+
+### Export a playable annotated review
+
+Under **Review saved results**, select a moment and choose **Build annotated
+reel**. The MP4 plays source footage and briefly holds each annotated source
+frame. Its label panel lists the model suggestions and any saved reviewer
+decisions, notes and flags. Overlays are drawn only on their observed frames,
+so they do not follow moving teeth between samples. Choose **Confirmed
+moments** to include saved manual bookmarks or **AI highlights** for the
+suggested windows. Dismissed predictions are excluded. The original highlight
+remains available under **Original AI highlight**. Exports are silent.
+
+If the number list is crowded, choose a single prediction in the timeline.
+The close-up displays its selected box and full suggested tooth name. Source
+footage may be unavailable for legacy results without a linked MP4. Their
+saved evidence and notes remain accessible. When no predictions pass the
+threshold, you can still save a timestamp as a manual bookmark and include
+it in a confirmed reel.
+
+If the browser reports a refused connection, start `bash run_app.sh` in
+Terminal from the repository directory and keep Terminal open. Then load
+`http://127.0.0.1:8501/`. Double-clicking the launcher in Finder also runs
+it. Opening the launcher as a file preview displays its script.
