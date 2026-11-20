@@ -1,0 +1,63 @@
+DentiLens XR
+Team Rajasthani
+Vellore Institute of Technology, Vellore
+Arham Choudhary, 25BIT0208
+Aadeesh Sanghi, 25BDS0044
+
+Opening
+"DentiLens XR helps people review dental examination footage. A user uploads
+a video, inspects AI-generated tooth regions at source timestamps, and revisits
+selected moments through bookmarks and a short highlight. A dentist reviews
+the predictions."
+
+Live demonstration
+1. Start the local app with bash run_app.sh.
+2. Upload a licensed dental MP4 and choose an installed model.
+3. Start analysis. For a short presentation, open a previously completed analysis
+   while explaining that CPU inference takes several minutes.
+4. Choose a review bookmark. Show the green predicted contours and the source
+   video at the same timestamp. Point out any visible segmentation mistakes.
+5. Play the original-footage highlight and download the JSON report.
+6. Explain that clips shorter than about 26.67 seconds cannot fit a four-second
+   highlight within this prototype's 15-percent duration budget.
+
+Architecture
+The app stores the upload locally. The video pipeline samples one frame per
+second and retains the original frame index. A trained one-class tooth detector
+provides boxes to SAM 2.1, which predicts masks. The pipeline saves visual
+evidence and a timestamped report, then selects non-overlapping highlight
+windows. The text-guided baseline remains available for comparison.
+
+Evidence
+The supplied intraoral dataset contains 2,906 images with 48,935 annotations.
+Preparation preserves its 2,540 / 246 / 120 train / validation / test split.
+Training uses enclosing tooth boxes and combines all labels into one class.
+Use the recorded evaluation report for detection metrics. Those metrics apply
+to still-image boxes. They do not measure video accuracy, SAM boundaries or
+clinical usefulness. Patient-level independence of the splits is unknown.
+
+Future XR use
+"A future version could record the dentist's view through compatible glasses
+and offer hands-free review bookmarks. Our current prototype demonstrates the
+local video-analysis foundation. It does not connect to XR hardware."
+
+Current boundaries
+The prototype does not diagnose disease, assign FDI tooth numbers, recognize
+dental procedures or provide a clinically validated treatment recommendation.
+Counts include repeated predictions of the same tooth across frames. The
+highlight ranking reflects model observations rather than clinical importance.
+
+Track 4
+This dental demonstration is separate from the official 187-video benchmark.
+Do not claim that the dental report meets the organizer's JSON contract. Team
+registration, organizer clarification, official inference and organizer
+validation remain separate submission tasks.
+
+Attribution
+Dataset: yusma, Intraoral Tooth Detection v2, supplied export declares CC BY 4.0.
+https://universe.roboflow.com/yusma/intraoral-tooth-detection-bj7bf/dataset/2
+Detector tooling and pretrained backbone: Ultralytics YOLOv8n.
+https://docs.ultralytics.com/models/yolov8/
+Segmentation: Meta SAM 2.1 tiny.
+https://huggingface.co/facebook/sam2.1-hiera-tiny
+Licensed stock footage sources and creators appear in pexels-tooth-region-tests.json.

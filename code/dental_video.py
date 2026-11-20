@@ -157,7 +157,7 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                     'weights_sha256': digest, 'classes': model.names,
                     'confidence_threshold': confidence, 'device': device}
             else:
-                model_description = {'name': 'Grounding DINO + SAM 2.1 tiny',
+                model_description = {'name': getattr(predictor, 'model_name', 'Grounding DINO + SAM 2.1 tiny'),
                     'provenance': predictor.provenance, 'classes': predictor.names,
                     'confidence_threshold': confidence, 'device': device,
                     'text_prompt': predictor.prompt}
@@ -195,7 +195,9 @@ def main():
     parser.add_argument('--confidence', type=float,
                         help='Defaults to 0.35 for AlphaDent or 0.50 for text-grounded tooth regions')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2'], default='alphadent')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'tooth-sam2'], default='alphadent')
+    parser.add_argument('--tooth-weights', type=Path,
+                        default=Path(__file__).resolve().parents[1] / 'models/tooth-detector.pt')
     parser.add_argument('--model-directory', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/grounded')
     args = parser.parse_args()
@@ -206,6 +208,9 @@ def main():
         if args.engine == 'grounded-sam2':
             from grounded_sam import GroundedSegmenter
             predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device)
+        elif args.engine == 'tooth-sam2':
+            from tooth_sam import ToothSegmenter
+            predictor = ToothSegmenter(args.tooth_weights, args.model_directory, args.confidence, args.device)
         report = analyze(args.video, args.weights, args.output, args.sample_fps,
                          args.confidence, args.device, predictor=predictor)
     except Exception as exc:

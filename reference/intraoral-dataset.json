@@ -1,0 +1,75 @@
+{
+  "archive_sha256": "abab4935fe14a054bf0d7750548ebc9e36fa932fba4533710015874e9dbab012",
+  "source": {
+    "workspace": "yusma",
+    "project": "intraoral-tooth-detection-bj7bf",
+    "version": 2,
+    "license": "CC BY 4.0",
+    "url": "https://universe.roboflow.com/yusma/intraoral-tooth-detection-bj7bf/dataset/2"
+  },
+  "splits": {
+    "train": {
+      "images": 2540,
+      "boxes": 42770
+    },
+    "valid": {
+      "images": 246,
+      "boxes": 4154
+    },
+    "test": {
+      "images": 120,
+      "boxes": 2011
+    }
+  },
+  "source_class_instances": {
+    "41": 1871,
+    "42": 1886,
+    "43": 1901,
+    "44": 1804,
+    "45": 1717,
+    "46": 1460,
+    "47": 1191,
+    "48": 347,
+    "31": 1879,
+    "32": 1887,
+    "33": 1890,
+    "34": 1851,
+    "35": 1690,
+    "36": 1493,
+    "37": 1198,
+    "11": 1913,
+    "12": 1890,
+    "13": 1923,
+    "14": 1877,
+    "15": 1799,
+    "16": 1640,
+    "21": 1881,
+    "22": 1859,
+    "23": 1908,
+    "24": 1845,
+    "25": 1787,
+    "26": 1630,
+    "17": 1178,
+    "27": 1117,
+    "28": 154,
+    "38": 265,
+    "18": 202,
+    "327": 1,
+    "56": 1
+  },
+  "annotation_shapes": {
+    "polygon_vertices_5": 48845,
+    "polygon_vertices_6": 90
+  },
+  "output_classes": [
+    "tooth"
+  ],
+  "label_policy": "All source tooth classes, including 327 and 56, collapsed to tooth; no FDI numbering claim.",
+  "cross_split_identical_hashes": 0,
+  "cross_split_source_basenames": 0,
+  "limitations": [
+    "No patient identifiers available to audit patient overlap across splits.",
+    "Near-duplicate images with different basenames are not excluded by hash checks.",
+    "Enclosing boxes do not establish accurate tooth-boundary masks."
+  ]
+}

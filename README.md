@@ -17,8 +17,8 @@ review bookmarks, and produce concise highlights from the source video.
 
 ## Working implementation
 
-The current Python pipeline decodes a CFR MP4, samples frames, runs a published
-AlphaDent dental-photo segmentation checkpoint, and saves model observations
+The Python pipeline decodes a CFR MP4, samples frames, runs a selected dental
+region engine, and saves model observations
 with confidence, bounding boxes, source frame indices and timestamps. Frames with
 observations receive annotated evidence images. Observation-based highlights
 are selected chronologically within 15% of the source duration and exported
@@ -31,27 +31,82 @@ review. The prototype's clinical accuracy has yet to be evaluated.
 
 ## Set up on macOS
 
-Use Python 3.11 in a virtual environment. Dependencies are pinned to the versions
-used for the recorded CPU test on Apple Silicon.
+Use Python 3.11 in a virtual environment. The pinned dependencies are the versions
+used for CPU execution on Apple Silicon.
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-python scripts/download_model.py
+python -m pip install -r requirements-app.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Run an analysis with a new output directory.
+### Local upload and review app
+
+Install the app dependencies in the same environment as the CLI:
 
 ```bash
-bash run.sh /path/to/dental-video.mp4 results/first-analysis --device cpu
+python -m pip install -r requirements-app.txt
+bash run_app.sh
+```
+
+Open http://127.0.0.1:8501. Upload a CFR MP4, choose an installed model, and run
+analysis. The review tab shows timestamped evidence, the original source for
+new uploads, highlights and report downloads. All analysis runs locally. Uploaded
+footage and results are stored under ignored `runtime/` and `results/` folders.
+The app binds to the loopback address and is intended for local demonstration.
+It does not connect to XR hardware or provide clinical diagnoses.
+
+### Train a detector using the supplied intraoral dataset
+
+The user-supplied Roboflow export is attributed to the **yusma / Intraoral Tooth
+Detection**, version 2 project:
+https://universe.roboflow.com/yusma/intraoral-tooth-detection-bj7bf/dataset/2.
+Its included metadata declares CC BY 4.0. Source attribution and export notes
+are preserved during preparation. The original images are not redistributed here.
+
+The preparation script retains the supplied train/validation/test splits and
+converts enclosing polygon coordinates to detection boxes. All source tooth
+classes, including two unusual singleton labels, are combined into `tooth`.
+This is a detector-training task: the export's rectangular outlines are not used
+as anatomical mask ground truth. Training does not establish FDI numbering.
+
+```bash
+python scripts/prepare_intraoral.py /path/to/intraoral.yolov8.zip data/intraoral
+# Obtain yolov8n.pt from the official Ultralytics assets release.
+python scripts/train_tooth_detector.py data/intraoral/data.yaml models/yolov8n.pt runtime/tooth-training
+python scripts/evaluate_tooth_detector.py runtime/tooth-training/weights/best.pt data/intraoral/data.yaml runtime/tooth-test
+python scripts/install_tooth_detector.py runtime/tooth-training
+python scripts/download_grounded_models.py --only sam2
+bash run.sh /path/to/dental-video.mp4 results/tooth-review --engine tooth-sam2
+```
+
+Training uses a pretrained YOLOv8n backbone with its first ten layers frozen,
+one tooth class, 416-pixel images and validation-based checkpoint selection.
+Evaluation uses the held-out test split. Hash and source-basename checks reject
+exact train/test overlap, but patient-level independence cannot be established
+from this export. See the [Ultralytics training documentation](https://docs.ultralytics.com/modes/train/)
+and [licensing information](https://www.ultralytics.com/license).
+
+The `tooth-sam2` engine uses each predicted tooth box to prompt SAM 2.1 tiny,
+then saves masks through the same timestamped report pipeline. SAM boundaries
+require independent evaluation; detection mAP is not segmentation accuracy.
+Local detector weights require a matching `models/tooth-detector.json` provenance
+file. Preparation, training and test results are recorded under `reference/`.
+
+### Legacy AlphaDent engine
+
+```bash
+python scripts/download_model.py
+bash run.sh /path/to/dental-video.mp4 results/first-analysis --engine alphadent --device cpu
 ```
 
 The CLI supports `--sample-fps` and `--confidence`. Its defaults are one sampled
 frame per second and a confidence threshold of 0.35. A 16 GB Mac M4 is the target
 development machine. CPU execution has been verified. Apple MPS availability and
 model execution should be checked on the local machine before selecting `--device mps`.
+All CLI runs require a new output directory. For the demo narrative and capability
+boundaries, see `reference/demo-script.txt`.
 
 ## Read the results
 

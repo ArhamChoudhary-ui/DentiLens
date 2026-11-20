@@ -11,6 +11,18 @@ For tooth-region masks, run `python scripts/download_grounded_models.py` after
 installing `requirements-grounded.txt`. This installs pinned detector and SAM 2
 weights under `models/grounded/` and verifies their SHA-256 values.
 
-The optical research checkpoint has been downloaded locally. Its contour stage
-failed on the tested braces footage, so the active tooth-region engine uses
-Grounding DINO with SAM 2.1.
+The locally trained intraoral detector installs as `tooth-detector.pt` with a
+matching `tooth-detector.json` provenance file. Run
+`python scripts/install_tooth_detector.py /path/to/completed-training-run`.
+The `tooth-sam2` engine verifies the detector hash before inference and only
+needs the SAM component, installed with
+`python scripts/download_grounded_models.py --only sam2`.
+
+Dataset attribution, the one-class conversion policy and evaluation scope are
+recorded under `reference/`. Ultralytics tooling and pretrained model terms are
+available at https://www.ultralytics.com/license. Dataset metadata declares
+CC BY 4.0. Local weights, source images and footage remain excluded from Git.
+
+The earlier optical research checkpoint's contour stage failed on the tested
+braces footage. It is excluded from the active engines. The text-guided baseline
+continues to use Grounding DINO with SAM 2.1.

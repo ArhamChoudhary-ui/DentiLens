@@ -1,4 +1,5 @@
 """Install pinned detector and segmenter snapshots with weight integrity checks."""
+import argparse
 import hashlib
 import json
 import os
@@ -11,8 +12,13 @@ from huggingface_hub import snapshot_download
 
 def main():
     root = Path(__file__).resolve().parents[1]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--only', choices=['dino', 'sam2'], help='Install only the selected component')
+    args = parser.parse_args()
     manifest = json.loads((root / 'reference/grounded-models.json').read_text())
     for name, model in manifest.items():
+        if args.only and name != args.only:
+            continue
         destination = root / 'models/grounded' / name
         patterns = ['*.json', '*.txt', 'model.safetensors']
         weights = destination / 'model.safetensors'
