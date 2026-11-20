@@ -13,8 +13,10 @@ from grounded_sam import GroundedSegmenter
 
 class ToothSegmenter:
     model_name = 'DentiLens intraoral YOLOv8n + SAM 2.1 tiny'
-    prompt = 'Per-tooth boxes from a one-class intraoral detector'
+    prompt = None
     names = {0: 'tooth'}
+    limitations = ['Experimental video detector: supplied clips exposed non-tooth false positives. '
+                   'Still-image detection mAP does not establish video or mask accuracy.']
 
     def __init__(self, weights, model_directory, confidence=0.35, device='cpu'):
         from ultralytics import YOLO

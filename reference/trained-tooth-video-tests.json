@@ -1,0 +1,221 @@
+{
+  "evaluated_on": "2026-11-20",
+  "model": "DentiLens intraoral YOLOv8n + SAM 2.1 tiny",
+  "model_provenance": {
+    "detector": {
+      "name": "DentiLens intraoral YOLOv8n tooth detector",
+      "weights_sha256": "49b91698dd191884f93f1bc2b413a8c52a1d9e705f316a909e8340f2b57ea975",
+      "pretrained_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+      "dataset": {
+        "archive_sha256": "abab4935fe14a054bf0d7750548ebc9e36fa932fba4533710015874e9dbab012",
+        "source": {
+          "workspace": "yusma",
+          "project": "intraoral-tooth-detection-bj7bf",
+          "version": 2,
+          "license": "CC BY 4.0",
+          "url": "https://universe.roboflow.com/yusma/intraoral-tooth-detection-bj7bf/dataset/2"
+        },
+        "splits": {
+          "train": {
+            "images": 2540,
+            "boxes": 42770
+          },
+          "valid": {
+            "images": 246,
+            "boxes": 4154
+          },
+          "test": {
+            "images": 120,
+            "boxes": 2011
+          }
+        },
+        "source_class_instances": {
+          "41": 1871,
+          "42": 1886,
+          "43": 1901,
+          "44": 1804,
+          "45": 1717,
+          "46": 1460,
+          "47": 1191,
+          "48": 347,
+          "31": 1879,
+          "32": 1887,
+          "33": 1890,
+          "34": 1851,
+          "35": 1690,
+          "36": 1493,
+          "37": 1198,
+          "11": 1913,
+          "12": 1890,
+          "13": 1923,
+          "14": 1877,
+          "15": 1799,
+          "16": 1640,
+          "21": 1881,
+          "22": 1859,
+          "23": 1908,
+          "24": 1845,
+          "25": 1787,
+          "26": 1630,
+          "17": 1178,
+          "27": 1117,
+          "28": 154,
+          "38": 265,
+          "18": 202,
+          "327": 1,
+          "56": 1
+        },
+        "annotation_shapes": {
+          "polygon_vertices_5": 48845,
+          "polygon_vertices_6": 90
+        },
+        "output_classes": [
+          "tooth"
+        ],
+        "label_policy": "All source tooth classes, including 327 and 56, collapsed to tooth; no FDI numbering claim.",
+        "cross_split_identical_hashes": 0,
+        "cross_split_source_basenames": 0,
+        "limitations": [
+          "No patient identifiers available to audit patient overlap across splits.",
+          "Near-duplicate images with different basenames are not excluded by hash checks.",
+          "Enclosing boxes do not establish accurate tooth-boundary masks."
+        ]
+      },
+      "training": {
+        "epochs_requested": 12,
+        "epochs_completed": 12,
+        "resumed_from_checkpoint": true,
+        "cpu_threads": 4,
+        "image_size": 416,
+        "batch": 16,
+        "device": "cpu",
+        "frozen_layers": 10,
+        "seed": 42,
+        "selection": "best validation fitness; test split unused"
+      },
+      "limitations": [
+        "Single tooth class; no FDI numbering.",
+        "Detection metrics do not measure SAM segmentation accuracy.",
+        "Intraoral still-image performance does not establish video accuracy."
+      ]
+    },
+    "sam2": {
+      "repository": "facebook/sam2.1-hiera-tiny",
+      "revision": "de431c4043854a71d8101e17995dfe596bf101a5",
+      "weights_sha256": "48c14467e5cf9e51870511feb72c89688e82dd74523142c0538b663e193ac2a7"
+    }
+  },
+  "confidence_threshold": 0.35,
+  "requested_sample_fps": 1,
+  "device": "cpu",
+  "clips": [
+    {
+      "input_sha256": "c5315b92a43a4a53212e279d2cd563f9b1b2feb9636303f2f39a4d6e659e2390",
+      "frames_sampled": 27,
+      "frames_with_predictions": 2,
+      "observations": 2,
+      "masks_checked": 2,
+      "highlight_duration_sec": 4.0,
+      "verification": "Source hash, timing, mask assets and highlight geometry checked.",
+      "clip_id": "6528841",
+      "duration_sec": 27.0,
+      "frames_decoded": 675,
+      "retained_frame_timestamps_sec": [
+        9.0,
+        26.0
+      ],
+      "qualitative_review": "Both retained overlays inspected (9 and 26 seconds): cheek and glove false positives; tooth localization failed."
+    },
+    {
+      "input_sha256": "ca13c505efdcfd6674c80b4f8dd5c5572f550a6338a0ac4deb38cab2ca1833e1",
+      "frames_sampled": 11,
+      "frames_with_predictions": 11,
+      "observations": 20,
+      "masks_checked": 20,
+      "highlight_duration_sec": 0.0,
+      "verification": "Source hash, timing, mask assets and highlight geometry checked.",
+      "clip_id": "33337556",
+      "duration_sec": 10.1,
+      "frames_decoded": 303,
+      "retained_frame_timestamps_sec": [
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10.0
+      ],
+      "qualitative_review": "Inspected overlay at 3 seconds: instrument and glove masks, with actual teeth missed."
+    },
+    {
+      "input_sha256": "385b041abc21c405e0a00602cef0c3156818d2de623ad0b71ef5b6a904282dcd",
+      "frames_sampled": 16,
+      "frames_with_predictions": 5,
+      "observations": 5,
+      "masks_checked": 5,
+      "highlight_duration_sec": 0.0,
+      "verification": "Source hash, timing, mask assets and highlight geometry checked.",
+      "clip_id": "5099636",
+      "duration_sec": 15.181833333333334,
+      "frames_decoded": 455,
+      "retained_frame_timestamps_sec": [
+        4.0040000000000004,
+        6.006,
+        8.008000000000001,
+        9.009,
+        12.012
+      ],
+      "qualitative_review": "Inspected overlay at about 4 seconds: ear false positive."
+    },
+    {
+      "input_sha256": "89a35f066c818feac328c73ab34e9f4374d0a256fe192dc7310e85f9ecf49cf0",
+      "frames_sampled": 12,
+      "frames_with_predictions": 3,
+      "observations": 3,
+      "masks_checked": 3,
+      "highlight_duration_sec": 0.0,
+      "verification": "Source hash, timing, mask assets and highlight geometry checked.",
+      "clip_id": "4490363",
+      "duration_sec": 11.88,
+      "frames_decoded": 297,
+      "retained_frame_timestamps_sec": [
+        2.0,
+        4.0,
+        5.0
+      ],
+      "qualitative_review": "Inspected overlay at 2 seconds: equipment light false positive."
+    },
+    {
+      "input_sha256": "e151e9c66b007b8b79ce86cb45ea31e4104d8163e365110711301493e3b9300f",
+      "frames_sampled": 43,
+      "frames_with_predictions": 3,
+      "observations": 8,
+      "masks_checked": 8,
+      "highlight_duration_sec": 4.0,
+      "verification": "Source hash, timing, mask assets and highlight geometry checked.",
+      "clip_id": "6502766",
+      "duration_sec": 42.16,
+      "frames_decoded": 1054,
+      "retained_frame_timestamps_sec": [
+        15.0,
+        16.0,
+        17.0
+      ],
+      "qualitative_review": "Inspected overlay at 15 seconds: masks on a few real front teeth. Only 3 of 43 sampled frames retained predictions. Visible teeth in inspected frames at 1 and 10 seconds were missed."
+    }
+  ],
+  "app_verification": "AppTest exercised real upload persistence, inference subprocess and result rendering. File-picker and analyze-button inputs were substituted. Browser controls were inspected separately before a session interruption.",
+  "limitations": [
+    "No annotated video ground truth or SAM mask-accuracy measurement.",
+    "Region counts include repeated teeth and are not comparable to group-mask counts from the text-guided baseline.",
+    "No per-clip threshold tuning, tooth numbering, action recognition or temporal tracking.",
+    "Raw footage and evidence images stay local."
+  ],
+  "decision": "Do not replace the text-guided video baseline. Keep the trained detector explicitly experimental.",
+  "crop_experiment": "Exploratory box-guided crops on three frames produced 1, 3 and 1 detector boxes, respectively; missed teeth and a non-tooth cavity-region box remained. Not adopted or used as a video-accuracy evaluation."
+}

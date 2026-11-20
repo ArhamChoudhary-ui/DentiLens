@@ -23,6 +23,11 @@ def main():
     args = parser.parse_args()
     if args.output.exists() and not args.resume:
         parser.error('Choose a new training output directory')
+    backbone = json.loads((Path(__file__).resolve().parents[1] / 'reference/tooth-backbone.json').read_text())
+    with args.pretrained.open('rb') as stream:
+        pretrained_digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+    if pretrained_digest != backbone['sha256']:
+        parser.error('Use the pinned backbone from scripts/download_tooth_backbone.py')
     args.output.parent.mkdir(parents=True, exist_ok=True)
     (args.output.parent / 'training-process.json').write_text(json.dumps({'pid': os.getpid()}))
     model = YOLO(str(args.output / 'weights/last.pt') if args.resume else str(args.pretrained))
@@ -44,7 +49,7 @@ def main():
     rows = list(csv.DictReader((args.output / 'results.csv').open()))
     provenance = {'name': 'DentiLens intraoral YOLOv8n tooth detector',
                   'weights_sha256': hashlib.file_digest(weights.open('rb'), 'sha256').hexdigest(),
-                  'pretrained_sha256': hashlib.file_digest(args.pretrained.open('rb'), 'sha256').hexdigest(),
+                  'pretrained_sha256': pretrained_digest, 'pretrained_source': backbone['url'],
                   'dataset': json.loads((args.data.parent / 'preparation.json').read_text()),
                   'training': {'epochs_requested': args.epochs, 'epochs_completed': len(rows),
                                'resumed_from_checkpoint': args.resume, 'cpu_threads': args.threads,

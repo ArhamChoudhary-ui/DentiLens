@@ -1,5 +1,6 @@
 """Mechanical integration fixtures; model accuracy is evaluated separately."""
 from pathlib import Path
+import hashlib
 import sys
 
 import cv2
@@ -11,7 +12,8 @@ from dental_video import analyze
 
 class FixtureSegmenter:
     names = {0: 'teeth'}
-    prompt = 'mechanical fixture'
+    model_name = 'Synthetic segmentation fixture'
+    prompt = None
     provenance = {'test': 'Fixed synthetic masks for serialization checks only'}
 
     def predict(self, frame):
@@ -33,6 +35,7 @@ def test_predictor_masks_preserve_timestamps_dimensions_and_source(tmp_path):
     destination = tmp_path / 'analysis'
     report = analyze(source, tmp_path / 'unused.pt', destination, predictor=FixtureSegmenter())
     assert source.read_bytes() == original
+    assert report['input_sha256'] == hashlib.sha256(original).hexdigest()
     assert report['sampled_frames'] == 4
     assert [item['source_frame'] for item in report['observations']] == [0, 10, 20, 30]
     assert [item['timestamp_sec'] for item in report['observations']] == [0, 1, 2, 3]
@@ -44,3 +47,5 @@ def test_predictor_masks_preserve_timestamps_dimensions_and_source(tmp_path):
         assert set(np.unique(mask)) == {0, 255}
     assert (destination / 'report.json').is_file()
     assert report['capabilities']['individual_tooth_numbering'] is False
+    assert report['model']['name'] == FixtureSegmenter.model_name
+    assert 'text_prompt' not in report['model']

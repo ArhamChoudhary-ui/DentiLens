@@ -23,16 +23,20 @@ Live demonstration
 
 Architecture
 The app stores the upload locally. The video pipeline samples one frame per
-second and retains the original frame index. A trained one-class tooth detector
-provides boxes to SAM 2.1, which predicts masks. The pipeline saves visual
+second and retains the original frame index. The demo default uses Grounding
+DINO to locate tooth regions and SAM 2.1 to predict masks. An experimental option
+uses the locally trained one-class detector to prompt SAM. The pipeline saves visual
 evidence and a timestamped report, then selects non-overlapping highlight
-windows. The text-guided baseline remains available for comparison.
+windows. Each report identifies the engine actually used.
 
 Evidence
 The supplied intraoral dataset contains 2,906 images with 48,935 annotations.
 Preparation preserves its 2,540 / 246 / 120 train / validation / test split.
 Training uses enclosing tooth boxes and combines all labels into one class.
-Use the recorded evaluation report for detection metrics. Those metrics apply
+The fixed model scored box mAP50 0.9518 and box mAP50-95 0.5876 on the 120 test
+images containing 2,011 annotated teeth. Video tests exposed glove, ear and
+equipment false positives, so the trained engine remains experimental.
+Use the recorded evaluation report for the full metrics. Those metrics apply
 to still-image boxes. They do not measure video accuracy, SAM boundaries or
 clinical usefulness. Patient-level independence of the splits is unknown.
 

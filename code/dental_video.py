@@ -75,6 +75,8 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
         raise ValueError('Sampling rate must be in (0, 5] frames per second')
     if not math.isfinite(confidence) or not 0 < confidence <= 1:
         raise ValueError('Confidence threshold must be in (0, 1]')
+    with video.open('rb') as stream:
+        input_digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     cap = cv2.VideoCapture(str(video))
     fps = cap.get(cv2.CAP_PROP_FPS)
     expected_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -159,10 +161,14 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
             else:
                 model_description = {'name': getattr(predictor, 'model_name', 'Grounding DINO + SAM 2.1 tiny'),
                     'provenance': predictor.provenance, 'classes': predictor.names,
-                    'confidence_threshold': confidence, 'device': device,
-                    'text_prompt': predictor.prompt}
+                    'confidence_threshold': confidence, 'device': device}
+                if predictor.prompt:
+                    model_description['text_prompt'] = predictor.prompt
+                else:
+                    model_description['localization_method'] = 'Trained one-class intraoral tooth detector boxes'
             report = {
                 'schema_version': 'dentilens-dental-1', 'video': video.name,
+                'input_sha256': input_digest,
                 'duration_sec': duration, 'fps': fps, 'frames_decoded': decoded,
                 'sampled_frames': sampled, 'effective_sample_fps': fps / step,
                 'model': model_description,
@@ -175,7 +181,7 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                                 'Observation counts include repeated detections across frames.',
                                 'A teeth mask may cover several adjacent teeth; individual numbering is unavailable.',
                                 'Masks are independently predicted per sampled frame; temporal tracking is unavailable.',
-                                'Highlight video uses original frames and omits audio.'],
+                                'Highlight video uses original frames and omits audio.'] + getattr(predictor, 'limitations', []),
                 'review_notice': 'Research prototype. All model observations require professional review.'}
             if highlights:
                 export_clips(video, stage / 'highlights.mp4', highlights)
@@ -193,9 +199,9 @@ def main():
     parser.add_argument('--weights', type=Path, default=Path(__file__).resolve().parents[1] / 'models/alphadent.pt')
     parser.add_argument('--sample-fps', type=float, default=1.0)
     parser.add_argument('--confidence', type=float,
-                        help='Defaults to 0.35 for AlphaDent or 0.50 for text-grounded tooth regions')
+                        help='Defaults to 0.50 for text-guided regions or 0.35 for AlphaDent and the experimental tooth detector')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'tooth-sam2'], default='alphadent')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'tooth-sam2'], default='grounded-sam2')
     parser.add_argument('--tooth-weights', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/tooth-detector.pt')
     parser.add_argument('--model-directory', type=Path,

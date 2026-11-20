@@ -71,5 +71,6 @@
     "No patient identifiers available to audit patient overlap across splits.",
     "Near-duplicate images with different basenames are not excluded by hash checks.",
     "Enclosing boxes do not establish accurate tooth-boundary masks."
-  ]
+  ],
+  "additional_label_review": "The singleton labels 327 and 56 were visually checked during annotation QA. Both boxes cover teeth. No tooth-number correction or training-setting change was made from that inspection."
 }

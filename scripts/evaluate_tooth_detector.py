@@ -21,7 +21,7 @@ if __name__ == '__main__':
                         conf=0.001, iou=0.7, project=str(args.output.resolve().parent),
                         name=args.output.name, exist_ok=False)
     report = {'weights_sha256': hashlib.file_digest(args.weights.open('rb'), 'sha256').hexdigest(),
-              'split': 'test', 'images': int(model.validator.seen),
+              'split': 'test', 'images': len(results.box.image_metrics),
               'image_size': 416, 'device': 'cpu',
               'precision': float(results.box.mp), 'recall': float(results.box.mr),
               'mAP50': float(results.box.map50), 'mAP50_95': float(results.box.map),

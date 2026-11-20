@@ -56,6 +56,9 @@ new uploads, highlights and report downloads. All analysis runs locally. Uploade
 footage and results are stored under ignored `runtime/` and `results/` folders.
 The app binds to the loopback address and is intended for local demonstration.
 It does not connect to XR hardware or provide clinical diagnoses.
+On this development checkout, double-click `Launch DentiLens.command` to start
+the app. The text-guided engine remains the demo default. The trained detector
+is explicitly experimental because the video checks exposed non-tooth predictions.
 
 ### Train a detector using the supplied intraoral dataset
 
@@ -73,12 +76,13 @@ as anatomical mask ground truth. Training does not establish FDI numbering.
 
 ```bash
 python scripts/prepare_intraoral.py /path/to/intraoral.yolov8.zip data/intraoral
-# Obtain yolov8n.pt from the official Ultralytics assets release.
+python scripts/download_tooth_backbone.py
 python scripts/train_tooth_detector.py data/intraoral/data.yaml models/yolov8n.pt runtime/tooth-training
 python scripts/evaluate_tooth_detector.py runtime/tooth-training/weights/best.pt data/intraoral/data.yaml runtime/tooth-test
 python scripts/install_tooth_detector.py runtime/tooth-training
 python scripts/download_grounded_models.py --only sam2
 bash run.sh /path/to/dental-video.mp4 results/tooth-review --engine tooth-sam2
+python scripts/verify_analysis.py /path/to/dental-video.mp4 results/tooth-review
 ```
 
 Training uses a pretrained YOLOv8n backbone with its first ten layers frozen,
@@ -94,6 +98,25 @@ require independent evaluation; detection mAP is not segmentation accuracy.
 Local detector weights require a matching `models/tooth-detector.json` provenance
 file. Preparation, training and test results are recorded under `reference/`.
 
+The completed run used all 2,540 training images for twelve total epochs, with
+a checkpoint resume after an execution interruption. Validation selected epoch
+12. The fixed checkpoint evaluated on 120 test images containing 2,011 annotated
+teeth achieved **box mAP50 0.9518** and **box mAP50–95 0.5876**. Precision and
+recall at Ultralytics' F1-selected operating point were 0.9427 and 0.9415.
+These metrics do not measure video or segmentation accuracy. The records are
+`reference/intraoral-detector-training.json`, `reference/intraoral-detector-test.json`
+and `reference/intraoral-training.csv`, with the validation chart alongside them.
+
+Five real-video runs at the fixed 0.35 threshold exposed a domain gap. The braces
+clip retained only two predictions, which visual inspection identified as cheek
+and glove regions. Other reviewed clips produced glove, ear and equipment
+false positives. The clear examination close-up included some real tooth masks,
+but missed visible teeth in other inspected frames. A separate three-frame crop experiment improved some
+tooth localization while still missing teeth and including non-tooth areas. It
+was not adopted as a new inference engine. No video accuracy score is claimed.
+See `reference/trained-tooth-video-tests.json`. The app preserves the text-guided
+baseline as its default and labels the trained engine experimental.
+
 ### Legacy AlphaDent engine
 
 ```bash
@@ -102,7 +125,8 @@ bash run.sh /path/to/dental-video.mp4 results/first-analysis --engine alphadent 
 ```
 
 The CLI supports `--sample-fps` and `--confidence`. Its defaults are one sampled
-frame per second and a confidence threshold of 0.35. A 16 GB Mac M4 is the target
+frame per second with the text-guided engine at confidence 0.50. AlphaDent and
+the experimental tooth detector default to 0.35. A 16 GB Mac M4 is the target
 development machine. CPU execution has been verified. Apple MPS availability and
 model execution should be checked on the local machine before selecting `--device mps`.
 All CLI runs require a new output directory. For the demo narrative and capability

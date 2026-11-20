@@ -31,14 +31,18 @@ upload_tab, review_tab = st.tabs(['Analyze a video', 'Review saved results'])
 with upload_tab:
     uploaded = st.file_uploader('Choose a dental examination video', type=['mp4'])
     available = []
-    if (ROOT / 'models/tooth-detector.pt').is_file() and (ROOT / 'models/tooth-detector.json').is_file():
-        available.append(('Trained intraoral tooth detector + SAM', 'tooth-sam2'))
-    if (ROOT / 'models/grounded/dino/model.safetensors').is_file():
+    sam_ready = (ROOT / 'models/grounded/sam2/model.safetensors').is_file()
+    if sam_ready and (ROOT / 'models/grounded/dino/model.safetensors').is_file():
         available.append(('Text-guided tooth regions + SAM', 'grounded-sam2'))
+    if sam_ready and (ROOT / 'models/tooth-detector.pt').is_file() and (ROOT / 'models/tooth-detector.json').is_file():
+        available.append(('Experimental trained tooth detector + SAM', 'tooth-sam2'))
     if not available:
         st.info('Install the local model files using the repository setup instructions to enable analysis.')
     else:
         choice = st.selectbox('Analysis model', available, format_func=lambda value: value[0])
+        if choice[1] == 'tooth-sam2':
+            st.warning('This experimental detector produced glove and face false positives on the supplied videos. '
+                       'Its still-image test score does not establish reliable video segmentation.')
         st.caption('One frame per second is analyzed. CPU processing can take several minutes. '
                    'Highlights use original footage and omit audio.')
         if uploaded is not None:
@@ -67,26 +71,35 @@ with upload_tab:
                     st.success('Open “Review saved results” to inspect the predictions.')
 
 with review_tab:
-    directories = sorted((p for p in RESULTS.glob('*') if (p / 'report.json').is_file()),
+    directories = sorted((p for p in RESULTS.glob('*') if not p.name.startswith('.') and (p / 'report.json').is_file()),
                          key=lambda p: p.stat().st_mtime, reverse=True)
     if not directories:
         st.info('Your analyzed videos will appear here.')
     else:
         last = st.session_state.get('last_result')
+        default_index = next((i for i, p in enumerate(directories) if p.name == last), None)
+        if default_index is None:
+            default_index = next((i for i, p in enumerate(directories) if
+                json.loads((p / 'report.json').read_text())['model']['name'].startswith('Grounding DINO')), 0)
         selected = st.selectbox('Saved analysis', directories,
-            index=next((i for i, p in enumerate(directories) if p.name == last), 0),
+            index=default_index,
             format_func=lambda path: path.name)
         report = json.loads((selected / 'report.json').read_text())
         source_info = selected / 'source.json'
         source = None
+        display_name = report['video']
         if source_info.exists():
-            source = Path(json.loads(source_info.read_text())['path'])
-        st.subheader(report['video'])
+            source_data = json.loads(source_info.read_text())
+            source = Path(source_data['path'])
+            display_name = source_data.get('display_name', display_name)
+        st.subheader(display_name)
         columns = st.columns(3)
         columns[0].metric('Source duration', f"{report['duration_sec']:.1f} s")
         columns[1].metric('Frames analyzed', report['sampled_frames'])
         columns[2].metric('Frames with predictions', len({o['source_frame'] for o in report['observations']}))
         st.caption(f"Model: {report['model']['name']}. Counts include repeated teeth across frames and do not measure accuracy.")
+        if report['model']['name'].startswith('DentiLens intraoral'):
+            st.warning('Experimental video results. Supplied clips exposed non-tooth false positives; inspect every prediction.')
         left, right = st.columns([1.6, 1])
         with left:
             st.subheader('Timestamped visual review')
@@ -118,3 +131,18 @@ with review_tab:
             with st.expander('Capabilities and limitations'):
                 for limitation in report['limitations']:
                     st.write('• ' + limitation)
+
+test_record = ROOT / 'reference/intraoral-detector-test.json'
+if test_record.is_file():
+    with st.expander('Detector training and evaluation'):
+        metrics = json.loads(test_record.read_text())
+        columns = st.columns(3)
+        columns[0].metric('Test images', metrics['images'])
+        columns[1].metric('Box mAP50', f"{metrics['mAP50']*100:.1f}%")
+        columns[2].metric('Box mAP50–95', f"{metrics['mAP50_95']*100:.1f}%")
+        st.write('These metrics cover tooth detection boxes in the supplied still-image test split. '
+                 'Patient overlap across splits is unknown. Video checks showed false positives and missed teeth, '
+                 'so the trained detector remains experimental. SAM mask accuracy has not been measured.')
+        chart = ROOT / 'reference/intraoral-training.png'
+        if chart.is_file():
+            st.image(str(chart), width='stretch')
