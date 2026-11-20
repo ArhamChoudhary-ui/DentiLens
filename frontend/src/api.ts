@@ -81,7 +81,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function send<T>(path: string, body: unknown): Promise<T> {
   return api<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 }
-export function clock(seconds: number) {
-  const whole = Math.floor(seconds)
-  return `${Math.floor(whole / 60).toString().padStart(2, '0')}:${(whole % 60).toString().padStart(2, '0')}`
+export function clock(seconds: number, showCentiseconds = false) {
+  const centiseconds = Math.round(seconds * 100)
+  const whole = Math.floor(showCentiseconds ? centiseconds / 100 : seconds)
+  const time = `${Math.floor(whole / 60).toString().padStart(2, '0')}:${(whole % 60).toString().padStart(2, '0')}`
+  return showCentiseconds ? `${time}.${(centiseconds % 100).toString().padStart(2, '0')}` : time
 }
