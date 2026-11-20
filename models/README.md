@@ -26,3 +26,12 @@ CC BY 4.0. Local weights, source images and footage remain excluded from Git.
 The earlier optical research checkpoint's contour stage failed on the tested
 braces footage. It is excluded from the active engines. The text-guided baseline
 continues to use Grounding DINO with SAM 2.1.
+
+| App mode | Local files | Training data |
+| --- | --- | --- |
+| Tooth type names | `tooth-types.pt`, `tooth-types.json` | yusma intraoral v2, eight tooth types |
+| Tooth numbers | `tooth-fdi.pt`, `tooth-fdi.json` | DentalMate6v FDI v1, 32 permanent positions |
+| Possible cavity flags | `cavity-review.pt`, `cavity-review.json` | CAV-TEE Research Team, cavity and normal box annotations |
+
+The installer uses the recorded preparation task to select the destination.
+The tooth type mode also uses the locally installed SAM 2.1 model.

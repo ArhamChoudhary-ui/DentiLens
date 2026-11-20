@@ -10,6 +10,7 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'code'))
+from dental_modes import TRAINED_MODES
 from dental_video import export_clips
 RESULTS = ROOT / 'results'
 RUNTIME = ROOT / 'runtime'
@@ -19,7 +20,7 @@ st.markdown('DENTILENS XR · TEAM RAJASTHANI')
 st.title('A clearer view of your dental footage')
 st.write('Upload an examination video, inspect AI-generated tooth regions, and revisit selected moments.')
 st.caption('Research prototype · Every prediction requires professional review. '
-           'No diagnosis, tooth numbering, procedure recognition, or live XR connection.')
+           'Review tooth labels and possible cavity flags against the original video.')
 
 with st.sidebar:
     st.header('Review workspace')
@@ -38,11 +39,11 @@ with upload_tab:
     if sam_ready and (ROOT / 'models/grounded/dino/model.safetensors').is_file():
         available.append(('Text-guided tooth regions + SAM', 'grounded-sam2'))
         available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
-    if sam_ready and (ROOT / 'models/tooth-detector.pt').is_file() and (ROOT / 'models/tooth-detector.json').is_file():
-        available.append(('Experimental trained tooth detector + SAM', 'tooth-sam2'))
-    if sam_ready and all((ROOT / 'models' / f'tooth-types.{extension}').is_file()
-                         for extension in ('pt', 'json')):
-        available.append(('Experimental tooth type names', 'tooth-types'))
+    for mode, (checkpoint, label, _) in TRAINED_MODES.items():
+        if mode in ('tooth-sam2', 'tooth-types') and not sam_ready:
+            continue
+        if all((ROOT / 'models' / f'{checkpoint}.{extension}').is_file() for extension in ('pt', 'json')):
+            available.append((label, mode))
     if not available:
         st.info('Install the local model files using the repository setup instructions to enable analysis.')
     else:
@@ -50,6 +51,10 @@ with upload_tab:
         if choice[1] == 'tooth-sam2':
             st.warning('This experimental detector produced glove and face false positives on the supplied videos. '
                        'Its still-image test score does not establish reliable video segmentation.')
+        if choice[1] == 'tooth-fdi':
+            st.info('Use footage in standard orientation. Confirm jaw and patient side before saving a tooth number.')
+        if choice[1] == 'cavity-review':
+            st.info('Flags are for visual review. A frame without a flag does not rule out decay.')
         st.caption('One frame per second is analyzed. CPU processing can take several minutes. '
                    'Highlights use original footage and omit audio.')
         if uploaded is not None:
@@ -63,7 +68,7 @@ with upload_tab:
             command = [sys.executable, str(ROOT / 'code/dental_video.py'), str(source),
                        str(destination), '--engine', choice[1], '--device', 'cpu']
             with st.status('Analyzing video…', expanded=True) as status:
-                st.write('Locating tooth regions, saving timestamped evidence, and selecting highlights.')
+                st.write('Running the selected model and saving timestamped evidence.')
                 completed = subprocess.run(command, capture_output=True, text=True)
                 if completed.returncode:
                     status.update(label='Analysis could not finish', state='error')
@@ -114,7 +119,9 @@ with review_tab:
             entries[path.stem] = json.loads(path.read_text())
         with left:
             st.subheader('Timestamped visual review')
-            lane = st.radio('Timeline', ['Teeth', 'Instruments', 'Manual bookmarks'], horizontal=True,
+            lanes = ['Possible cavities', 'Manual bookmarks'] if report.get('capabilities', {}).get(
+                'possible_cavity_flags') else ['Teeth', 'Instruments', 'Manual bookmarks']
+            lane = st.radio('Timeline', lanes, horizontal=True,
                             key=f'lane-{selected.name}')
             moments = {}
             if lane == 'Manual bookmarks':
@@ -122,23 +129,39 @@ with review_tab:
             else:
                 for index, observation in enumerate(report['observations']):
                     label = observation['model_label']
-                    if ('mirror' in label) != (lane == 'Instruments'):
+                    category = observation.get('category')
+                    matches_lane = (
+                        (lane == 'Teeth' and 'mirror' not in label and category != 'cavity_candidate')
+                        or (lane == 'Instruments' and 'mirror' in label)
+                        or (lane == 'Possible cavities' and category == 'cavity_candidate'))
+                    if not matches_lane:
                         continue
                     moments[f'model-{index}'] = observation
             timestamp, marker = 0.0, None
             if moments:
-                marker = st.selectbox('Jump to a moment', list(moments),
-                    format_func=lambda key: f"{moments[key]['timestamp_sec']:.2f} s · "
-                        f"{moments[key].get('model_label', 'Manual bookmark')} · "
-                        f"{entries.get(key, {}).get('decision', 'Unreviewed')}",
-                    key=f'moment-{selected.name}-{lane}')
+                def moment_caption(key):
+                    item = moments[key]
+                    label = f"FDI {item['fdi_number']}?" if 'fdi_number' in item else item.get(
+                        'model_label', 'Manual bookmark')
+                    status = entries.get(key, {}).get('decision', 'Unreviewed')
+                    return f"{item['timestamp_sec']:.2f} s · {label} · {status}"
+
+                marker = st.selectbox('Jump to a moment', list(moments), format_func=moment_caption,
+                                      key=f'moment-{selected.name}-{lane}')
                 moment = moments[marker]
                 timestamp = moment['timestamp_sec']
                 if 'evidence' in moment:
                     st.image(str(selected / moment['evidence']), width='stretch')
-                    st.caption('Green outlines show predicted teeth. Blue outlines show candidate mirror heads.')
+                    if 'fdi_number' in moment:
+                        st.write(f"Suggested FDI {moment['fdi_number']} · {moment['tooth_name']}")
+                    if 'confidence' in moment:
+                        st.caption(f"Model score {moment['confidence']:.0%} · verify against the source footage.")
+                    if lane == 'Possible cavities':
+                        st.caption('Orange boxes mark areas flagged for visual review.')
             else:
-                st.info('No moments in this lane yet.')
+                message = ('No possible cavity flags passed the threshold. Review the source footage.'
+                           if lane == 'Possible cavities' else 'No moments in this lane yet.')
+                st.info(message)
             source_ready = source is not None and source.is_file()
             if source_ready:
                 st.video(str(source), start_time=timestamp)
@@ -165,7 +188,7 @@ with review_tab:
                         json.dump(record, stream, indent=2)
                     Path(stream.name).replace(review_dir / f'{key}.json')
                     st.rerun()
-            st.caption('Tooth identity and unusual appearance are entered by the reviewer.')
+            st.caption('Saved tooth names, numbers and flags reflect the reviewer’s decisions.')
             if current.get('flag'):
                 st.warning('Reviewer flagged this moment for dentist review.')
             with st.expander('Simulated XR preview'):

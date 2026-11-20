@@ -10,6 +10,8 @@ import tempfile
 import cv2
 import numpy as np
 
+from dental_modes import TRAINED_MODES
+
 
 def pick_highlights(observations, duration, clip_seconds=4.0):
     """Rank real observation windows by confidence and new model classes."""
@@ -115,14 +117,15 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                 if predictor is not None:
                     detections, annotated = predictor.predict(frame)
                     for detection_index, detection in enumerate(detections):
-                        mask = detection.pop('mask')
-                        mask_path = f'evidence/frame-{index:08d}-mask-{detection_index:02d}.png'
-                        if not cv2.imwrite(str(stage / mask_path), mask * 255):
-                            raise ValueError('Could not save predicted region mask')
+                        mask = detection.pop('mask', None)
+                        if mask is not None:
+                            mask_path = f'evidence/frame-{index:08d}-mask-{detection_index:02d}.png'
+                            if not cv2.imwrite(str(stage / mask_path), mask * 255):
+                                raise ValueError('Could not save predicted region mask')
+                            detection.update(mask_path=mask_path,
+                                             mask_size=[int(mask.shape[1]), int(mask.shape[0])])
                         frame_observations.append({**detection, 'timestamp_sec': timestamp,
-                            'source_frame': index, 'mask_path': mask_path,
-                            'mask_size': [int(mask.shape[1]), int(mask.shape[0])],
-                            'source_size': [int(frame.shape[1]), int(frame.shape[0])],
+                            'source_frame': index, 'source_size': [int(frame.shape[1]), int(frame.shape[0])],
                             'status': 'Unverified model observation requiring professional review',
                             'evidence': f'evidence/frame-{index:08d}.jpg'})
                 else:
@@ -165,7 +168,7 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                 if predictor.prompt:
                     model_description['text_prompt'] = predictor.prompt
                 else:
-                    model_description['localization_method'] = 'Trained intraoral tooth detector boxes'
+                    model_description['localization_method'] = getattr(predictor, 'localization_method', 'Trained intraoral tooth detector boxes')
             report = {
                 'schema_version': 'dentilens-dental-1', 'video': video.name,
                 'input_sha256': input_digest,
@@ -175,11 +178,13 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                 'observations': observations, 'highlights': highlights,
                 'highlight_duration_sec': sum(clip['end_sec']-clip['start_sec'] for clip in highlights),
                 'capabilities': {'visual_observations': True, 'procedure_action_recognition': False,
-                                 'individual_tooth_numbering': False},
+                                 'individual_tooth_numbering': getattr(predictor, 'mode', None) == 'tooth-fdi',
+                                 'tooth_type_suggestions': getattr(predictor, 'mode', None) in ('tooth-fdi', 'tooth-types'),
+                                 'possible_cavity_flags': getattr(predictor, 'mode', None) == 'cavity-review'},
                 'limitations': ['Model predictions on dental video require evaluation against annotations.',
                                 'CFR video timing required. Fast events may fall between sampled frames.',
                                 'Observation counts include repeated detections across frames.',
-                                'A teeth mask may cover several adjacent teeth; individual numbering is unavailable.',
+                                'A tooth-region mask may cover several adjacent teeth.',
                                 'Masks are independently predicted per sampled frame; temporal tracking is unavailable.',
                                 'Highlight video uses original frames and omits audio.'] + getattr(predictor, 'limitations', []),
                 'review_notice': 'Research prototype. All model observations require professional review.'}
@@ -201,26 +206,24 @@ def main():
     parser.add_argument('--confidence', type=float,
                         help='Defaults to 0.50 for text-guided regions or 0.35 for AlphaDent and the experimental tooth detector')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', 'tooth-sam2', 'tooth-types'], default='grounded-sam2')
-    parser.add_argument('--tooth-weights', type=Path,
-                        default=Path(__file__).resolve().parents[1] / 'models/tooth-detector.pt')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', *TRAINED_MODES], default='grounded-sam2')
+    parser.add_argument('--tooth-weights', type=Path, help='Override the local checkpoint for the selected trained mode')
     parser.add_argument('--model-directory', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/grounded')
     args = parser.parse_args()
     if args.confidence is None:
-        args.confidence = 0.5 if args.engine in ('grounded-sam2', 'teeth-mirror') else 0.35
+        args.confidence = 0.5 if args.engine in ('grounded-sam2', 'teeth-mirror', 'cavity-review') else 0.35
     try:
         predictor = None
         if args.engine in ('grounded-sam2', 'teeth-mirror'):
             from grounded_sam import GroundedSegmenter
             predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device, include_mirror=args.engine == 'teeth-mirror')
-        elif args.engine in ('tooth-sam2', 'tooth-types'):
+        elif args.engine in TRAINED_MODES:
             from tooth_sam import ToothSegmenter
-            typed = args.engine == 'tooth-types'
-            weights = args.tooth_weights
-            if typed and weights.name == 'tooth-detector.pt':
-                weights = weights.with_name('tooth-types.pt')
-            predictor = ToothSegmenter(weights, args.model_directory, args.confidence, args.device, tooth_types=typed)
+
+            checkpoint = TRAINED_MODES[args.engine][0]
+            weights = args.tooth_weights or Path(__file__).resolve().parents[1] / f'models/{checkpoint}.pt'
+            predictor = ToothSegmenter(weights, args.model_directory, args.confidence, args.device, mode=args.engine)
         report = analyze(args.video, args.weights, args.output, args.sample_fps,
                          args.confidence, args.device, predictor=predictor)
     except Exception as exc:

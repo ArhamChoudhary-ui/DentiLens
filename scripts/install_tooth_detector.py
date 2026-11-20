@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import tempfile
 
 
 if __name__ == '__main__':
@@ -17,8 +18,17 @@ if __name__ == '__main__':
     digest = hashlib.file_digest(source.open('rb'), 'sha256').hexdigest()
     if digest != provenance['weights_sha256']:
         parser.error('Training checkpoint hash does not match provenance')
+    task = provenance['dataset'].get('task', 'tooth')
+    checkpoint = {'tooth': 'tooth-detector', 'types': 'tooth-types',
+                  'fdi': 'tooth-fdi', 'cavity': 'cavity-review'}.get(task)
+    if checkpoint is None:
+        parser.error(f'Unknown detector training task: {task}')
     destination = args.model_directory
     destination.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, destination / 'tooth-detector.pt')
-    (destination / 'tooth-detector.json').write_text(json.dumps(provenance, indent=2) + '\n')
-    print(f'Installed tooth detector in {destination}')
+    with tempfile.TemporaryDirectory(dir=destination) as temporary:
+        staged = Path(temporary)
+        shutil.copyfile(source, staged / 'weights')
+        (staged / 'provenance').write_text(json.dumps(provenance, indent=2) + '\n')
+        (staged / 'weights').replace(destination / f'{checkpoint}.pt')
+        (staged / 'provenance').replace(destination / f'{checkpoint}.json')
+    print(f'Installed {checkpoint} in {destination}')

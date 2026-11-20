@@ -246,3 +246,37 @@ other objects. Tool type coverage is currently limited to round mirror heads.
 frame numbers and timestamps for annotation. The export marks every frame
 unlabeled. For the next training round, label visible teeth and instruments and
 reserve separate source videos for evaluation.
+
+## Experimental tooth identity and cavity review
+
+Select **Tooth type names**, **Tooth numbers**, or **Possible cavity flags** in
+the analysis picker after installing the corresponding local checkpoint. Tooth
+type names appear above predicted contours. FDI mode draws labeled boxes and
+shows the suggested number and tooth name together in the timeline. Use
+standard-orientation footage and verify the patient's side and jaw before
+saving a reviewer label. Cavity mode shows orange boxes in the **Possible
+cavities** lane. These flag areas for review. Absence of a flag does not rule
+out decay. Reviewer confirmations, notes and exports work with all modes.
+
+Prepare each ZIP with `scripts/prepare_intraoral.py ARCHIVE OUTPUT` and the
+appropriate option from the table. Use the prepared `OUTPUT/data.yaml` with
+`scripts/train_tooth_detector.py`, then evaluate the checkpoint with
+`scripts/evaluate_tooth_detector.py` and install the completed run with
+`scripts/install_tooth_detector.py RUN_DIRECTORY`. Match the evaluation image
+size to the training image size using `--imgsz`.
+
+| Preparation option | Source archive and attribution | Model output |
+| --- | --- | --- |
+| `--tooth-types` | [Intraoral Tooth Detection v2 by yusma](https://universe.roboflow.com/yusma/intraoral-tooth-detection-bj7bf/dataset/2) | Eight tooth types |
+| `--task fdi` | [Intraoral Tooth Numbering FDI v1 by DentalMate6v](https://universe.roboflow.com/dentalmate6v/intraoral-tooth-numbering-fdi/dataset/1) | 32 permanent FDI positions |
+| `--task cavity` | Cavity Dataset release by CAV-TEE Research Team | Candidate cavity boxes |
+
+Each export declares CC BY 4.0. The preparation script converts the source
+annotations to enclosing boxes and retains the original splits. FDI excludes
+codes `327` and `56` from the 32-class task. Cavity preparation normalizes
+pixel coordinates and records invalid boxes that were omitted. The two
+intraoral exports share source image names and split assignments, so they
+should not be treated as independent validation datasets. The cavity test
+split includes only five images with cavity annotations. Keep the existing
+text-guided mode as the demo default until improved video performance can be
+demonstrated with annotated footage.
