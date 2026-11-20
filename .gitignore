@@ -15,3 +15,6 @@ runtime/
 *.pth
 *.download
 *.parallel
+
+frontend/node_modules/
+frontend/dist/

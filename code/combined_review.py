@@ -110,7 +110,7 @@ class CombinedReview:
         self.observation_counts = dict(candidates_before_tooth_filter=0, rejected_outside_tooth_regions=0,
                                        conflicting_tooth_identities=0)
 
-    def predict(self, source_frame):
+    def predict(self, source_frame, *, include_region=False, include_cavities=True):
         height, width = source_frame.shape[:2]
         scale = min(1.0, 960 / max(width, height))
         frame = cv2.resize(source_frame, (max(1, round(width * scale)), max(1, round(height * scale))))
@@ -130,7 +130,7 @@ class CombinedReview:
         self.observation_counts['conflicting_tooth_identities'] += sum(
             row['identity_status'] == 'conflicting' for row in teeth)
 
-        candidates, boxes = self.cavity_model.detect_boxes(frame)
+        candidates, boxes = self.cavity_model.detect_boxes(frame) if include_cavities else ([], [])
         self.observation_counts['candidates_before_tooth_filter'] += len(candidates)
         findings = teeth[:]
         for row, box in zip(candidates, boxes):
@@ -150,4 +150,14 @@ class CombinedReview:
             x1, y1, x2, y2 = [round(value * extent) for value, extent in
                               zip(row['bbox_xyxy_normalized'], [image.width, image.height] * 2)]
             cv2.rectangle(frame, (x1, y1), (x2 - 1, y2 - 1), color, 2)
+        if include_region and not teeth:
+            choices = ((box, score) for box, score, label in
+                       zip(regions['boxes'], regions['scores'], regions['text_labels']) if 'teeth' in label.lower())
+            box, score = max(choices, key=lambda item: float(item[1]))
+            xyxy = box.detach().cpu().tolist()
+            bounds = [min(1, max(0, value / extent)) for value, extent in
+                      zip(xyxy, [image.width, image.height] * 2)]
+            if bounds[0] < bounds[2] and bounds[1] < bounds[3]:
+                findings.insert(0, {'model_label': 'Visible tooth region', 'category': 'tooth_region',
+                                    'confidence': float(score), 'bbox_xyxy_normalized': bounds})
         return findings, frame

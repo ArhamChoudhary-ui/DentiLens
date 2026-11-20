@@ -10,13 +10,79 @@ College: Vellore Institute of Technology, Vellore
 | --- | --- |
 | Arham Choudhary | 25BIT0208 |
 
-DentiLens XR is a dental video review prototype. The intended experience is to
-upload examination footage, identify visible dental regions, create timestamped
-review bookmarks, and produce concise highlights from the source video.
+DentiLens XR turns a dental examination video into a full-length annotated
+recording with searchable tooth tracks, evidence frames and reviewer-controlled
+bookmarks.
 
-## Working implementation
+## Full-video examination workspace
 
-The Python pipeline decodes a CFR MP4, samples frames, runs a selected dental
+On the development Mac, double-click `Launch DentiLens XR.command` in Finder or
+run the following from the repository. Leave Terminal open during the demo.
+
+```bash
+bash run_full.sh
+```
+
+Open [DentiLens XR](http://127.0.0.1:8502/). Start a new examination, choose an
+MP4, MOV, M4V or WebM file, and pick Fast, Balanced or Detailed analysis.
+Use the Annotated and Original controls to compare the same timestamp. Search
+for a tooth type or FDI number, select a timeline suggestion, and confirm,
+correct or dismiss it. You can also add a manual bookmark at the current
+playback position. Patient view shows the confirmed moments and reviewer notes.
+Download the full annotated MP4, evidence images, reviewed reel, JSON report
+or frame annotations from the workspace. The reviewed reel briefly holds
+the annotated bookmark frames and is silent.
+
+XR preview simulates the display on the uploaded recording. **Bookmark this**
+saves the active timestamp. Try the command field or the microphone when your
+browser supports on-device speech recognition in English. The prototype uses
+prerecorded footage and saves the same bookmarks as the review workspace.
+
+### Install on a fresh checkout
+
+Use Python 3.11 and Node.js 22. The app prefers PyTorch MPS when available and
+uses CPU as a fallback. FFmpeg is supplied by the pinned Python dependency.
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-full.txt
+python scripts/download_grounded_models.py --only dino
+npm --prefix frontend ci
+bash run_full.sh
+```
+
+Install the locally trained `tooth-fdi`, `tooth-types` and `cavity-review`
+checkpoint/provenance pairs in `models/` as described in
+[model setup](models/README.md) and
+[the training section](#experimental-tooth-identity-and-cavity-review).
+The repository contains training and install scripts. Model weights, uploaded
+videos and the examination database are stored locally. SQLite sessions and
+exports live under `runtime/full-video/`.
+
+The worker converts the full recording to browser-ready H.264 with source
+audio when available. It limits the long edge to 1280 pixels and sampling to
+30 fps. Fast, Balanced and Detailed run the models approximately every 2,
+1 and 0.5 seconds respectively, with early refresh on track loss or scene
+cuts. ByteTrack associates boxes, checked optical flow bridges between
+detections, and repeated identities are needed before an FDI number appears.
+The full-length export preserves sections where a track has no reliable
+geometry. Source metadata and actual overlay coverage are reported separately.
+
+The current models predict boxes on optical dental footage. FDI numbers and
+tooth types are suggestions for reviewer verification. Cavity flags are
+optional research outputs. Recordings with zero flags still require ordinary review. Review decisions attach to bookmarks, while the full annotated
+recording preserves the original model suggestions.
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+npm --prefix frontend run build
+```
+
+## Legacy snapshot workflow
+
+The original Python pipeline decodes a CFR MP4, samples frames, runs a selected dental
 region engine, and saves model observations
 with confidence, bounding boxes, source frame indices and timestamps. Frames with
 observations receive annotated evidence images. Observation-based highlights
@@ -40,7 +106,7 @@ python -m pip install -r requirements-app.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-### Local upload and review app
+### Legacy Streamlit upload and review app
 
 Install the app dependencies in the same environment as the CLI:
 
