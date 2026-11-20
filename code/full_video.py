@@ -54,33 +54,48 @@ def safe_text(text, limit=76):
 def stamp(frame, timestamp, rows):
     """Use short numbered markers and a label rail so neighboring text stays readable."""
     height, width = frame.shape[:2]
+    ui_scale = min(1.6, max(.55, width / 750))
+    columns = 2 if width >= 360 else 1
+    header_height = round(23 * ui_scale)
+    line_height = round(22 * ui_scale)
+    padding = round(8 * ui_scale)
+    rows_fit = min(4, max(0, (height // 3 - header_height) // line_height))
     chosen = sorted(rows, key=lambda row: (row['category'] != 'cavity_candidate',
-                                            row['category'] == 'tooth_region', -row['confidence']))[:6]
-    panel_height = min(height // 3, 24 + 15 * math.ceil(len(chosen) / 2))
+                                            row['category'] == 'tooth_region', -row['confidence']))[:columns * rows_fit]
+    panel_height = min(height, header_height + line_height * math.ceil(len(chosen) / columns))
     top = height - panel_height
     cv2.rectangle(frame, (0, top), (width, height), (23, 25, 25), -1)
-    cv2.putText(frame, f'AI review | {timestamp:.2f}s', (10, top + 15), FONT, .38, (239, 244, 242), 1, cv2.LINE_AA)
+    stroke = 2 if ui_scale >= 1.2 else 1
+    cv2.putText(frame, f'AI suggestions | {timestamp:.2f}s', (padding, top + header_height - padding),
+                FONT, .44 * ui_scale, (239, 244, 242), stroke, cv2.LINE_AA)
     placed = []
+    marker_size = round(16 * ui_scale)
     for index, row in enumerate(chosen, 1):
         cavity = row['category'] == 'cavity_candidate'
         color = (85, 191, 255) if cavity else (126, 223, 178)
         x1, y1, x2, y2 = map(round, row['box'])
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        anchor_x = max(0, min(x1, width - 18))
-        y = max(1, min(y1 - 17, top - 18))
-        for xy in placed:
-            if abs(xy[0] - anchor_x) < 20 and abs(xy[1] - y) < 17:
-                y = max(1, xy[1] - 17)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, stroke + 1)
+        anchor_x = max(0, min(x1, width - marker_size))
+        y = max(1, min(y1 - marker_size - 1, top - marker_size - 1))
+        for previous_x, previous_y in placed:
+            if abs(previous_x - anchor_x) < marker_size and abs(previous_y - y) < marker_size:
+                y = max(1, previous_y - marker_size - 1)
         placed.append((anchor_x, y))
-        cv2.rectangle(frame, (anchor_x, y), (anchor_x + 16, y + 15), color, -1)
-        cv2.putText(frame, str(index), (anchor_x + 4, y + 12), FONT, .35, (22, 26, 26), 1, cv2.LINE_AA)
-        col, line = (index - 1) % 2, (index - 1) // 2
-        text = f"{index}. {row['label']}"
-        if row['origin'] == 'tracked':
-            text += ' (tracked)'
-        scale = min(.40, .40 * (width / 2 - 20) / max(1, cv2.getTextSize(safe_text(text), FONT, .40, 1)[0][0]))
-        cv2.putText(frame, safe_text(text), (10 + col * width // 2, top + 31 + 15 * line),
-                    FONT, scale, color, 1, cv2.LINE_AA)
+        cv2.rectangle(frame, (anchor_x, y), (anchor_x + marker_size, y + marker_size), color, -1)
+        number = str(index)
+        number_scale = .43 * ui_scale
+        (number_width, number_height), _ = cv2.getTextSize(number, FONT, number_scale, 1)
+        cv2.putText(frame, number, (anchor_x + (marker_size - number_width) // 2,
+                                    y + (marker_size + number_height) // 2),
+                    FONT, number_scale, (22, 26, 26), 1, cv2.LINE_AA)
+        line, col = divmod(index - 1, columns)
+        text = safe_text(f"{index}. {row['label']}")
+        label_scale = .47 * ui_scale
+        text_width = cv2.getTextSize(text, FONT, label_scale, stroke)[0][0]
+        label_scale *= min(1, (width / columns - 2 * padding) / max(1, text_width))
+        cv2.putText(frame, text, (padding + col * width // columns,
+                                 top + header_height + (line + 1) * line_height - padding),
+                    FONT, label_scale, color, stroke, cv2.LINE_AA)
     return frame
 
 
@@ -181,7 +196,7 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
                                 favorites[favorite] = dict(rank=rank, frame=index, time=now,
                                     track_id=key, label=row['label'], category=row['category'],
                                     confidence=row['confidence'], box=row['box'])
-                    compact = [{k: row[k] for k in ('label', 'box', 'category', 'origin', 'track_id', 'fdi_number')
+                    compact = [{k: row[k] for k in ('label', 'box', 'category', 'origin', 'track_id', 'fdi_number', 'confidence')
                                 if k in row} for row in rows]
                     timeline.write(json.dumps(dict(frame=index, time=now, annotations=compact), separators=(',', ':'))+'\n')
                     writer.send(stamp(frame, now, rows))
