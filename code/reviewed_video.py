@@ -60,15 +60,16 @@ def confirmed_row(row, review, finding, frame, width, height):
     return item
 
 
-def instrument_marks(record, reviewed):
+def instrument_marks(record):
     reviews = {item['detection_id']: item for item in record.get('reviews', [])}
     frames = defaultdict(list)
     for row in record.get('observations', []):
         review = reviews.get(row['detection_id'], {})
-        if reviewed and review.get('decision') != 'confirmed':
+        if review.get('decision') != 'confirmed':
             continue
-        frames[row['frame']].append(dict(row, label=(review.get('label') or row['class']) if reviewed else row['class'],
-                                       category='instrument', review_status='confirmed' if reviewed else 'suggested'))
+        geometry = dict(box=review['box'], polygon=None) if review.get('box') else {}
+        frames[row['frame']].append({**row, **geometry, 'label': review.get('label') or 'Reviewed instrument',
+                                     'category': 'instrument', 'review_status': 'confirmed'})
     return frames
 
 
@@ -77,7 +78,7 @@ def render_reviewed(work, report, reviews, options, instruments=None):
     width, height, fps = (video[key] for key in ('width', 'height', 'fps'))
     reviewed = options['version'] == 'confirmed'
     tracks, frames = review_index(report, reviews)
-    instrument_frames = instrument_marks(instruments or {}, reviewed)
+    instrument_frames = instrument_marks(instruments or {})
     source = work / 'source.mp4'
     with tempfile.TemporaryDirectory(dir=work, prefix='.rerender-') as temporary:
         raw = Path(temporary) / 'video.mp4'

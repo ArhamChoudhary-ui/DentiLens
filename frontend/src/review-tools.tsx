@@ -136,7 +136,7 @@ export function FullVideoExport({exam, request}: {exam: Exam; request: (options:
         </label>)}
       </details>
       {exam.instruments_available && <label className="toggle"><input type="checkbox" checked={includeInstruments}
-        disabled={working} onChange={e=>setIncludeInstruments(e.target.checked)}/><span>Include instrument markings</span></label>}
+        disabled={working} onChange={e=>setIncludeInstruments(e.target.checked)}/><span>Include reviewed instruments</span></label>}
       <button className="subtle" disabled={working || (version==='confirmed' &&
         !(includeInstruments && exam.confirmed_instruments) &&
         !exam.reviews?.some(item=>item.decision==='confirmed' && (item.finding_id || item.box)))}>

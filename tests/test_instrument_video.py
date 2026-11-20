@@ -6,6 +6,7 @@ from backend.main import create_app
 from fastapi.testclient import TestClient
 from instrument_video import group_instruments, measure_instruments
 from full_video import video_info
+from reviewed_video import instrument_marks
 
 
 def test_instrument_groups_do_not_fill_unsampled_gaps():
@@ -35,21 +36,35 @@ def test_instrument_scan_api_and_full_video_export(monkeypatch, examination_vide
             if client.get(path).json()['state'] == 'ready':
                 break
             time.sleep(.05)
+        manual = client.post(path + '/instrument-reviews', json={
+            'time': .22, 'decision': 'confirmed', 'label': 'Wire cutter', 'box': [.03,.2,.4,.5]})
+        assert manual.status_code == 200, manual.text
+        assert manual.json()['original_label'] is None and manual.json()['time'] == .2
         measured = client.post(path + '/instruments')
         assert measured.status_code == 200, measured.text
         assert measured.json()['samples'] == 15
-        assert len(measured.json()['observations']) == 15
+        assert len(measured.json()['observations']) == 16
+        assert not client.get(path + '/intelligence', params={'q':'Show mirror'}).json()['results']
+        marks = instrument_marks(measured.json())
+        assert list(marks) == [2] and len(marks[2]) == 1
         first = measured.json()['appearances'][0]['best']
         reviewed = client.post(path + '/instrument-reviews', json={
-            'detection_id':first['detection_id'], 'decision':'confirmed', 'label':'Reviewed mirror', 'note':'Training fixture'})
+            'detection_id':first['detection_id'], 'decision':'confirmed', 'label':'Reviewed explorer',
+            'note':'Training fixture', 'box':[.05,.2,.4,.5]})
         assert reviewed.json()['original_label'] == 'Dental mirror'
-        indexed = client.get(path + '/intelligence', params={'q':'Show mirror'}).json()['results'][0]
+        assert not client.get(path + '/intelligence', params={'q':'Show mirror'}).json()['results']
+        indexed = client.get(path + '/intelligence', params={'q':'Show explorer'}).json()['results'][0]
         assert indexed['status'] == 'confirmed' and indexed['time'] == first['time']
         assert not client.get(path + '/intelligence', params={'q':'Instrument at 00:00.10'}).json()['results']
         at_time = client.get(path + '/intelligence', params={'q':'Instrument at 00:00.20'}).json()['results']
-        assert at_time and all(item['time'] == .2 for item in at_time)
+        assert len(at_time) == 1 and at_time[0]['label'] == 'Wire cutter'
+        assert at_time[0]['time'] == .2
         index = client.get(path + '/evidence-index').json()
-        assert index['instruments']['reviews'][0]['label'] == 'Reviewed mirror'
+        assert len(index['instruments']['reviews']) == 2
+        marks = instrument_marks(index['instruments'])
+        assert marks[0][0]['box'] == [.05,.2,.4,.5] and marks[0][0]['polygon'] is None
+        assert {'Wire cutter','Reviewed explorer'} == {row['label'] for entries in marks.values() for row in entries}
+        assert 'observations' not in client.get(path + '/export').json()['instrument_scan']
         result = client.post(path + '/video-export', json={'version':'confirmed','instruments':True})
         assert result.status_code == 200, result.text
         assert video_info(storage / exam['id'] / 'confirmed-export.mp4')['frames'] == 30

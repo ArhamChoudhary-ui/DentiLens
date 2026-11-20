@@ -37,6 +37,8 @@ EXTENSIONS = {'.mp4', '.mov', '.m4v', '.webm'}
 Profile = Literal['fast', 'balanced', 'detailed']
 Device = Literal['auto', 'cpu', 'mps']
 Asset = Literal['source.mp4', 'annotated.mp4', 'reviewed-reel.mp4', 'timeline.jsonl', 'confirmed-export.mp4', 'suggestions-export.mp4']
+Bound = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+Region = tuple[Bound, Bound, Bound, Bound]
 
 
 class Review(BaseModel):
@@ -47,8 +49,7 @@ class Review(BaseModel):
     decision: Literal['confirmed', 'dismissed'] = 'confirmed'
     flagged: bool = False
     fdi_number: str | None = Field(default=None, pattern=r'^[1-4][1-8]$')
-    box: tuple[Annotated[float, Field(ge=0, le=1)], Annotated[float, Field(ge=0, le=1)],
-               Annotated[float, Field(ge=0, le=1)], Annotated[float, Field(ge=0, le=1)]] | None = None
+    box: Region | None = None
 
     @model_validator(mode='after')
     def check_box(self):
@@ -69,10 +70,22 @@ class VideoExport(BaseModel):
 
 
 class InstrumentReview(BaseModel):
-    detection_id: str = Field(pattern=r'^instrument-\d+-\d+$')
+    detection_id: str | None = Field(default=None, pattern=r'^instrument-(?:\d+-\d+|manual-[a-f0-9]{32})$')
     decision: Literal['confirmed', 'dismissed']
     label: str = Field(default='', max_length=100)
     note: str = Field(default='', max_length=500)
+    time: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    box: Region | None = None
+
+    @model_validator(mode='after')
+    def check_review(self):
+        if self.decision == 'confirmed' and not self.label.strip():
+            raise ValueError('Enter the reviewed instrument label.')
+        if self.box and (self.box[0] >= self.box[2] or self.box[1] >= self.box[3]):
+            raise ValueError('Draw a region with a positive width and height.')
+        if self.detection_id is None and (self.decision != 'confirmed' or self.time is None or self.box is None):
+            raise ValueError('Choose a source frame and draw the instrument region.')
+        return self
 
 
 class AnalysisCancelled(Exception):
@@ -342,13 +355,25 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
 
     def instrument_records(key):
         file = storage / key / 'instruments.json'
-        if not file.is_file():
-            return None
-        report = json.loads(file.read_text())
+        scanned = file.is_file()
+        report = json.loads(file.read_text()) if scanned else {
+            'device': None, 'samples': 0, 'seconds': 0, 'observations': [], 'appearances': []}
         with closing(connect()) as con:
             reviews = [json.loads(row[0]) for row in con.execute(
                 'SELECT payload FROM instrument_reviews WHERE exam_id=?', (key,))]
-        return {**report, 'reviews': reviews}
+        if not scanned and not reviews:
+            return None
+        for review in reviews:
+            if review.get('original_label') is not None:
+                continue
+            row = dict(detection_id=review['detection_id'], time=review['time'], frame=review['frame'],
+                       box=review['box'], polygon=None, track_id=None, confidence=None,
+                       review_status=review['decision'], **{'class': review['label']})
+            report['observations'].append(row)
+            report['appearances'].append(dict(id=row['detection_id'], label=row['class'], track_id=None,
+                time=row['time'], end=row['time'], last_frame=row['frame'], samples=1, best=row))
+        report['appearances'].sort(key=lambda item:item['time'])
+        return {**report, 'scanned': scanned, 'reviews': reviews}
 
     @app.get('/api/exams/{exam_id}/instruments')
     def instruments(exam_id: UUID):
@@ -367,14 +392,14 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             raise HTTPException(409, 'An instrument scan is running. Try again when it finishes.')
         try:
             existing = instrument_records(key)
-            if existing:
+            if existing and existing['scanned']:
                 return existing
             work = storage / key
             measured = measure_instruments(work / 'source.mp4', report['video'], models)
             with NamedTemporaryFile(mode='w', dir=work, delete=False) as temporary:
                 json.dump(measured, temporary, allow_nan=False)
             Path(temporary.name).replace(work / 'instruments.json')
-            return {**measured, 'reviews': []}
+            return instrument_records(key)
         except (OSError, ValueError, RuntimeError) as exc:
             raise HTTPException(422, str(exc)) from exc
         finally:
@@ -383,15 +408,28 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
     @app.post('/api/exams/{exam_id}/instrument-reviews')
     def review_instrument(exam_id: UUID, body: InstrumentReview):
         key = exam_id.hex
-        report_for(key)
-        instruments = instrument_records(key)
-        record = next((row for row in instruments['observations'] if row['detection_id'] == body.detection_id), None) if instruments else None
-        if record is None:
-            raise HTTPException(404, 'This instrument observation is unavailable.')
-        data = {**body.model_dump(), 'original_label': record['class'], 'time': record['time'], 'updated': utcnow()}
+        video = report_for(key)['video']
+        data = body.model_dump()
+        data['label'] = body.label.strip()
+        if body.detection_id:
+            instruments = instrument_records(key)
+            record = next((row for row in instruments['observations'] if row['detection_id'] == body.detection_id), None) if instruments else None
+            if record is None:
+                raise HTTPException(404, 'This instrument observation is unavailable.')
+            original = next((review for review in instruments['reviews'] if review['detection_id'] == body.detection_id), None)
+            origin = original['original_label'] if original else record['class']
+            prior_box = original.get('box') if original else None
+            data.update(original_label=origin, time=record['time'], frame=record['frame'], box=body.box or prior_box)
+        else:
+            if body.time >= video['duration']:
+                raise HTTPException(422, 'Choose a frame within this recording.')
+            frame = min(video['frames'] - 1, round(body.time * video['fps']))
+            data.update(detection_id='instrument-manual-' + uuid4().hex,
+                        original_label=None, time=frame / video['fps'], frame=frame)
+        data['updated'] = utcnow()
         with closing(connect()) as con, con:
             con.execute('INSERT OR REPLACE INTO instrument_reviews VALUES (?,?,?)',
-                        (key, body.detection_id, json.dumps(data, allow_nan=False)))
+                        (key, data['detection_id'], json.dumps(data, allow_nan=False)))
         return data
 
     @app.get('/api/exams/{exam_id}/tooth-history')
@@ -506,9 +544,12 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         with closing(connect()) as con:
             history = [json.loads(row[0]) for row in con.execute(
                 'SELECT payload FROM review_history WHERE exam_id=? ORDER BY rowid', (exam_id.hex,))]
+        instrument_scan = instrument_records(exam_id.hex)
+        if instrument_scan:
+            instrument_scan = {key: instrument_scan[key] for key in ('scanned', 'samples', 'seconds', 'device', 'reviews')}
         return JSONResponse({'examination_id': exam_id.hex, 'title': exam['title'], **report,
                              'reviewer_notes': reviews, 'review_history': history,
-                             'instrument_scan': instrument_records(exam_id.hex)},
+                             'instrument_scan': instrument_scan},
                             headers={'Content-Disposition': 'attachment; filename=dentilens-examination.json'})
 
     @app.post('/api/exams/{exam_id}/video-export')

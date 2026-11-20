@@ -90,12 +90,13 @@ package findings and model dependencies.
 
 ### Use the 3.5 instrument and anatomy features
 
-- Open **Instruments** on a finished examination and choose **Scan recording**.
-  Select an appearance to inspect its polygon, edit the label, add a note,
-  confirm or dismiss it. **Search & quality** indexes measured instrument
-  observations and saves their source timestamps in the evidence index.
-- Under **Export full video**, choose **Include instrument markings** after
-  scanning. Confirmed exports include instrument observations you confirmed.
+- Open **Instruments** and choose **Mark instrument** to draw a box manually.
+  Choose **Show model candidates** after scanning to inspect the experimental
+  results. Enter your own label before confirming. Redraw a candidate box if the
+  region is wrong, or dismiss it.
+- **Search & quality** and **Include reviewed instruments** in the full-video
+  export use confirmed regions. The evidence index retains the original model
+  candidates for audit.
 - Open **3D anatomy** or select a position in **Tooth chart** and choose
   **View anatomy**. Drag to rotate, zoom, and use the structure selector
   to isolate a tooth, gum or jaw. The model is educational. It provides

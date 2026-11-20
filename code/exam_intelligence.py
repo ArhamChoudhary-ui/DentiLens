@@ -81,14 +81,14 @@ def search_exam(timeline, report, reviews, query, instruments=None):
     if any(word in q for word in ('procedure', 'transcript', 'audio')):
         return {'results': [], 'message': 'This examination has no indexed activity or audio records.'}
     instrument_terms = {'mirror', 'forceps', 'handpiece', 'burnisher', 'explorer', 'syringe', 'excavator', 'instrument',
-                        'prophy', 'packer', 'carrier', 'blade', 'instruments', 'tool', 'tools'}
+                        'probe', 'cutter', 'pliers', 'scaler', 'suction', 'prophy', 'packer', 'carrier', 'blade', 'instruments', 'tool', 'tools'}
     terms = set(re.findall(r'\w+',q)) & instrument_terms
     if terms:
         if not instruments:
             return {'results': [], 'message': 'Run an instrument scan to search this examination for instruments.'}
         decisions = {item['detection_id']: item for item in instruments['reviews']}
         if exact is None:
-            rows = [span['best'] for span in instruments['appearances']]
+            rows = [row for row in instruments['observations'] if row['detection_id'] in decisions]
         else:
             frame = round(exact * report['video']['fps'])
             rows = [row for row in instruments['observations'] if row['frame'] == frame]
@@ -96,15 +96,17 @@ def search_exam(timeline, report, reviews, query, instruments=None):
         results = []
         for row in rows:
             review = decisions.get(row['detection_id'], {})
-            label = review.get('label') or row['class']
-            if specific and not any(term in label.lower() or term in row['class'].lower() for term in specific):
+            if review.get('decision') != 'confirmed':
+                continue
+            label = review.get('label') or 'Reviewed instrument'
+            if specific and not any(term in label.lower() for term in specific):
                 continue
             if ('note' in q and not review.get('note')) or ('unconfirmed' in q and review):
                 continue
             results.append(dict(kind='instrument', id=row['detection_id'], label=label, time=row['time'],
-                                confidence=row['confidence'], status=review.get('decision', 'suggested'),
+                                status='confirmed',
                                 note=review.get('note', '')))
-        return {'results': results[:100], 'total': len(results), 'message': '' if results else 'No matching instrument observations.'}
+        return {'results': results[:100], 'total': len(results), 'message': '' if results else 'No matching confirmed instruments.'}
     if 'visibility' in q or 'blur' in q or 'exposure' in q:
         return {'results': [], 'message': 'Open Recording quality to find measured camera and lighting cues.'}
 

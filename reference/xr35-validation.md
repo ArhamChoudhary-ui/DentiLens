@@ -53,3 +53,16 @@ instrument classes, temporal procedure recognition, audio transcription,
 live capture, multi-visit comparison, and collaboration are outside this
 delivery. Consult the dataset registry for remaining access and annotation
 requirements. No changes were made to the separate Track 4 benchmark.
+
+## Follow-up verification
+
+Six representative high-score braces predictions put their boxes on gloved
+hands. The raw scan remains available for audit. The instrument page opens
+with confirmed observations, and typed labels and redrawn boxes are required
+when confirming a correction. A manual mark can be saved from any source frame.
+Search, reports and video rendering use reviewed instrument records. The
+regenerated demo preserved 675 frames and rendered zero unreviewed labels.
+
+The anatomy viewer owns its canvas through React and draws it at the measured
+viewport size. Loading, errors and context loss appear above the persistent
+canvas. A lost context can be retried with a fresh canvas.

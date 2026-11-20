@@ -28,6 +28,8 @@ export default function Anatomy({examId, initial, jump, openChart}: {
   examId: string; initial: string; jump: (time:number)=>void; openChart: (fdi:string)=>void;
 }) {
   const host = useRef<HTMLDivElement>(null)
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const [attempt,setAttempt] = useState(0)
   const [selected,setSelected] = useState(() => teeth.find(tooth=>tooth.fdi===initial)?.id ?? '')
   const [isolate,setIsolate] = useState(false)
   const [hideTissue,setHideTissue] = useState(false)
@@ -38,13 +40,15 @@ export default function Anatomy({examId, initial, jump, openChart}: {
   const structure = structures.find(item=>item.id===selected)
   useEffect(()=>{
     const node = host.current
-    if (!node) return
+    const surface = canvas.current
+    if (!node || !surface) return
+    setStatus('Loading anatomy…')
+    setReady(false)
     let renderer:WebGLRenderer
-    try {renderer=new WebGLRenderer({antialias:true,alpha:false})}
-    catch {setStatus('3D needs WebGL. Use the tooth chart to browse the examination.');return}
+    try {renderer=new WebGLRenderer({canvas:surface,antialias:true,alpha:false})}
+    catch {setStatus('The 3D graphics context is unavailable.');return}
     renderer.outputColorSpace=SRGBColorSpace
     renderer.setPixelRatio(Math.min(2,window.devicePixelRatio))
-    node.append(renderer.domElement)
     const scene = new Scene()
     scene.background = new Color('#12191f')
     scene.add(new AmbientLight(0xffffff,2))
@@ -57,18 +61,28 @@ export default function Anatomy({examId, initial, jump, openChart}: {
     const orbit = new OrbitControls(camera,renderer.domElement)
     orbit.enablePan=false
     orbit.minDistance=2; orbit.maxDistance=15
-    const observer = new ResizeObserver(()=>{
+    let contextLost=false
+    const draw = ()=>{if(!contextLost) renderer.render(scene,camera)}
+    const resize = ()=>{
       if (!node.clientWidth || !node.clientHeight) return
-      renderer.setSize(node.clientWidth,node.clientHeight)
+      renderer.setSize(node.clientWidth,node.clientHeight,false)
       camera.aspect=node.clientWidth/node.clientHeight;camera.updateProjectionMatrix()
-      renderer.render(scene,camera)
-    })
+      draw()
+    }
+    const observer = new ResizeObserver(resize)
     observer.observe(node)
-    const draw = ()=>renderer.render(scene,camera)
+    resize()
+    const onLost = (event:Event)=>{
+      event.preventDefault()
+      contextLost=true
+      setReady(false)
+      setStatus('The 3D graphics context was lost.')
+    }
+    surface.addEventListener('webglcontextlost',onLost)
     orbit.addEventListener('change',draw)
     const meshes: {mesh:Mesh; material:MeshStandardMaterial; color:Color; id:string; soft:boolean}[] = []
     const focus = new Vector3()
-    const home = camera.position.clone()
+    const extent = new Vector3()
     let disposed=false
     const release = () => {
       for(const item of meshes) {item.mesh.geometry.dispose();item.material.dispose()}
@@ -85,7 +99,7 @@ export default function Anatomy({examId, initial, jump, openChart}: {
       scene.add(asset.scene)
       const bounds=new Box3().setFromObject(asset.scene)
       bounds.getCenter(focus)
-      home.copy(focus).add(new Vector3(0,.4,Math.max(5.6,bounds.getSize(new Vector3()).length()*1.5)))
+      bounds.getSize(extent)
       control.current={
         apply:(id,only,hide)=>{
           for(const item of meshes) {
@@ -99,7 +113,14 @@ export default function Anatomy({examId, initial, jump, openChart}: {
           }
           draw()
         },
-        reset:()=>{ camera.position.copy(home);orbit.target.copy(focus);orbit.update();draw() },
+        reset:()=>{
+          resize()
+          const halfHeight=Math.max(extent.y,extent.x/camera.aspect)/2
+          const distance=halfHeight/Math.tan(camera.fov*Math.PI/360)+extent.z*.65
+          orbit.target.copy(focus)
+          camera.position.copy(focus).add(new Vector3(0,.3,distance))
+          camera.lookAt(focus);orbit.update();draw()
+        },
         rotate:radians=>{
           const offset=camera.position.clone().sub(orbit.target).applyAxisAngle(new Vector3(0,1,0),radians)
           camera.position.copy(orbit.target).add(offset);orbit.update();draw()
@@ -111,7 +132,7 @@ export default function Anatomy({examId, initial, jump, openChart}: {
         },
       }
       control.current.reset()
-      setReady(true);setStatus('')
+      if (!contextLost) {setReady(true);setStatus('')}
     }).catch(()=>{if(!disposed)setStatus('Could not load the anatomy asset. Install it with scripts/install_anatomy.py.')})
     const ray = new Raycaster()
     let origin:Vector2
@@ -128,9 +149,11 @@ export default function Anatomy({examId, initial, jump, openChart}: {
     renderer.domElement.addEventListener('pointerup',up)
     return ()=>{
       disposed=true;control.current=undefined;observer.disconnect();orbit.dispose()
-      release();renderer.dispose();renderer.domElement.remove()
+      surface.removeEventListener('pointerdown',down);surface.removeEventListener('pointerup',up)
+      surface.removeEventListener('webglcontextlost',onLost)
+      release();renderer.dispose()
     }
-  },[])
+  },[attempt])
   useEffect(()=>{if(ready)control.current?.apply(selected,isolate,hideTissue)},[ready,selected,isolate,hideTissue])
   return <section className="panel anatomy-page">
     <div className="section-heading"><h2>3D dental anatomy</h2></div>
@@ -141,7 +164,12 @@ export default function Anatomy({examId, initial, jump, openChart}: {
             if(e.key==='ArrowLeft' || e.key==='ArrowRight') {
               e.preventDefault(); control.current?.rotate(e.key==='ArrowLeft'?-.14:.14)
             }
-          }}>{status && <p role="status">{status}</p>}</div>
+          }}>
+          <canvas key={attempt} ref={canvas}/>
+          {status && <div className="anatomy-status"><p role="status">{status}</p>
+            {!status.startsWith('Loading') && <button className="subtle compact-action" onClick={()=>setAttempt(value=>value+1)}>Retry 3D</button>}
+          </div>}
+        </div>
         <div className="actions">
           <button className="subtle compact-action" disabled={!ready} onClick={()=>control.current?.zoom(.8)}>Zoom in</button>
           <button className="subtle compact-action" disabled={!ready} onClick={()=>control.current?.zoom(1.25)}>Zoom out</button>

@@ -67,7 +67,7 @@ def stamp(frame, timestamp, rows, options=None):
     padding = round(8 * ui_scale)
     rows_fit = min(4, max(0, (height // 3 - header_height) // line_height))
     chosen = sorted(rows, key=lambda row: (row['category'] != 'cavity_candidate',
-                                            row['category'] == 'tooth_region', -row.get('confidence', 0)))[:columns * rows_fit]
+                                            row['category'] == 'tooth_region', -(row.get('confidence') or 0)))[:columns * rows_fit]
     panel_height = min(height, header_height + line_height * math.ceil(len(chosen) / columns) * show_text)
     top = height - panel_height
     cv2.rectangle(frame, (0, top), (width, height), (23, 25, 25), -1)
