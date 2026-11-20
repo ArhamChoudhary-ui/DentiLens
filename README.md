@@ -113,6 +113,27 @@ was selected using this clip. Ground-truth annotations and evaluation on separat
 videos are still needed to measure accuracy. The aggregate verification record
 is saved in `reference/tooth-region-smoke-test.json`.
 
+Four additional Pexels clips were downloaded for separate smoke tests using the
+same 0.50 confidence threshold, one sampled frame per second and CPU inference.
+Source links, creators, input hashes and aggregate results are recorded in
+`reference/pexels-tooth-region-tests.json`. Local footage and evidence images
+are excluded from Git. The [Pexels license](https://www.pexels.com/license/)
+allows free use and modification; the footage does not imply endorsement.
+
+The portrait cleaning clip (33337556) exposed a segmentation failure: its retained
+mask included much of the white mouth retractor instead of isolating teeth.
+The wider cleaning shots (5099636 and 4490363) produced no retained observations;
+their inspected middle frames showed small or obscured teeth. These results do
+not establish reliable tooth segmentation. Detection counts and model confidence
+are not accuracy measurements. The first three clips are also too short to fit
+a four-second highlight within the 15% duration budget.
+
+The 42.16-second close-up (6502766) yielded 16 region observations across 43
+sampled frames and a four-second highlight. Inspected overlays at 1 and 10 seconds
+follow exposed front-tooth groups; the overlay at 36 seconds is uncertain beside
+strong mirror glare. This is a useful additional demo input, with manual review
+still required. No per-clip threshold tuning was applied to these four tests.
+
 ## Samsung Track 4
 
 The separate student-guide contract requires six-field JSON outputs for 187
