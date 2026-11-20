@@ -15,7 +15,11 @@ import zipfile
 import yaml
 
 
-def prepare(archive, destination):
+TOOTH_TYPES = ['central incisor', 'lateral incisor', 'canine', 'first premolar',
+               'second premolar', 'first molar', 'second molar', 'third molar']
+
+
+def prepare(archive, destination, tooth_types=False):
     archive, destination = Path(archive), Path(destination).resolve()
     if destination.exists():
         raise ValueError('Choose a new dataset destination')
@@ -67,7 +71,14 @@ def prepare(archive, destination):
                         raise ValueError(f'Unsupported annotation in {label_name}')
                     if width <= 0 or height <= 0:
                         raise ValueError(f'Empty box in {label_name}')
-                    boxes.append('0 ' + ' '.join(f'{v:.8f}' for v in (x, y, width, height)))
+                    source_label = str(config['names'][int(class_id)])
+                    target_id = 0
+                    if tooth_types:
+                        if (len(source_label) != 2 or source_label[0] not in '1234'
+                                or source_label[1] not in '12345678'):
+                            continue
+                        target_id = int(source_label[1]) - 1
+                    boxes.append(f'{target_id} ' + ' '.join(f'{v:.8f}' for v in (x, y, width, height)))
                     class_counts[config['names'][int(class_id)]] += 1
                 (stage / split / 'images' / basename).write_bytes(content)
                 (stage / label_name).write_text('\n'.join(boxes) + ('\n' if boxes else ''))
@@ -80,15 +91,18 @@ def prepare(archive, destination):
         for name in ('README.dataset.txt', 'README.roboflow.txt'):
             if name in names:
                 (stage / name).write_bytes(source.read(name))
+        output_classes = TOOTH_TYPES if tooth_types else ['tooth']
         dataset = {'path': str(destination), 'train': 'train/images',
-                   'val': 'valid/images', 'test': 'test/images', 'names': {0: 'tooth'}}
+                   'val': 'valid/images', 'test': 'test/images', 'names': dict(enumerate(output_classes))}
         (stage / 'data.yaml').write_text(yaml.safe_dump(dataset, sort_keys=False))
         report = {'archive_sha256': hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest(),
                   'source': config.get('roboflow', {}), 'splits': counts,
                   'source_class_instances': dict(class_counts),
                   'annotation_shapes': dict(polygon_shapes),
-                  'output_classes': ['tooth'],
-                  'label_policy': 'All source tooth classes, including 327 and 56, collapsed to tooth; no FDI numbering claim.',
+                  'output_classes': output_classes,
+                  'label_policy': ('Group valid permanent FDI labels by their second digit. '
+                                   'Omit 327 and 56. No quadrant identification.'
+                                   if tooth_types else 'All source tooth classes collapsed to tooth.'),
                   'cross_split_identical_hashes': 0, 'cross_split_source_basenames': 0,
                   'limitations': ['No patient identifiers available to audit patient overlap across splits.',
                                   'Near-duplicate images with different basenames are not excluded by hash checks.',
@@ -102,5 +116,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('archive', type=Path)
     parser.add_argument('destination', type=Path)
+    parser.add_argument('--tooth-types', action='store_true')
     args = parser.parse_args()
-    print(json.dumps(prepare(args.archive, args.destination), indent=2))
+    print(json.dumps(prepare(args.archive, args.destination, args.tooth_types), indent=2))

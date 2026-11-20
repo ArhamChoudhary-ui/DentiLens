@@ -40,6 +40,9 @@ with upload_tab:
         available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
     if sam_ready and (ROOT / 'models/tooth-detector.pt').is_file() and (ROOT / 'models/tooth-detector.json').is_file():
         available.append(('Experimental trained tooth detector + SAM', 'tooth-sam2'))
+    if sam_ready and all((ROOT / 'models' / f'tooth-types.{extension}').is_file()
+                         for extension in ('pt', 'json')):
+        available.append(('Experimental tooth type names', 'tooth-types'))
     if not available:
         st.info('Install the local model files using the repository setup instructions to enable analysis.')
     else:

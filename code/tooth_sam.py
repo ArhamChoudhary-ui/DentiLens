@@ -18,7 +18,7 @@ class ToothSegmenter:
     limitations = ['Experimental video detector: supplied clips exposed non-tooth false positives. '
                    'Still-image detection mAP does not establish video or mask accuracy.']
 
-    def __init__(self, weights, model_directory, confidence=0.35, device='cpu'):
+    def __init__(self, weights, model_directory, confidence=0.35, device='cpu', tooth_types=False):
         from ultralytics import YOLO
         from transformers import Sam2Model, Sam2Processor
 
@@ -29,8 +29,16 @@ class ToothSegmenter:
         if digest != metadata['weights_sha256']:
             raise ValueError('Tooth detector weights do not match their provenance')
         self.detector = YOLO(str(weights))
+        self.tooth_types = tooth_types
+        if tooth_types:
+            classes = metadata['dataset']['output_classes']
+            if len(classes) != 8:
+                raise ValueError('Expected eight tooth type classes')
+            self.names = dict(enumerate(classes))
+            self.model_name = 'DentiLens intraoral tooth types + SAM 2.1'
+            self.limitations = ['Experimental tooth type predictions require review. Patient side and FDI number are unavailable.']
         if self.detector.task != 'detect' or self.detector.names != self.names:
-            raise ValueError('Expected a one-class intraoral tooth detector')
+            raise ValueError('Detector classes differ from the selected mode')
         self.mask_processor = Sam2Processor.from_pretrained(model_directory / 'sam2', local_files_only=True)
         self.mask_model = GroundedSegmenter._load(self, Sam2Model, model_directory / 'sam2')
         self.provenance = {'detector': metadata, 'sam2': json.loads(
@@ -52,7 +60,8 @@ class ToothSegmenter:
             if x2 <= x1 or y2 <= y1:
                 continue
             boxes.append([x1, y1, x2, y2])
-            rows.append({'model_class_id': 0, 'model_label': 'tooth',
+            class_id = int(box.cls.item())
+            rows.append({'model_class_id': class_id, 'model_label': self.names[class_id],
                          'confidence': float(box.conf.item()),
                          'bbox_xyxy_normalized': [x1/image.width, y1/image.height,
                                                   x2/image.width, y2/image.height]})
@@ -72,5 +81,11 @@ class ToothSegmenter:
             row.update(mask=binary, mask_quality_estimate=quality)
             contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(frame, contours, -1, (70, 220, 110), 1)
+            if self.tooth_types:
+                x, y = row['bbox_xyxy_normalized'][:2]
+                origin = (int(x * image.width), max(14, int(y * image.height) - 4))
+                text = row['model_label']
+                cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 3)
+                cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, (255, 255, 255), 1)
             retained.append(row)
         return retained, frame

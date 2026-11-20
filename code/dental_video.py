@@ -165,7 +165,7 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                 if predictor.prompt:
                     model_description['text_prompt'] = predictor.prompt
                 else:
-                    model_description['localization_method'] = 'Trained one-class intraoral tooth detector boxes'
+                    model_description['localization_method'] = 'Trained intraoral tooth detector boxes'
             report = {
                 'schema_version': 'dentilens-dental-1', 'video': video.name,
                 'input_sha256': input_digest,
@@ -201,7 +201,7 @@ def main():
     parser.add_argument('--confidence', type=float,
                         help='Defaults to 0.50 for text-guided regions or 0.35 for AlphaDent and the experimental tooth detector')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', 'tooth-sam2'], default='grounded-sam2')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', 'tooth-sam2', 'tooth-types'], default='grounded-sam2')
     parser.add_argument('--tooth-weights', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/tooth-detector.pt')
     parser.add_argument('--model-directory', type=Path,
@@ -214,9 +214,13 @@ def main():
         if args.engine in ('grounded-sam2', 'teeth-mirror'):
             from grounded_sam import GroundedSegmenter
             predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device, include_mirror=args.engine == 'teeth-mirror')
-        elif args.engine == 'tooth-sam2':
+        elif args.engine in ('tooth-sam2', 'tooth-types'):
             from tooth_sam import ToothSegmenter
-            predictor = ToothSegmenter(args.tooth_weights, args.model_directory, args.confidence, args.device)
+            typed = args.engine == 'tooth-types'
+            weights = args.tooth_weights
+            if typed and weights.name == 'tooth-detector.pt':
+                weights = weights.with_name('tooth-types.pt')
+            predictor = ToothSegmenter(weights, args.model_directory, args.confidence, args.device, tooth_types=typed)
         report = analyze(args.video, args.weights, args.output, args.sample_fps,
                          args.confidence, args.device, predictor=predictor)
     except Exception as exc:

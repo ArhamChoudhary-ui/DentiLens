@@ -56,7 +56,7 @@ def main():
                                'image_size': args.imgsz,
                                'batch': args.batch, 'device': args.device, 'frozen_layers': 10,
                                'seed': 42, 'selection': 'best validation fitness; test split unused'},
-                  'limitations': ['Single tooth class; no FDI numbering.',
+                  'limitations': ['No FDI numbering or diagnosis.',
                                   'Detection metrics do not measure SAM segmentation accuracy.',
                                   'Intraoral still-image performance does not establish video accuracy.']}
     (args.output / 'provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
