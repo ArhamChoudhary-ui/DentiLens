@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'code'))
 from annotated_reel import context_windows, export_annotated_reel
 from full_video import process_exam, stamp, video_info
+from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
 from reviewed_video import confirmed_row, render_reviewed
 
 LOG = logging.getLogger('dentilens')
@@ -316,6 +317,38 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             con.execute('INSERT OR REPLACE INTO reviews VALUES (?,?,?,?)', record)
             con.execute('INSERT INTO review_history VALUES (?,?,?,?)', record)
         return data
+
+    @app.get('/api/exams/{exam_id}/tooth-history')
+    def history(exam_id: UUID, fdi: Annotated[str | None, Query(pattern=r'^[1-4][1-8]$')] = None,
+                track: Annotated[str | None, Query(pattern=r'^T\d+-\d+$')] = None):
+        if not fdi and not track:
+            raise HTTPException(422, 'Choose an FDI number or tooth track.')
+        key = exam_id.hex
+        report = report_for(key)
+        return tooth_history(storage / key / 'timeline.jsonl', report, reviews_for(key), fdi, track)
+
+    @app.get('/api/exams/{exam_id}/intelligence')
+    def intelligence(exam_id: UUID, q: Annotated[str, Query(min_length=1, max_length=160)]):
+        key = exam_id.hex
+        report = report_for(key)
+        return search_exam(storage / key / 'timeline.jsonl', report, reviews_for(key), q.strip())
+
+    @app.get('/api/exams/{exam_id}/evidence-index')
+    def export_evidence_index(exam_id: UUID):
+        key = exam_id.hex
+        report = report_for(key)
+        data = evidence_index(storage / key / 'timeline.jsonl', report, reviews_for(key))
+        return JSONResponse({'examination_id': key, **data},
+                            headers={'Content-Disposition': 'attachment; filename=dentilens-evidence-index.json'})
+
+    @app.get('/api/exams/{exam_id}/quality')
+    def quality(exam_id: UUID):
+        key = exam_id.hex
+        report = report_for(key)
+        try:
+            return quality_report(storage / key / 'source.mp4', report['video'])
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.get('/api/exams/{exam_id}/preview')
     @app.head('/api/exams/{exam_id}/preview', include_in_schema=False)

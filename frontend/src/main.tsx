@@ -10,6 +10,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api, clock, send } from './api'
 import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
 import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
+import { ExamIntelligence } from './intelligence'
 import './styles.css'
 
 const profiles = [
@@ -277,7 +278,7 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   const [building,setBuilding]=useState(false)
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
-  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr'>('review')
+  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence'>('review')
   const reviews=exam.reviews ?? []
   const confirmed=reviews.filter(item=>item.decision==='confirmed')
   const selectedReview=reviews.find(item=>item.id===selected?.id)
@@ -304,6 +305,12 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
     const at=Math.min(seconds,Math.max(0,report.video.duration-.001))
     setSelected(null); setManualTime(at); setLabel(''); setNote(''); setFlag(false); setFdi(''); setBox(null); setFeedback(undefined)
     seek(at)
+  }
+  function openReview(seconds:number) {
+    const finding=report.findings.find(item=>item.time===seconds)
+    if (finding) chooseFinding(finding)
+    else manual(seconds)
+    setTab('review')
   }
   async function save(decision: Review['decision']) {
     if (saving) return
@@ -342,11 +349,13 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
     <div className="workspace-tabs" aria-label="Examination views">
       <button className={tab==='review'?'active':''} aria-pressed={tab==='review'} onClick={()=>setTab('review')}><ScanLine size={16}/> Review video</button>
       <button className={tab==='teeth'?'active':''} aria-pressed={tab==='teeth'} onClick={()=>setTab('teeth')}>Tooth chart</button>
+      <button className={tab==='intelligence'?'active':''} aria-pressed={tab==='intelligence'} onClick={()=>setTab('intelligence')}>Search & quality</button>
       <button className={tab==='patient'?'active':''} aria-pressed={tab==='patient'} onClick={()=>setTab('patient')}><Play size={16}/> Patient view</button>
       <button className={tab==='xr'?'active':''} aria-pressed={tab==='xr'} onClick={()=>setTab('xr')}><Glasses size={17}/> XR preview</button>
     </div>
     {tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
-      <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}}/> : tab==='patient' ?
+      <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview}/> : tab==='intelligence' ?
+      <ExamIntelligence exam={exam} jump={openReview}/> : tab==='patient' ?
       <PatientView exam={exam} moments={confirmed} reel={reel}/> : <div className="review-grid">
       <div className="review-main">
         <section className="panel player-panel">

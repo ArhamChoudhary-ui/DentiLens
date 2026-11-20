@@ -71,6 +71,23 @@ visibility values are `clear`, `partially_visible`, `absent`, `occluded`,
 python scripts/evaluate_frame_coverage.py /path/to/timeline.jsonl /path/to/visibility.json
 ```
 
+### Explore the 3.0 evidence index
+
+- In **Tooth chart**, select a number to see the matching numbered frames,
+  appearance ranges and review records. Open **Frame observations** to
+  inspect scores or load the full local track.
+- In **Search & quality**, search for a tooth name, FDI number, timestamp,
+  notes, or the clearest saved evidence. Each result opens its source time.
+- Select **Scan recording** for image-quality cues derived from the entire
+  recording. Dark, bright, low-detail and large-change cues are image
+  measurements. Assess individual tooth visibility in the original video.
+- Download the **Evidence index** to inspect explicit frame, track, evidence
+  and review records. The index is built from existing session files
+  and live reviews and uses the same SQLite schema.
+
+See the [3.0 repository audit](reference/xr3-audit.md) for the Track 4
+package findings and model dependencies.
+
 ### Install on a fresh checkout
 
 Use Python 3.11 and Node.js 22. The app prefers PyTorch MPS when available and

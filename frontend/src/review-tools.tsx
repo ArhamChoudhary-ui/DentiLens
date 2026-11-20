@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PointerEvent } from 'react'
 import { ArrowDownToLine, Clock, Download } from 'lucide-react'
 import { clock } from './api'
+import { ToothHistory } from './intelligence'
 import type { Box, Exam, Finding, Review } from './api'
 
 const subtypes = ['central incisor', 'lateral incisor', 'canine', 'first premolar', 'second premolar', 'first molar', 'second molar', 'third molar']
@@ -12,7 +13,7 @@ function suggestionNumber(item: Finding) {
   return item.fdi_number ?? item.label.match(/^FDI (\d{2})\b/)?.[1]
 }
 
-export function ToothChart({exam, jump}: {exam: Exam; jump: (item: Finding) => void}) {
+export function ToothChart({exam, jump, jumpToTime}: {exam: Exam; jump: (item: Finding) => void; jumpToTime: (time:number)=>void}) {
   const [tooth, setTooth] = useState('')
   const reviews = exam.reviews ?? []
   const report = exam.report!
@@ -52,7 +53,7 @@ export function ToothChart({exam, jump}: {exam: Exam; jump: (item: Finding) => v
         <span><strong>{review?.label || item.label}</strong><small>{review?.decision ?? 'Suggested'} · {clock(item.time,true)}</small></span>
       </button>)}
       {confirmed.map(review=><p key={review.id}>{review.label || 'Confirmed bookmark'} · {clock(review.time,true)}</p>)}
-      {!selected.length && !confirmed.length && <p className="quiet">No bookmarks for this tooth.</p>}
+      <ToothHistory key={tooth} id={exam.id} fdi={tooth} jump={jumpToTime}/>
     </div> : <p className="quiet">Select a tooth to see its bookmarks.</p>}
   </section>
 }

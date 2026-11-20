@@ -72,6 +72,23 @@ def test_examination_workflow(examination_video, tmp_path):
         assert all(not entry['annotations'] for entry in frames[20:])
         assert sum(report['frame_reasons'].values()) == 30
         assert all('detection_id' in row for frame in frames for row in frame['annotations'])
+        numbered = client.get(url + '/tooth-history', params={'fdi': '11'}).json()
+        assert len(numbered['tracks']) == 1
+        track = numbered['tracks'][0]
+        assert all(row['fdi_number'] == '11' for row in track['frames'])
+        assert track['visible_seconds'] == len(track['frames']) / 10
+        lookup = client.get(url + '/tooth-history', params={'track': track['track_id']}).json()
+        assert len(lookup['tracks'][0]['frames']) > len(track['frames'])
+        ask = client.get(url + '/intelligence', params={'q': 'Find tooth 11'}).json()
+        assert ask['results'][0]['label'].startswith('FDI 11')
+        assert ask['results'][0]['time'] == track['frames'][0]['time']
+        assert not client.get(url + '/intelligence', params={'q': 'Mirror'}).json()['results']
+        quality = client.get(url + '/quality').json()
+        assert quality['frames'] == 30
+        bright = next(cue for cue in quality['cues'] if cue['label'] == 'Bright frame')
+        assert bright['appearances'] == [{'frame': 20, 'last_frame': 29, 'time': 2., 'end': 2.9, 'count': 10}]
+        index = client.get(url + '/evidence-index').json()
+        assert index['tracks'][0]['id'] == track['track_id']
         media_url = url + '/media/annotated.mp4'
         headers = client.head(media_url)
         assert headers.status_code == 200 and headers.headers['content-type'] == 'video/mp4'
@@ -94,6 +111,12 @@ def test_examination_workflow(examination_video, tmp_path):
                                 box=[.1,.2,.7,.6])).json()
         assert confirmed['time'] == finding['time']
         assert confirmed['original_ai']['label'] == finding['label']
+        lookup = client.get(url + '/tooth-history', params={'fdi':'21'}).json()
+        assert lookup['tracks'][0]['frames'] == []
+        assert lookup['tracks'][0]['confirmed_numbers'] == ['21']
+        notes = client.get(url + '/intelligence', params={'q':'Show notes for tooth 21'}).json()
+        assert notes['results'][0]['note'] == 'Demo note'
+        assert notes['results'][0]['status'] == 'confirmed'
         assert client.post(url + '/reviews', json={'time': 0, 'fdi_number': '99'}).status_code == 422
         assert client.get(url + '/still.jpg', params={'bookmark': confirmed['id']}).headers['content-type'] == 'image/jpeg'
         reviewed = client.post(url + '/video-export', json={'version': 'confirmed'})
