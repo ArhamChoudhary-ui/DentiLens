@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api, clock, send } from './api'
-import type { Exam, Finding, MediaInfo, Report, Review } from './api'
+import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
+import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
 import './styles.css'
 
 const profiles = [
@@ -17,7 +18,7 @@ const profiles = [
   { id: 'detailed', name: 'Detailed', detail: 'Detect every 0.5 s' },
 ]
 const examStates: Record<Exam['state'], string> = {
-  queued: 'Queued', running: 'Analyzing', ready: 'Ready', failed: 'Failed',
+  queued: 'Queued', running: 'Analyzing', ready: 'Ready', failed: 'Failed', canceling: 'Stopping', cancelled: 'Cancelled',
 }
 type Feedback = { text: string; error?: boolean }
 
@@ -38,6 +39,7 @@ function UploadScreen({ back, submit }: { back: () => void; submit: (exam: Exam)
   const [url, setUrl] = useState('')
   const [meta, setMeta] = useState<{ duration: number; width: number; height: number }>()
   const [profile, setProfile] = useState('balanced')
+  const [name, setName] = useState('')
   const [device, setDevice] = useState('auto')
   const [cavities, setCavities] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -62,6 +64,7 @@ function UploadScreen({ back, submit }: { back: () => void; submit: (exam: Exam)
     const body = new FormData()
     body.append('video', file)
     body.append('profile', profile)
+    body.append('name', name.trim())
     body.append('device', device)
     body.append('cavities', String(cavities))
     try { submit(await api<Exam>('/api/exams', { method: 'POST', body })) }
@@ -92,6 +95,9 @@ function UploadScreen({ back, submit }: { back: () => void; submit: (exam: Exam)
       </div>
       <section className="panel settings">
         <h2>Analysis settings</h2>
+        <p>Upload footage you have permission to review. Files stay on this Mac.</p>
+        <label className="field">Examination name<input value={name} maxLength={100} disabled={busy}
+          placeholder="Optional pseudonym" onChange={e=>setName(e.target.value)}/></label>
         <p>More frequent detection takes longer.</p>
         <div className="settings-options" role="group" aria-label="Analysis frequency">
           {profiles.map(item => <button type="button" key={item.id} className={profile===item.id?'active':''}
@@ -126,7 +132,7 @@ function ActivityChart({ report }: { report: Report }) {
   return <div className="chart" aria-label="AI suggestions by time">
     <ResponsiveContainer width="100%" height={54}><BarChart data={bins} barCategoryGap="18%">
       <Tooltip labelFormatter={(_, items) => items[0]?.payload.time} formatter={(n) => [n, 'AI suggestions']}
-        cursor={{fill:'#e6ede6'}} contentStyle={{background:'#fffefa',border:'1px solid #c7cec4',color:'#25312c',borderRadius:8,fontSize:12}}/>
+        cursor={{fill:'#263c3b'}} contentStyle={{background:'#1c242c',border:'1px solid #53646f',color:'#e1e6ea',borderRadius:8,fontSize:12}}/>
       <Bar dataKey="count" fill="#799485" radius={[2,2,0,0]} minPointSize={2}/>
     </BarChart></ResponsiveContainer>
   </div>
@@ -141,12 +147,16 @@ type LocalSpeech = {
   start: () => void
 }
 
-function XR({ exam, refresh }: { exam: Exam; refresh: () => Promise<void> }) {
+function XR({ exam, refresh, openReview }: { exam: Exam; refresh: () => Promise<void>; openReview: (time: number) => void }) {
   const player = useRef<HTMLVideoElement>(null)
   const [command, setCommand] = useState('')
   const [notice, setNotice] = useState<Feedback>()
   const [listening, setListening] = useState(false)
   const [time, setTime] = useState(0)
+  const [note,setNote] = useState('')
+  const [addingNote,setAddingNote] = useState(false)
+  const bookmarks = (exam.reviews ?? []).filter(item=>item.decision==='confirmed').sort((a,b)=>a.time-b.time)
+  const nearest = exam.report?.findings.find(item=>Math.abs(item.time-time)<.4)
   async function execute(text: string) {
     const phrase = text.toLowerCase().trim().replace(/[.!?]+$/, '')
     const video=player.current
@@ -154,12 +164,25 @@ function XR({ exam, refresh }: { exam: Exam; refresh: () => Promise<void> }) {
     try {
       if (phrase === 'bookmark this' || phrase === 'bookmark') {
         const timestamp=Math.min(video.currentTime, Math.max(0, (exam.report?.video.duration ?? 0) - .001))
-        await send(path(exam.id,'/reviews'), {time:timestamp, label:'XR bookmark',decision:'confirmed'})
+        await send(path(exam.id,'/reviews'), {time:timestamp, label:'XR bookmark',note,decision:'confirmed'})
         await refresh()
+        setNote('');setAddingNote(false)
         setNotice({text: `Bookmark saved at ${clock(timestamp, true)}.`})
       } else if (phrase === 'pause') { video.pause(); setNotice({text:'Paused.'}) }
-      else if (phrase === 'play') { await video.play(); setNotice({text:'Playing.'}) }
-      else { setNotice({text:'Try “bookmark this”, “pause” or “play”.'}) }
+      else if (phrase === 'play' || phrase === 'resume') { await video.play(); setNotice({text:'Playing.'}) }
+      else if (phrase === 'open review') { openReview(video.currentTime) }
+      else if (phrase === 'add note') { setAddingNote(true); video.pause() }
+      else if (phrase === 'next bookmark' || phrase === 'previous bookmark') {
+        const next = phrase === 'next bookmark' ? bookmarks.find(item=>item.time>video.currentTime+.04)
+          : bookmarks.slice().reverse().find(item=>item.time<video.currentTime-.04)
+        if (next) {video.currentTime=next.time; video.pause();setNotice({text:clock(next.time,true)})}
+        else setNotice({text:'No bookmark in that direction.'})
+      } else if (phrase.startsWith('show the ')) {
+        const name=phrase.slice(9)
+        const match=exam.report?.findings.find(item=>item.label.toLowerCase().includes(name))
+        if (match) { video.currentTime=match.time;video.pause();setNotice({text:match.label}) }
+        else setNotice({text:'No matching tooth suggestion.'})
+      } else { setNotice({text:'Try “bookmark this”, “show the canine” or “next bookmark”.'}) }
     } catch(e) { setNotice({text:message(e), error:true}) }
   }
   function listen() {
@@ -181,34 +204,60 @@ function XR({ exam, refresh }: { exam: Exam; refresh: () => Promise<void> }) {
   return <div className="xr-page panel">
     <div className="section-heading"><h2>Simulated glasses view</h2><Glasses size={25}/></div>
     <div className="xr-video"><video ref={player} controls src={media(exam.id,'source.mp4')} playsInline
-      onTimeUpdate={e=>setTime(e.currentTarget.currentTime)}/><Crosshair className="reticle" size={39}/><span className="xr-time">{clock(time)}</span></div>
+      onTimeUpdate={e=>setTime(e.currentTarget.currentTime)}/><Crosshair className="reticle" size={39}/><span className="xr-time">{clock(time,true)}</span>{nearest && <span className="xr-tooth">{nearest.label} · Suggestion</span>}</div>
     <form className="command" onSubmit={e => {e.preventDefault(); void execute(command)}}>
       <input value={command} onChange={e=>setCommand(e.target.value)} aria-label="Simulated voice command" placeholder='Type “bookmark this”'/>
       <button className="subtle" disabled={!command.trim()}><Play size={16}/> Run command</button>
       <button type="button" className="subtle" onClick={listen} disabled={listening}><Mic size={16}/> {listening?'Listening…':'Use microphone'}</button>
       <button type="button" className="primary" onClick={()=>void execute('bookmark this')}><Bookmark size={16}/> Bookmark this</button>
     </form>
+    {addingNote && <label className="field">Note for the next bookmark<textarea maxLength={500} rows={2} value={note}
+      onChange={e=>setNote(e.target.value)}/></label>}
+    <div className="actions">
+      <button className="subtle compact-action" onClick={()=>void execute('previous bookmark')}>Previous bookmark</button>
+      <button className="subtle compact-action" onClick={()=>void execute('next bookmark')}>Next bookmark</button>
+      <button className="subtle compact-action" onClick={()=>void execute('add note')}>Add note</button>
+      <button className="subtle compact-action" onClick={()=>void execute('open review')}>Open review</button>
+    </div>
     <ActionFeedback feedback={notice}/>
   </div>
 }
 
 function PatientView({ exam, moments, reel }: { exam: Exam; moments: Review[]; reel: string }) {
   const player = useRef<HTMLVideoElement>(null)
+  const [selected,setSelected]=useState<string>()
+  const [compare,setCompare]=useState<string>()
+  const first=moments.find(item=>item.id===selected)
+  const second=moments.find(item=>item.id===compare && item.id!==selected)
+  const still=(item: Review)=>path(exam.id,`/still.jpg?bookmark=${item.id}&v=${encodeURIComponent(item.updated ?? '')}`)
   return <section className="panel patient-page">
     <div className="section-heading"><h2>Confirmed bookmarks</h2><Play size={21}/></div>
     <video ref={player} src={media(exam.id,'source.mp4')} controls playsInline preload="metadata"/>
     {moments.length ? <div className="patient-moments">
       {moments.slice().sort((a,b)=>a.time-b.time).map(item=><button key={item.id} onClick={()=>{
         if (player.current) { player.current.currentTime=item.time; player.current.pause() }
-      }}>
-        <Play size={15}/><time>{clock(item.time, true)}</time><span><strong>{item.label || 'Bookmark'}</strong>{item.note && <small>{item.note}</small>}</span>
+        setSelected(item.id)
+      }} aria-pressed={selected===item.id}>
+        <Play size={15}/><time>{clock(item.time, true)}</time><span><strong>{item.label || 'Bookmark'}</strong>
+        {item.fdi_number && <small>Tooth {item.fdi_number}</small>}{item.note && <small>{item.note}</small>}</span>
       </button>)}
     </div> : <p className="quiet">Confirm a bookmark in Review video.</p>}
+    {first && <div className="patient-stills">
+      <div className="still-comparison">
+        {[first,second].filter((item): item is Review=>Boolean(item)).map(item=><figure key={item.id}>
+          <img src={still(item)} alt={item.label || 'Reviewed examination frame'}/><figcaption>{clock(item.time,true)} · {item.label || 'Bookmark'}</figcaption>
+        </figure>)}
+      </div>
+      {moments.length>1 && <label className="field">Compare with<select value={second?.id ?? ''} onChange={e=>setCompare(e.target.value)}>
+        <option value="">Choose a bookmark</option>
+        {moments.filter(item=>item.id!==first.id).map(item=><option key={item.id} value={item.id}>{clock(item.time,true)} · {item.label || 'Bookmark'}</option>)}
+      </select></label>}
+    </div>}
     {reel && <a className="subtle" href={reel+(reel.includes('?')?'&':'?')+'download=true'}><ArrowDownToLine size={16}/> Download reviewed reel</a>}
   </section>
 }
 
-function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void> }) {
+function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Promise<void>; remove: () => Promise<void> }) {
   const report=exam.report!
   const player=useRef<HTMLVideoElement>(null)
   const pending=useRef<number | null>(null)
@@ -220,13 +269,15 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
   const [label,setLabel]=useState(selected?.label ?? '')
   const [note,setNote]=useState('')
   const [flag,setFlag]=useState(false)
+  const [fdi,setFdi]=useState('')
+  const [box,setBox]=useState<Box | null>(null)
   const [feedback,setFeedback]=useState<Feedback>()
   const [reelFeedback,setReelFeedback]=useState<Feedback>()
   const [reel,setReel]=useState(exam.reel_url ?? '')
   const [building,setBuilding]=useState(false)
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
-  const [tab,setTab]=useState<'review' | 'patient' | 'xr'>('review')
+  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr'>('review')
   const reviews=exam.reviews ?? []
   const confirmed=reviews.filter(item=>item.decision==='confirmed')
   const selectedReview=reviews.find(item=>item.id===selected?.id)
@@ -235,9 +286,11 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
   useEffect(()=>{
     if (!selected) return
     const saved=reviews.find(item=>item.id===selected.id)
-    setLabel(saved?.label ?? selected.label)
+    setLabel(saved?.label ?? selected.label.replace(/^FDI \d{2} · /,''))
     setNote(saved?.note ?? '')
     setFlag(saved?.flagged ?? false)
+    setFdi(saved?.fdi_number ?? '')
+    setBox(saved?.box ?? null)
   },[selected, exam.reviews])
   function seek(seconds: number) {
     const at=Math.min(Math.max(0,seconds),Math.max(0,report.video.duration-.001))
@@ -249,15 +302,19 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
   function chooseFinding(item: Finding) { setSelected(item); seek(item.time); setFeedback(undefined) }
   function manual(seconds: number) {
     const at=Math.min(seconds,Math.max(0,report.video.duration-.001))
-    setSelected(null); setManualTime(at); setLabel(''); setNote(''); setFlag(false); setFeedback(undefined)
+    setSelected(null); setManualTime(at); setLabel(''); setNote(''); setFlag(false); setFdi(''); setBox(null); setFeedback(undefined)
     seek(at)
   }
   async function save(decision: Review['decision']) {
     if (saving) return
+    if (decision==='confirmed' && ((fdi && !/^[1-4][1-8]$/.test(fdi)) ||
+        (box && (box[0]>=box[2] || box[1]>=box[3])))) {
+      setFeedback({text:'Check the FDI number and box dimensions.', error:true});return
+    }
     setSaving(true); setFeedback(undefined)
     try {
       const saved=await send<Review>(path(exam.id,'/reviews'), {time: Math.min(targetTime,report.video.duration-.001),
-        finding_id:selected?.id ?? null,label:label.trim(),note:note.trim(),flagged:flag,decision})
+        finding_id:selected?.id ?? null,label:label.trim(),note:note.trim(),flagged:flag,fdi_number:fdi || null,box,decision})
       await refresh()
       setFeedback({text:decision==='confirmed'?`Bookmark saved at ${clock(saved.time, true)}.`:'AI suggestion dismissed.'})
     } catch(e) { setFeedback({text:message(e), error:true}) }
@@ -284,10 +341,12 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
     </header>
     <div className="workspace-tabs" aria-label="Examination views">
       <button className={tab==='review'?'active':''} aria-pressed={tab==='review'} onClick={()=>setTab('review')}><ScanLine size={16}/> Review video</button>
+      <button className={tab==='teeth'?'active':''} aria-pressed={tab==='teeth'} onClick={()=>setTab('teeth')}>Tooth chart</button>
       <button className={tab==='patient'?'active':''} aria-pressed={tab==='patient'} onClick={()=>setTab('patient')}><Play size={16}/> Patient view</button>
       <button className={tab==='xr'?'active':''} aria-pressed={tab==='xr'} onClick={()=>setTab('xr')}><Glasses size={17}/> XR preview</button>
     </div>
-    {tab==='xr' ? <XR exam={exam} refresh={refresh}/> : tab==='patient' ?
+    {tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
+      <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}}/> : tab==='patient' ?
       <PatientView exam={exam} moments={confirmed} reel={reel}/> : <div className="review-grid">
       <div className="review-main">
         <section className="panel player-panel">
@@ -369,6 +428,12 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
             {!selected && <small>Bookmark at {clock(targetTime, true)}</small>}
             <label className="field">Bookmark label<input value={label} onChange={e=>setLabel(e.target.value)}
               disabled={saving} maxLength={100} placeholder="Optional"/></label>
+            <details className="correction-options"><summary>FDI number and region</summary>
+              <label className="field">Confirmed FDI number<input value={fdi} inputMode="numeric" maxLength={2}
+                placeholder={selected?.fdi_number ?? 'Optional'} onChange={e=>setFdi(e.target.value.replace(/\D/g,''))} disabled={saving}/></label>
+              <RegionEditor key={selected?.id ?? 'manual'} src={path(exam.id,`/still.jpg?time=${Math.min(targetTime,report.video.duration-.001)}`)}
+                value={box ?? (selected?.box?.map((value,index)=>value / (index % 2 ? report.video.height : report.video.width)) as Box | undefined) ?? null} change={setBox}/>
+            </details>
             <label className="field">Note<textarea value={note} onChange={e=>setNote(e.target.value)}
               disabled={saving} rows={2} maxLength={500} placeholder="Optional"/></label>
             <label className="toggle"><input type="checkbox" checked={flag} disabled={saving} onChange={e=>setFlag(e.target.checked)}/><span>Flag for review</span></label>
@@ -400,12 +465,18 @@ function ExamReview({ exam, refresh }: { exam: Exam; refresh: () => Promise<void
             <a className="download-link" href={media(exam.id,'timeline.jsonl')+'?download=true'}><ArrowDownToLine size={15}/> Download frame annotations</a>
           </div>
         </section>
+        <FullVideoExport exam={exam} request={async options=>{
+          const result=await send<{url:string}>(path(exam.id,'/video-export'),options)
+          return result.url+'?v='+Date.now()
+        }}/>
         <details className="panel limits"><summary>Analysis details</summary>
           <p>{profiles.find(item=>item.id===report.profile)?.name ?? report.profile} · {report.device.toUpperCase()} · {report.stats.detection_frames} detection passes</p>
           <ActivityChart report={report}/>
+          <FrameAnalysis exam={exam}/>
           <p>Stable FDI suggestions in {report.stats.numbered_frames} frames.</p>
           <p>{report.cavity_review?`Possible cavity flags in ${report.stats.cavity_frames} frames.`:'Cavity flags off.'}</p>
           <ul>{report.limitations.map(item=><li key={item}>{item}</li>)}</ul>
+          <button className="subtle compact-action delete-exam" onClick={()=>void remove()}>Delete examination</button>
         </details>
       </aside>
     </div>}
@@ -434,7 +505,7 @@ function App() {
         if(!active)return
         setExam(result);setError('')
         setExams(rows=>rows.map(row=>row.id===result.id?{...row,state:result.state}:row))
-        if(result.state==='queued'||result.state==='running')timer=setTimeout(poll,1250)
+        if(result.state==='queued'||result.state==='running'||result.state==='canceling')timer=setTimeout(poll,1250)
       }catch(e){ if(active){setError(message(e));timer=setTimeout(poll,3000)} }
     }
     void poll()
@@ -458,6 +529,22 @@ function App() {
       setPollVersion(version=>version+1)
     } catch(e){setError(message(e))}
   }
+  async function cancel() {
+    if (!exam) return
+    try {setExam(await send<Exam>(path(exam.id,'/cancel'),{}));setPollVersion(v=>v+1)}
+    catch(e) {setError(message(e))}
+  }
+  async function remove() {
+    if (!exam || !window.confirm('Delete this examination, its video, bookmarks, and exports from this Mac?')) return
+    try {
+      const response=await fetch(path(exam.id),{method:'DELETE'})
+      if (!response.ok) throw new Error('Could not delete the examination. Try again.')
+      setExam(undefined);setId(null)
+      const items=await list()
+      setId(items[0]?.id ?? null)
+    } catch(e) {setError(message(e))}
+  }
+  const stopped=exam?.state==='failed'||exam?.state==='cancelled'
   return <div className="app-shell">
     <nav className="sidebar" aria-label="Examination workspace">
       <button className="brand" onClick={()=>setUploading(false)}><span className="brand-icon"><ScanLine size={23}/></span><span>DentiLens <b>XR</b><small>Examination workspace</small></span></button>
@@ -473,13 +560,15 @@ function App() {
     <main>
       {error && <div role="alert" className="error page-error">{error}</div>}
       {uploading ? <UploadScreen back={()=>setUploading(false)} submit={created}/> :
-        exam?.state==='ready' && exam.report ? <ExamReview key={exam.id} exam={exam} refresh={refresh}/> :
+        exam?.state==='ready' && exam.report ? <ExamReview key={exam.id} exam={exam} refresh={refresh} remove={remove}/> :
         exam ? <div className="processing panel">
-          <h1>{exam.state==='failed'?'Analysis failed':exam.state==='queued'?'Analysis queued':'Analyzing video'}</h1><p>{exam.title}</p>
+          <h1>{stopped?exam.stage:exam.state==='queued'?'Analysis queued':exam.state==='canceling'?'Stopping analysis':'Analyzing video'}</h1><p>{exam.title}</p>
           <MediaMetrics info={exam.metadata} bytes={exam.bytes}/>
-          {exam.state==='failed' ? <><div className="error"><CircleAlert size={16}/> {exam.error}</div><button className="primary" onClick={()=>void retry()}>Retry analysis</button></>
+          {stopped ? <>{exam.error && <div className="error"><CircleAlert size={16}/> {exam.error}</div>}<div className="actions"><button className="primary" onClick={()=>void retry()}>Retry analysis</button>
+              <button className="subtle" onClick={()=>void remove()}>Delete examination</button></div></>
             : <><div className="progress-track" role="progressbar" aria-label="Analysis progress" aria-valuenow={Math.round(exam.progress*100)}><span style={{width:`${exam.progress*100}%`}}/></div>
               <div className="progress-label"><span><LoaderCircle size={16} className="spin"/> {exam.state==='queued'?'Waiting to start':exam.stage}</span><strong>{Math.round(exam.progress*100)}%</strong></div>
+              <button className="subtle stop-analysis" onClick={()=>void cancel()} disabled={exam.state==='canceling'}>Stop analysis</button>
               <video className="processing-preview" src={path(exam.id,'/preview')} controls playsInline preload="metadata"
                 aria-label="Uploaded recording preview"/></>}
         </div> : loading || id ? <p role="status" className="quiet">Loading examinations…</p> :

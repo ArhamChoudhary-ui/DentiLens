@@ -1,0 +1,167 @@
+{
+  "device": "arm64 CPU",
+  "model_preloaded": true,
+  "eligible_frame_labels_available": false,
+  "braces_baseline_frames": 675,
+  "braces_baseline_overlays": 291,
+  "measurements": [
+    {
+      "video": {
+        "fps": 25.0,
+        "frames": 675,
+        "width": 1280,
+        "height": 674,
+        "duration": 27.0
+      },
+      "stats": {
+        "frames_decoded": 675,
+        "detection_frames": 57,
+        "annotated_frames": 398,
+        "tracked_frames": 364,
+        "numbered_frames": 68,
+        "cavity_frames": 0,
+        "individual_tooth_frames": 302,
+        "tracking_loss_frames": 2
+      },
+      "frame_reasons": {
+        "no_accepted_detection": 19,
+        "between_detection_passes": 253,
+        "overlay": 398,
+        "tracking_lost": 1,
+        "region_below_search_threshold": 4
+      },
+      "performance": {
+        "average_detection_seconds": 2.302,
+        "total_seconds": 135.96,
+        "frames_per_second": 4.96
+      },
+      "source": "braces",
+      "profile": "detailed"
+    },
+    {
+      "video": {
+        "fps": 30.0,
+        "frames": 303,
+        "width": 720,
+        "height": 1280,
+        "duration": 10.1
+      },
+      "stats": {
+        "frames_decoded": 303,
+        "detection_frames": 6,
+        "annotated_frames": 60,
+        "tracked_frames": 59,
+        "numbered_frames": 0,
+        "cavity_frames": 0,
+        "individual_tooth_frames": 0,
+        "tracking_loss_frames": 0
+      },
+      "frame_reasons": {
+        "no_accepted_detection": 4,
+        "between_detection_passes": 238,
+        "region_below_search_threshold": 1,
+        "overlay": 60
+      },
+      "performance": {
+        "average_detection_seconds": 2.557,
+        "total_seconds": 17.86,
+        "frames_per_second": 16.97
+      },
+      "source": "33337556",
+      "profile": "fast"
+    },
+    {
+      "video": {
+        "fps": 25.0,
+        "frames": 297,
+        "width": 1280,
+        "height": 720,
+        "duration": 11.88
+      },
+      "stats": {
+        "frames_decoded": 297,
+        "detection_frames": 6,
+        "annotated_frames": 0,
+        "tracked_frames": 0,
+        "numbered_frames": 0,
+        "cavity_frames": 0,
+        "individual_tooth_frames": 0,
+        "tracking_loss_frames": 0
+      },
+      "frame_reasons": {
+        "region_below_search_threshold": 6,
+        "between_detection_passes": 291
+      },
+      "performance": {
+        "average_detection_seconds": 2.443,
+        "total_seconds": 16.54,
+        "frames_per_second": 17.96
+      },
+      "source": "4490363",
+      "profile": "fast"
+    },
+    {
+      "video": {
+        "fps": 29.97003,
+        "frames": 455,
+        "width": 1280,
+        "height": 720,
+        "duration": 15.181833318151499
+      },
+      "stats": {
+        "frames_decoded": 455,
+        "detection_frames": 8,
+        "annotated_frames": 0,
+        "tracked_frames": 0,
+        "numbered_frames": 0,
+        "cavity_frames": 0,
+        "individual_tooth_frames": 0,
+        "tracking_loss_frames": 0
+      },
+      "frame_reasons": {
+        "region_below_search_threshold": 6,
+        "between_detection_passes": 447,
+        "no_accepted_detection": 2
+      },
+      "performance": {
+        "average_detection_seconds": 2.623,
+        "total_seconds": 24.04,
+        "frames_per_second": 18.93
+      },
+      "source": "5099636",
+      "profile": "fast"
+    },
+    {
+      "video": {
+        "fps": 25.0,
+        "frames": 1054,
+        "width": 1280,
+        "height": 676,
+        "duration": 42.16
+      },
+      "stats": {
+        "frames_decoded": 1054,
+        "detection_frames": 25,
+        "annotated_frames": 509,
+        "tracked_frames": 495,
+        "numbered_frames": 211,
+        "cavity_frames": 0,
+        "individual_tooth_frames": 459,
+        "tracking_loss_frames": 9
+      },
+      "frame_reasons": {
+        "no_accepted_detection": 8,
+        "between_detection_passes": 534,
+        "overlay": 509,
+        "region_below_search_threshold": 3
+      },
+      "performance": {
+        "average_detection_seconds": 2.977,
+        "total_seconds": 86.71,
+        "frames_per_second": 12.16
+      },
+      "source": "6502766",
+      "profile": "fast"
+    }
+  ]
+}

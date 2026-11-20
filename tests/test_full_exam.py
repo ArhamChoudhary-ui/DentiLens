@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from threading import Event
 from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
@@ -69,6 +70,8 @@ def test_examination_workflow(examination_video, tmp_path):
         frames = [json.loads(line) for line in timeline]
         assert [entry['frame'] for entry in frames] == list(range(30))
         assert all(not entry['annotations'] for entry in frames[20:])
+        assert sum(report['frame_reasons'].values()) == 30
+        assert all('detection_id' in row for frame in frames for row in frame['annotations'])
         media_url = url + '/media/annotated.mp4'
         headers = client.head(media_url)
         assert headers.status_code == 200 and headers.headers['content-type'] == 'video/mp4'
@@ -87,8 +90,21 @@ def test_examination_workflow(examination_video, tmp_path):
             assert archive.namelist() == [item['image'] for item in report['findings']]
         assert client.post(url + '/reviews', json={'time': 3, 'label': 'Outside recording'}).status_code == 422
         confirmed = client.post(url + '/reviews', json=dict(time=0, finding_id=finding['id'],
-                                label='Reviewed upper central incisor', note='Demo note')).json()
+                                label='Reviewed upper central incisor', note='Demo note', fdi_number='21',
+                                box=[.1,.2,.7,.6])).json()
         assert confirmed['time'] == finding['time']
+        assert confirmed['original_ai']['label'] == finding['label']
+        assert client.post(url + '/reviews', json={'time': 0, 'fdi_number': '99'}).status_code == 422
+        assert client.get(url + '/still.jpg', params={'bookmark': confirmed['id']}).headers['content-type'] == 'image/jpeg'
+        reviewed = client.post(url + '/video-export', json={'version': 'confirmed'})
+        assert reviewed.status_code == 200, reviewed.text
+        assert client.get(reviewed.json()['url'], headers={'Range':'bytes=0-63'}).status_code == 206
+        corrected = storage / exam['id'] / 'confirmed-export.mp4'
+        assert video_info(corrected) == video_info(output)
+        reviewed_streams = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), '-hide_banner', '-i', str(corrected)],
+                                          capture_output=True, text=True).stderr
+        assert 'Audio: aac' in reviewed_streams
+        assert client.get(url + '/export').json()['review_history'][0]['fdi_number'] == '21'
         manual = client.post(url + '/reviews', json=dict(time=2.2, label='XR bookmark')).json()
         reel = client.post(url + '/reel', json={'bookmarks': [confirmed['id'], manual['id']]})
         assert reel.status_code == 200, reel.text
@@ -104,3 +120,35 @@ def test_examination_workflow(examination_video, tmp_path):
     with TestClient(create_app(storage, processor, serve_frontend=False)) as restarted:
         assert restarted.get(url).json()['state'] == 'ready'
         assert restarted.get(url).json()['reviews'][0]['label'] == 'XR bookmark'
+
+
+def test_cancelled_analysis_can_be_retried(examination_video, tmp_path):
+    started, release = Event(), Event()
+
+    def blocked(source, destination, profile, device, cavities, progress):
+        started.set()
+        release.wait(4)
+        progress(.25, 'Checking cancellation')
+        return processor(source, destination, profile, device, cavities, progress)
+
+    with TestClient(create_app(tmp_path / 'cancel', blocked, serve_frontend=False)) as client:
+        with examination_video.open('rb') as stream:
+            item = client.post('/api/exams', data={'device': 'cpu'},
+                               files={'video': ('examination.mp4', stream, 'video/mp4')}).json()
+        assert started.wait(4)
+        url = '/api/exams/' + item['id']
+        try:
+            assert client.post(url + '/cancel').json()['state'] == 'canceling'
+        finally:
+            release.set()
+        for _ in range(100):
+            if client.get(url).json()['state'] == 'cancelled':
+                break
+            time.sleep(.05)
+        assert client.get(url).json()['state'] == 'cancelled'
+        assert client.post(url + '/retry').status_code == 202
+        for _ in range(100):
+            if client.get(url).json()['state'] == 'ready':
+                break
+            time.sleep(.05)
+        assert client.get(url).json()['state'] == 'ready'

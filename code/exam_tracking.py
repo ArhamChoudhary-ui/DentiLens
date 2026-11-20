@@ -17,16 +17,17 @@ class Identity:
         if row.get('identity_status') == 'conflicting':
             self.votes.clear()
         else:
-            self.votes.append((row.get('tooth_type'), row.get('fdi_number'), row['confidence']))
+            self.votes.append((row.get('tooth_type'), row.get('fdi_number'), row.get('type_score', row['confidence']), row.get('number_score', row['confidence'])))
 
     def label(self):
         types, numbers = Counter(), Counter()
-        for kind, number, confidence in self.votes:
+        for kind, number, type_score, number_score in self.votes:
             if kind:
-                types[kind] += confidence
-            if number and confidence >= .4:
+                types[kind] += type_score
+            if number and number_score >= .4:
                 numbers[number] += 1
-        kind = types.most_common(1)[0][0] if types else None
+        winner = types.most_common(1)
+        kind = winner[0][0] if winner and winner[0][1] >= .60 * sum(types.values()) else None
         if numbers:
             number, hits = numbers.most_common(1)[0]
             if hits >= 2 and hits / sum(numbers.values()) >= .67 and kind == TOOTH_TYPES[int(number[1]) - 1]:
@@ -133,5 +134,13 @@ def bridge(previous, current, rows):
         moved = [x1 + dx, y1 + dy, x2 + dx, y2 + dy]
         if not (0 <= moved[0] < moved[2] <= width and 0 <= moved[1] < moved[3] <= height):
             continue
-        propagated.append({**row, 'box': [float(value) for value in moved]})
+        # Reject large changes in local appearance even when nearby features survive.
+        x, y, right, bottom = map(round, moved)
+        a = cv2.resize(previous[round(y1):round(y2), round(x1):round(x2)], (12, 12))
+        b = cv2.resize(current[y:bottom, x:right], (12, 12))
+        similarity = cv2.matchTemplate(b, a, cv2.TM_CCOEFF_NORMED).item()
+        if b.std() < 3 or similarity < .55:
+            continue
+        propagated.append({**row, 'box': [float(value) for value in moved],
+                           'flow_score': round(float(similarity), 3)})
     return propagated

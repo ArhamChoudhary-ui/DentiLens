@@ -38,6 +38,39 @@ saves the active timestamp. Try the command field or the microphone when your
 browser supports on-device speech recognition in English. The prototype uses
 prerecorded footage and saves the same bookmarks as the review workspace.
 
+### Review corrections and export
+
+- Open **FDI number and region** to confirm a permanent FDI number or draw a
+  box on the original frame. The report records both the previous AI
+  suggestion and the review history.
+- Open **Tooth chart** to browse permanent teeth in patient orientation.
+  A confirmed bookmark appears as a confirmed tooth only if it has a saved
+  FDI number.
+- In **Export full video**, choose suggestions or confirmed bookmarks.
+  Standard, minimal and detailed overlays all preserve the playback timeline
+  and audio stream. Corrections follow a linked individual tooth track. A
+  manually drawn box applies at its bookmark frame.
+- In **Patient view**, select a confirmed bookmark and choose a second approved
+  moment to compare. XR preview supports typed navigation, speech where the
+  browser supports local recognition, and a note for the next bookmark.
+- Use **Stop analysis** to stop at the next progress checkpoint. Use
+  **Delete examination** to remove its local footage, notes and outputs.
+
+The [enhancement audit](reference/enhancement-audit.md) records the original
+pipeline. The [video measurements](reference/enhancement-validation.json)
+cover five local clips. Frame reasons describe what the pipeline observed.
+Independent labels are needed to measure eligible-frame coverage.
+
+To measure eligibility from independently annotated footage, create a JSON
+array with one object per normalized frame in order. A record can look like
+`{"frame":0,"visibility":"partially_visible","eligible":true}`. Supported
+visibility values are `clear`, `partially_visible`, `absent`, `occluded`,
+`blurred`, `poor_lighting`, `camera_motion`, and `uncertain`.
+
+```bash
+python scripts/evaluate_frame_coverage.py /path/to/timeline.jsonl /path/to/visibility.json
+```
+
 ### Install on a fresh checkout
 
 Use Python 3.11 and Node.js 22. The app prefers PyTorch MPS when available and

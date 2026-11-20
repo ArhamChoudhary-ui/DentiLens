@@ -2,9 +2,11 @@
 from collections import Counter
 import json
 import math
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
+from time import perf_counter
 
 import cv2
 import imageio_ffmpeg
@@ -51,9 +53,13 @@ def safe_text(text, limit=76):
     return text.replace('·', '|').encode('ascii', 'replace').decode()[:limit]
 
 
-def stamp(frame, timestamp, rows):
+def stamp(frame, timestamp, rows, options=None):
     """Use short numbered markers and a label rail so neighboring text stays readable."""
     height, width = frame.shape[:2]
+    options = options or {}
+    show_text = options.get('labels', True) or options.get('fdi', False) or options.get('scores', False) or options.get('track_ids', False)
+    show_time = options.get('timestamp', True)
+    legend = 'Confirmed bookmarks' if options.get('version') == 'confirmed' else 'AI suggestions'
     ui_scale = min(1.6, max(.55, width / 750))
     columns = 2 if width >= 360 else 1
     header_height = round(23 * ui_scale)
@@ -61,12 +67,12 @@ def stamp(frame, timestamp, rows):
     padding = round(8 * ui_scale)
     rows_fit = min(4, max(0, (height // 3 - header_height) // line_height))
     chosen = sorted(rows, key=lambda row: (row['category'] != 'cavity_candidate',
-                                            row['category'] == 'tooth_region', -row['confidence']))[:columns * rows_fit]
-    panel_height = min(height, header_height + line_height * math.ceil(len(chosen) / columns))
+                                            row['category'] == 'tooth_region', -row.get('confidence', 0)))[:columns * rows_fit]
+    panel_height = min(height, header_height + line_height * math.ceil(len(chosen) / columns) * show_text)
     top = height - panel_height
     cv2.rectangle(frame, (0, top), (width, height), (23, 25, 25), -1)
     stroke = 2 if ui_scale >= 1.2 else 1
-    cv2.putText(frame, f'AI suggestions | {timestamp:.2f}s', (padding, top + header_height - padding),
+    cv2.putText(frame, f'{legend} | {timestamp:.2f}s' if show_time else legend, (padding, top + header_height - padding),
                 FONT, .44 * ui_scale, (239, 244, 242), stroke, cv2.LINE_AA)
     placed = []
     marker_size = round(16 * ui_scale)
@@ -74,7 +80,10 @@ def stamp(frame, timestamp, rows):
         cavity = row['category'] == 'cavity_candidate'
         color = (85, 191, 255) if cavity else (126, 223, 178)
         x1, y1, x2, y2 = map(round, row['box'])
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, stroke + 1)
+        if options.get('boxes', True):
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, stroke + 1)
+        if not show_text:
+            continue
         anchor_x = max(0, min(x1, width - marker_size))
         y = max(1, min(y1 - marker_size - 1, top - marker_size - 1))
         for previous_x, previous_y in placed:
@@ -89,7 +98,17 @@ def stamp(frame, timestamp, rows):
                                     y + (marker_size + number_height) // 2),
                     FONT, number_scale, (22, 26, 26), 1, cv2.LINE_AA)
         line, col = divmod(index - 1, columns)
-        text = safe_text(f"{index}. {row['label']}")
+        label = row['label']
+        if options and not options.get('fdi', True) and label.startswith('FDI ') and ' · ' in label:
+            label = label.split(' · ', 1)[1]
+        parts = [label] if options.get('labels', True) else []
+        if options.get('fdi', False) and row.get('fdi_number') and not (parts and label.startswith('FDI ')):
+            parts.insert(0, f"FDI {row['fdi_number']}")
+        if options.get('scores', False) and row.get('review_status') != 'confirmed' and row.get('confidence') is not None:
+            parts.append(f"{row['confidence']:.0%}")
+        if options.get('track_ids', False) and row.get('track_id'):
+            parts.append(row['track_id'])
+        text = safe_text(f"{index}. " + ' · '.join(parts))
         label_scale = .47 * ui_scale
         text_width = cv2.getTextSize(text, FONT, label_scale, stroke)[0][0]
         label_scale *= min(1, (width / columns - 2 * padding) / max(1, text_width))
@@ -105,13 +124,15 @@ def local_predictor(models, device, cavities):
     predictor = CombinedReview(models, models / 'grounded', device=device)
 
     def detect(frame):
-        rows, _ = predictor.predict(frame, include_region=True, include_cavities=cavities)
-        return rows
+        diagnostics = {}
+        rows, _ = predictor.predict(frame, include_region=True, include_cavities=cavities, diagnostics=diagnostics)
+        return rows, diagnostics
 
     return detect
 
 
 def process_exam(source, destination, profile, device, cavities, progress, detect=None):
+    started = perf_counter()
     destination, source = Path(destination), Path(source)
     original = video_info(source)
     if original['duration'] > 600:
@@ -128,7 +149,11 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
             # OpenCV may only estimate the duration of a variable-frame-rate file.
             media['source_timing_note'] = 'The source was converted to constant frame rate for tracking.'
         progress(.12, 'Loading tooth models')
+        model_started = perf_counter()
         detect = detect or local_predictor(Path(__file__).resolve().parents[1] / 'models', device, cavities)
+        model_seconds = perf_counter() - model_started
+        inference_seconds = 0
+        reasons = Counter()
         tracker = ExamTracker(fps)
         cadence = max(1, round(PROFILES[profile] * fps))
         refresh_gap = max(1, round(.33 * fps))
@@ -154,15 +179,26 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
                     if cut:
                         tracker.reset()
                     propagated = bridge(previous, gray, tracker.active) if previous is not None and not cut else []
-                    needs_refresh = needs_refresh or bool(tracker.active and not propagated)
+                    lost = len(propagated) < len(tracker.active)
+                    needs_refresh = needs_refresh or lost
                     refresh = (index - last_detection >= cadence or cut
                                or (needs_refresh and index - last_detection >= refresh_gap))
                     flags = []
+                    diagnostics = {}
                     if refresh:
                         input_rows = []
-                        for row in detect(frame):
-                            coordinates = [float(value * extent) for value, extent in
-                                           zip(row['bbox_xyxy_normalized'], [width, height] * 2)]
+                        inference_started = perf_counter()
+                        predicted = detect(frame)
+                        inference_seconds += perf_counter() - inference_started
+                        predictions, diagnostics = predicted if isinstance(predicted, tuple) else (predicted, {})
+                        for row in predictions:
+                            bounds = row['bbox_xyxy_normalized']
+                            if len(bounds) != 4 or not all(math.isfinite(value) for value in bounds):
+                                continue
+                            coordinates = [float(min(1, max(0, value)) * extent) for value, extent in
+                                           zip(bounds, [width, height] * 2)]
+                            if coordinates[2] - coordinates[0] < 2 or coordinates[3] - coordinates[1] < 2:
+                                continue
                             if row['category'] == 'cavity_candidate':
                                 flags.append({**row, 'label': 'Possible cavity', 'box': coordinates, 'origin': 'detected'})
                             else:
@@ -178,6 +214,21 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
                     stats['annotated_frames'] += bool(rows)
                     stats['tracked_frames'] += any(r['origin'] == 'tracked' for r in rows)
                     stats['numbered_frames'] += any(r.get('fdi_number') for r in rows)
+                    stats['individual_tooth_frames'] += any(r['category'] == 'tooth_identity' for r in rows)
+                    stats['tracking_loss_frames'] += lost
+                    if rows:
+                        reason = 'overlay'
+                    elif refresh and diagnostics.get('region_score', 1) < .38:
+                        reason = 'region_below_search_threshold'
+                    elif refresh and not input_rows:
+                        reason = 'no_accepted_detection'
+                    elif refresh:
+                        reason = 'association_rejected'
+                    elif needs_refresh:
+                        reason = 'tracking_lost'
+                    else:
+                        reason = 'between_detection_passes'
+                    reasons[reason] += 1
                     stats['cavity_frames'] += bool(flags)
                     for row in rows:
                         key = row.get('track_id')
@@ -191,14 +242,24 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
                                              tooth_type=row.get('tooth_type'))
                         if row['origin'] == 'detected':
                             favorite = key or f'cavity-{int(now / 3)}'
-                            rank = (2 if row.get('fdi_number') else 1 if row.get('tooth_type') else 0) + row['confidence']
+                            x1, y1, x2, y2 = map(round, row['box'])
+                            crop = gray[y1:y2, x1:x2]
+                            sharpness = cv2.Laplacian(cv2.resize(crop, (48, 48)), cv2.CV_32F).var()
+                            light = 1 - min(1, abs(float(crop.mean()) - 135) / 135)
+                            clarity = round(.8 * min(1, math.log1p(float(sharpness)) / 8) + .2 * light, 3)
+                            rank = (2 if row.get('fdi_number') else 1 if row.get('tooth_type') else 0) + row['confidence'] + .5 * clarity
                             if rank > favorites.get(favorite, {}).get('rank', -1):
                                 favorites[favorite] = dict(rank=rank, frame=index, time=now,
                                     track_id=key, label=row['label'], category=row['category'],
-                                    confidence=row['confidence'], box=row['box'])
-                    compact = [{k: row[k] for k in ('label', 'box', 'category', 'origin', 'track_id', 'fdi_number', 'confidence')
-                                if k in row} for row in rows]
-                    timeline.write(json.dumps(dict(frame=index, time=now, annotations=compact), separators=(',', ':'))+'\n')
+                                    confidence=row['confidence'], box=row['box'], clarity=clarity,
+                                    reason='Representative detection', tooth_type=row.get('tooth_type'),
+                                    fdi_number=row.get('fdi_number'))
+                    compact = [{**{k: row[k] for k in ('label', 'box', 'category', 'origin', 'track_id', 'fdi_number',
+                                                       'confidence', 'tooth_type', 'type_score', 'number_score', 'flow_score')
+                                   if k in row}, 'detection_id': f'{index}-{i}', 'review_status': 'suggested'}
+                               for i, row in enumerate(rows)]
+                    timeline.write(json.dumps(dict(frame=index, time=now, annotations=compact, reason=reason,
+                                                   diagnostics=diagnostics), separators=(',', ':'))+'\n')
                     writer.send(stamp(frame, now, rows))
                     previous = gray
                     if index % 15 == 0 or index + 1 == frame_count:
@@ -235,7 +296,11 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
         finally:
             cap.release()
         report = dict(input=original, video=media, device=device, profile=profile, cavity_review=cavities,
-                      stats=dict(stats), tracks=sorted(tracks.values(), key=lambda item: item['start']),
+                      stats=dict(stats), frame_reasons=dict(reasons), eligible_frames=None,
+                      performance=dict(model_load_seconds=round(model_seconds, 2),
+                                       average_detection_seconds=round(inference_seconds / max(1, stats['detection_frames']), 3),
+                                       total_seconds=round(perf_counter() - started, 2)),
+                      tracks=sorted(tracks.values(), key=lambda item: item['start']),
                       findings=[item for item in photos if 'id' in item],
                       limitations=['Labels are AI suggestions. FDI requires repeated consistent detections.',
                                    'Frames without reliable detections or tracks retain the full footage without boxes.',
@@ -243,6 +308,9 @@ def process_exam(source, destination, profile, device, cavities, progress, detec
                                    'Possible cavity flags are for research review.'],
                       tracking='ByteTrack association + forward/backward optical flow')
         (stage / 'report.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+        progress(.98, 'Publishing recording')
+        if (destination / 'images').exists():
+            shutil.rmtree(destination / 'images')
         for filename in ('source.mp4', 'annotated.mp4', 'timeline.jsonl', 'images', 'report.json'):
             (stage / filename).replace(destination / filename)
         return report

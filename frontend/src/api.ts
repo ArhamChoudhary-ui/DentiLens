@@ -1,4 +1,4 @@
-export type State = 'queued' | 'running' | 'ready' | 'failed'
+export type State = 'queued' | 'running' | 'ready' | 'failed' | 'canceling' | 'cancelled'
 export interface MediaInfo {
   width: number
   height: number
@@ -6,6 +6,7 @@ export interface MediaInfo {
   frames: number
   duration: number
 }
+export type Box = [number, number, number, number]
 export interface Finding {
   id: string
   time: number
@@ -15,6 +16,10 @@ export interface Finding {
   track_id: string | null
   confidence: number
   image: string
+  box?: Box
+  fdi_number?: string | null
+  tooth_type?: string | null
+  clarity?: number
 }
 export interface Track {
   id: string
@@ -39,7 +44,11 @@ export interface Report {
     tracked_frames: number
     numbered_frames: number
     cavity_frames: number
+    individual_tooth_frames?: number
+    tracking_loss_frames?: number
   }
+  frame_reasons?: Record<string, number>
+  performance?: {model_load_seconds: number; average_detection_seconds: number; total_seconds: number}
   tracks: Track[]
   findings: Finding[]
   limitations: string[]
@@ -53,6 +62,9 @@ export interface Review {
   note: string
   decision: 'confirmed' | 'dismissed'
   flagged: boolean
+  fdi_number?: string | null
+  box?: Box | null
+  updated?: string
 }
 export interface Exam {
   id: string

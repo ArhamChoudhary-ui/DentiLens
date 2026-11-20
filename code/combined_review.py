@@ -110,27 +110,39 @@ class CombinedReview:
         self.observation_counts = dict(candidates_before_tooth_filter=0, rejected_outside_tooth_regions=0,
                                        conflicting_tooth_identities=0)
 
-    def predict(self, source_frame, *, include_region=False, include_cavities=True):
+    def predict(self, source_frame, *, include_region=False, include_cavities=True, diagnostics=None):
         height, width = source_frame.shape[:2]
         scale = min(1.0, 960 / max(width, height))
         frame = cv2.resize(source_frame, (max(1, round(width * scale)), max(1, round(height * scale))))
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        regions = self.locator.detect(image, 'teeth.', .50)
+        regions = self.locator.detect(image, 'teeth.', .38 if diagnostics is not None else .50)
+        tooth_candidates = [(box, float(score)) for box, score, label in
+                            zip(regions['boxes'], regions['scores'], regions['text_labels']) if 'teeth' in label.lower()]
+        strongest = max((score for _, score in tooth_candidates), default=0)
+        if diagnostics is not None:
+            diagnostics['region_score'] = round(strongest, 4)
         crop = fdi_crop(image, regions)
         if crop is None:
             return [], frame
         tooth_regions = [box.detach().cpu().tolist() for box, label in
                          zip(regions['boxes'], regions['text_labels']) if 'teeth' in label.lower()]
 
-        numbers, _ = self.number_model.detect_boxes(frame, crop)
+        numbers, number_boxes = self.number_model.detect_boxes(frame, crop)
         types, type_boxes = self.type_model.detect_boxes(frame, crop)
-        types = [row for row, box in zip(types, type_boxes)
-                 if any(overlap_fraction(box, region) >= .50 for region in tooth_regions)]
+
+        def supported(row, box):
+            return ((strongest >= .50 or row['confidence'] >= .45)
+                    and any(overlap_fraction(box, region) >= .50 for region in tooth_regions))
+
+        types = [row for row, box in zip(types, type_boxes) if supported(row, box)]
+        if diagnostics is not None:
+            numbers = [row for row, box in zip(numbers, number_boxes) if supported(row, box)]
+            diagnostics['accepted_identity_boxes'] = len(numbers) + len(types)
         teeth = combine_identities(numbers, types)
         self.observation_counts['conflicting_tooth_identities'] += sum(
             row['identity_status'] == 'conflicting' for row in teeth)
 
-        candidates, boxes = self.cavity_model.detect_boxes(frame) if include_cavities else ([], [])
+        candidates, boxes = self.cavity_model.detect_boxes(frame) if include_cavities and strongest >= .50 else ([], [])
         self.observation_counts['candidates_before_tooth_filter'] += len(candidates)
         findings = teeth[:]
         for row, box in zip(candidates, boxes):
@@ -150,7 +162,7 @@ class CombinedReview:
             x1, y1, x2, y2 = [round(value * extent) for value, extent in
                               zip(row['bbox_xyxy_normalized'], [image.width, image.height] * 2)]
             cv2.rectangle(frame, (x1, y1), (x2 - 1, y2 - 1), color, 2)
-        if include_region and not teeth:
+        if include_region and not teeth and strongest >= .50:
             choices = ((box, score) for box, score, label in
                        zip(regions['boxes'], regions['scores'], regions['text_labels']) if 'teeth' in label.lower())
             box, score = max(choices, key=lambda item: float(item[1]))
