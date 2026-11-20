@@ -4,10 +4,13 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+import tempfile
 
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / 'code'))
+from dental_video import export_clips
 RESULTS = ROOT / 'results'
 RUNTIME = ROOT / 'runtime'
 
@@ -102,23 +105,109 @@ with review_tab:
         if report['model']['name'].startswith('DentiLens intraoral'):
             st.warning('Experimental video results. Supplied clips exposed non-tooth false positives; inspect every prediction.')
         left, right = st.columns([1.6, 1])
+        review_dir = selected / 'review'
+        entries = {}
+        for path in sorted(review_dir.glob('*.json')):
+            entries[path.stem] = json.loads(path.read_text())
         with left:
             st.subheader('Timestamped visual review')
-            frames = {}
-            for observation in report['observations']:
-                frames.setdefault(observation['source_frame'], observation)
-            if frames:
-                frame = st.select_slider('Review bookmark', options=list(frames),
-                    format_func=lambda index: f"{frames[index]['timestamp_sec']:.2f} s")
-                observation = frames[frame]
-                st.image(str(selected / observation['evidence']), width='stretch')
-                st.caption('Green outlines mark predicted teeth. Blue outlines mark experimental mirror predictions. Compare with the original video.')
-                if source is not None and source.is_file():
-                    st.video(str(source), start_time=observation['timestamp_sec'])
+            lane = st.radio('Timeline', ['Teeth', 'Instruments', 'Manual bookmarks'], horizontal=True,
+                            key=f'lane-{selected.name}')
+            moments = {}
+            if lane == 'Manual bookmarks':
+                moments = {key: value for key, value in entries.items() if key.startswith('manual-')}
             else:
-                st.info('No tooth regions passed this model’s threshold. This does not establish that teeth are absent.')
+                for index, observation in enumerate(report['observations']):
+                    label = observation['model_label']
+                    if ('mirror' in label) != (lane == 'Instruments'):
+                        continue
+                    moments[f'model-{index}'] = observation
+            timestamp, marker = 0.0, None
+            if moments:
+                marker = st.selectbox('Jump to a moment', list(moments),
+                    format_func=lambda key: f"{moments[key]['timestamp_sec']:.2f} s · "
+                        f"{moments[key].get('model_label', 'Manual bookmark')} · "
+                        f"{entries.get(key, {}).get('decision', 'Unreviewed')}",
+                    key=f'moment-{selected.name}-{lane}')
+                moment = moments[marker]
+                timestamp = moment['timestamp_sec']
+                if 'evidence' in moment:
+                    st.image(str(selected / moment['evidence']), width='stretch')
+                    st.caption('Green outlines show predicted teeth. Blue outlines show candidate mirror heads.')
+            else:
+                st.info('No moments in this lane yet.')
+            source_ready = source is not None and source.is_file()
+            if source_ready:
+                st.video(str(source), start_time=timestamp)
+
+            manual = st.checkbox('Add a bookmark at another time', value=marker is None,
+                                 key=f'manual-{selected.name}-{marker}')
+            current = entries.get(marker, {}) if not manual else {}
+            with st.form(f'review-{selected.name}-{marker}-{manual}'):
+                if manual:
+                    timestamp = st.number_input('Bookmark time in seconds', min_value=0.0,
+                        max_value=float(report['duration_sec']), value=float(timestamp), step=0.1)
+                decision = st.selectbox('Review decision', ['Confirm', 'Dismiss'],
+                                        index=int(current.get('decision') == 'Dismiss'))
+                tooth = st.text_input('Tooth name or FDI number (optional)', value=current.get('tooth', ''),
+                                      placeholder='For example, upper right central incisor or 11')
+                flag = st.checkbox('Flag unusual appearance for dentist review', value=current.get('flag', False))
+                note = st.text_area('Reviewer note', value=current.get('note', ''), max_chars=500)
+                if st.form_submit_button('Save review'):
+                    review_dir.mkdir(exist_ok=True)
+                    key = f'manual-{uuid.uuid4().hex}' if manual else marker
+                    record = dict(timestamp_sec=timestamp, decision=decision, tooth=tooth.strip(),
+                                  flag=flag, note=note.strip(), entered_by='reviewer')
+                    with tempfile.NamedTemporaryFile(mode='w', dir=review_dir, delete=False) as stream:
+                        json.dump(record, stream, indent=2)
+                    Path(stream.name).replace(review_dir / f'{key}.json')
+                    st.rerun()
+            st.caption('Tooth identity and unusual appearance are entered by the reviewer.')
+            if current.get('flag'):
+                st.warning('Reviewer flagged this moment for dentist review.')
+            with st.expander('Simulated XR preview'):
+                st.markdown(f"**{timestamp:.2f} s** · {current.get('tooth') or 'Review bookmark'}")
+                if current.get('flag'):
+                    st.write('Flagged for dentist review')
+                if current.get('note'):
+                    st.text(current['note'])
+                st.caption('On-screen preview of a future glasses display.')
         with right:
             st.subheader('Review highlights')
+            confirmed = sorted((key for key, value in entries.items() if value['decision'] == 'Confirm'),
+                               key=lambda key: entries[key]['timestamp_sec'])
+            if entries:
+                st.download_button('Download reviewer notes',
+                    json.dumps({'video': display_name, 'bookmarks': list(entries.values())}, indent=2),
+                    file_name='dentilens-reviewed-bookmarks.json', mime='application/json')
+            if source_ready and confirmed:
+                chosen = st.multiselect('Moments for reviewed reel', confirmed, default=confirmed,
+                    format_func=lambda key: f"{entries[key]['timestamp_sec']:.2f} s · "
+                                            f"{entries[key]['tooth'] or 'Confirmed moment'}")
+                reel_key = (str(selected), tuple((key, entries[key]['timestamp_sec']) for key in chosen))
+                if st.button('Build reviewed reel', disabled=not chosen):
+                    windows = []
+                    duration = report['duration_sec']
+                    for time in sorted(entries[key]['timestamp_sec'] for key in chosen):
+                        start = min(max(0, time - 1), max(0, duration - 3))
+                        end = min(start + 3, duration)
+                        if windows and start <= windows[-1]['end_sec']:
+                            windows[-1]['end_sec'] = max(windows[-1]['end_sec'], end)
+                        else:
+                            windows.append(dict(start_sec=start, end_sec=end))
+                    try:
+                        with tempfile.TemporaryDirectory() as directory:
+                            target = Path(directory) / 'reviewed.mp4'
+                            export_clips(source, target, windows)
+                            st.session_state['reviewed_reel'] = (reel_key, target.read_bytes())
+                    except (subprocess.SubprocessError, OSError):
+                        st.error('The reviewed reel could not be exported.')
+                reel = st.session_state.get('reviewed_reel')
+                if reel and reel[0] == reel_key:
+                    st.video(reel[1])
+                    st.download_button('Download reviewed reel', reel[1],
+                                       file_name='dentilens-reviewed.mp4', mime='video/mp4')
+
             if (selected / 'highlights.mp4').is_file():
                 st.video(str(selected / 'highlights.mp4'))
                 st.caption('Selected from model observations; not a clinical importance assessment.')
