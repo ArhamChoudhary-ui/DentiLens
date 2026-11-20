@@ -37,9 +37,10 @@ class ToothSegmenter:
             raise ValueError('Detector classes differ from the selected mode')
         self.image_size = metadata['training']['image_size']
         self.provenance = {'detector': metadata}
-        if mode == 'cavity-review':
+        if mode in ('cavity-review', 'tooth-fdi'):
             self.tooth_locator = GroundedBoxDetector(model_directory, device)
             self.provenance.update(self.tooth_locator.provenance)
+        if mode == 'cavity-review':
             self.provenance['cavity_filter'] = {
                 'tooth_prompt': 'teeth.', 'tooth_score_threshold': 0.5, 'minimum_inside_fraction': 0.5}
             self.observation_counts = {'candidates_before_tooth_filter': 0, 'rejected_outside_tooth_regions': 0}
@@ -48,8 +49,11 @@ class ToothSegmenter:
                 'A missing flag cannot rule out decay. Normal-appearance classes are suppressed in the interface.',
                 'Flags must overlap a predicted tooth region. This can suppress true findings when teeth are missed.']
         elif mode == 'tooth-fdi':
+            self.provenance['fdi_crop'] = {
+                'tooth_prompt': 'teeth.', 'tooth_score_threshold': 0.5, 'square_padding': 1.65}
             self.limitations = self.limitations + [
-                'FDI numbers assume standard image orientation. Mirrored footage and partial views can lead to side or jaw errors.']
+                'FDI numbers assume standard image orientation. Mirrored footage and partial views can lead to side or jaw errors.',
+                'Only the highest scoring tooth region is cropped for numbering. A missing crop can hide eligible teeth.']
         elif mode == 'tooth-types':
             self.limitations = self.limitations + [
                 'Tooth types group matching positions across quadrants.']
@@ -68,6 +72,19 @@ class ToothSegmenter:
         origin = (left, max(14, top - 4))
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 3)
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
+
+    def fdi_crop(self, image):
+        regions = self.tooth_locator.detect(image, 'teeth.', 0.5)
+        tooth_boxes = [(float(score), box.detach().cpu().tolist())
+                       for box, score, label in zip(regions['boxes'], regions['scores'], regions['text_labels'])
+                       if 'teeth' in label.lower()]
+        if not tooth_boxes:
+            return None
+        _, (left, top, right, bottom) = max(tooth_boxes, key=lambda item: item[0])
+        side = 1.65 * max(right - left, bottom - top)
+        x, y = (left + right) / 2, (top + bottom) / 2
+        return (max(0, int(x - side / 2)), max(0, int(y - side / 2)),
+                min(image.width, int(x + side / 2)), min(image.height, int(y + side / 2)))
 
     def cavity_candidates(self, image, rows, boxes, frame):
         if not rows:
@@ -95,14 +112,24 @@ class ToothSegmenter:
         scale = min(1.0, 960 / max(width, height))
         frame = cv2.resize(source_frame, (round(width * scale), round(height * scale)))
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        prediction = self.detector.predict(frame, imgsz=self.image_size, conf=self.confidence,
+        x_offset, y_offset = 0, 0
+        detector_input = frame
+        if self.mode == 'tooth-fdi':
+            crop = self.fdi_crop(image)
+            if crop is None:
+                return [], frame
+            x_offset, y_offset, right, bottom = crop
+            if right <= x_offset or bottom <= y_offset:
+                return [], frame
+            detector_input = frame[y_offset:bottom, x_offset:right]
+        prediction = self.detector.predict(detector_input, imgsz=self.image_size, conf=self.confidence,
                                           iou=0.45, agnostic_nms=True, max_det=32, device=self.device,
                                           verbose=False)[0]
         boxes, rows = [], []
         for box in prediction.boxes:
             x1, y1, x2, y2 = box.xyxy[0].detach().cpu().tolist()
-            x1, x2 = np.clip([x1, x2], 0, image.width).tolist()
-            y1, y2 = np.clip([y1, y2], 0, image.height).tolist()
+            x1, x2 = np.clip([x1 + x_offset, x2 + x_offset], 0, image.width).tolist()
+            y1, y2 = np.clip([y1 + y_offset, y2 + y_offset], 0, image.height).tolist()
             if x2 <= x1 or y2 <= y1:
                 continue
             class_id = int(box.cls.item())

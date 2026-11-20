@@ -33,7 +33,8 @@ continues to use Grounding DINO with SAM 2.1.
 | Tooth numbers | `tooth-fdi.pt`, `tooth-fdi.json` | DentalMate6v FDI v1, 32 permanent positions |
 | Possible cavity flags | `cavity-review.pt`, `cavity-review.json` | CAV-TEE Research Team, cavity and normal box annotations |
 
-The installer uses the recorded preparation task to select the destination.
+The installer uses the recorded class list to select the destination.
 The tooth type mode also uses the locally installed SAM 2.1 model. The cavity
-mode uses the local Grounding DINO weights to screen out flags outside detected
-tooth regions.
+mode uses local Grounding DINO weights to screen out flags outside detected
+tooth regions. The FDI mode uses those weights to crop a tooth region before
+numbering.

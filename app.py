@@ -43,7 +43,7 @@ with upload_tab:
     for mode, (checkpoint, label, _) in TRAINED_MODES.items():
         if mode in ('tooth-sam2', 'tooth-types') and not sam_ready:
             continue
-        if mode == 'cavity-review' and not dino_ready:
+        if mode in ('tooth-fdi', 'cavity-review') and not dino_ready:
             continue
         if all((ROOT / 'models' / f'{checkpoint}.{extension}').is_file() for extension in ('pt', 'json')):
             available.append((label, mode))
@@ -157,6 +157,8 @@ with review_tab:
                     st.image(str(selected / moment['evidence']), width='stretch')
                     if 'fdi_number' in moment:
                         st.write(f"Suggested FDI {moment['fdi_number']} · {moment['tooth_name']}")
+                    elif report.get('capabilities', {}).get('tooth_type_suggestions'):
+                        st.write(f"Suggested tooth type · {moment['model_label']}")
                     if 'confidence' in moment:
                         st.caption(f"Model score {moment['confidence']:.0%} · verify against the source footage.")
                     if lane == 'Possible cavities':
@@ -169,8 +171,8 @@ with review_tab:
             if source_ready:
                 st.video(str(source), start_time=timestamp)
 
-            manual = st.checkbox('Add a bookmark at another time', value=marker is None,
-                                 key=f'manual-{selected.name}-{marker}')
+            manual = marker is None or st.checkbox('Add a bookmark at another time',
+                                                     key=f'manual-{selected.name}-{marker}')
             current = entries.get(marker, {}) if not manual else {}
             with st.form(f'review-{selected.name}-{marker}-{manual}'):
                 if manual:
@@ -187,6 +189,11 @@ with review_tab:
                     key = f'manual-{uuid.uuid4().hex}' if manual else marker
                     record = dict(timestamp_sec=timestamp, decision=decision, tooth=tooth.strip(),
                                   flag=flag, note=note.strip(), entered_by='reviewer')
+                    if not manual and 'model_label' in moments[marker]:
+                        suggestion = moments[marker]
+                        record['model_suggestion'] = {
+                            field: suggestion[field] for field in ('model_label', 'fdi_number', 'tooth_name', 'confidence')
+                            if field in suggestion}
                     with tempfile.NamedTemporaryFile(mode='w', dir=review_dir, delete=False) as stream:
                         json.dump(record, stream, indent=2)
                     Path(stream.name).replace(review_dir / f'{key}.json')

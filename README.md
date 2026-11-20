@@ -251,7 +251,8 @@ reserve separate source videos for evaluation.
 Select **Tooth type names**, **Tooth numbers**, or **Possible cavity flags** in
 the analysis picker after installing the corresponding local checkpoint. Tooth
 type names appear above predicted contours. FDI mode draws labeled boxes and
-shows the suggested number and tooth name together in the timeline. Use
+shows the suggested number and tooth name together in the timeline. Grounding
+DINO crops around the highest scoring tooth region before FDI prediction. Use
 standard-orientation footage and verify the patient's side and jaw before
 saving a reviewer label. Cavity mode shows orange boxes in the **Possible
 cavities** lane. Candidates must overlap a predicted tooth region, which can
@@ -280,3 +281,20 @@ should not be treated as independent validation datasets. The cavity test
 split includes only five images with cavity annotations. Keep the existing
 text-guided mode as the demo default until improved video performance can be
 demonstrated with annotated footage.
+
+### Recorded demo checks
+
+The measured photo results and video smoke tests are in
+[the evaluation record](reference/new-dental-detector-results.json). The
+eight-type model reached 75.6% box mAP50 on 120 photos. The 32-class FDI
+model reached 65.8% box mAP50 on 120 photos. Cavity-class AP50 was 27.6%
+on the cavity dataset's 38-image test split. These are photo detection
+metrics for the underlying models. The app applies additional processing
+to video and has no measured video accuracy.
+
+In this local checkout, open **tooth-fdi-braces-demo** at 20 seconds for
+FDI 11 and 21 suggestions, or **tooth-types-review-demo** at 14 seconds for
+incisor suggestions. The cavity model initially flagged gloves and a
+mirror on the exam clip. The tooth overlap filter removed all five
+candidates in the rerun. The annotated photo spot check still showed both
+extra flags and missed labeled areas.

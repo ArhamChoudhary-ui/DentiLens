@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 
 
@@ -18,11 +19,13 @@ if __name__ == '__main__':
     digest = hashlib.file_digest(source.open('rb'), 'sha256').hexdigest()
     if digest != provenance['weights_sha256']:
         parser.error('Training checkpoint hash does not match provenance')
-    task = provenance['dataset'].get('task', 'tooth')
-    checkpoint = {'tooth': 'tooth-detector', 'types': 'tooth-types',
-                  'fdi': 'tooth-fdi', 'cavity': 'cavity-review'}.get(task)
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'code'))
+    from dental_modes import TRAINED_MODES
+
+    classes = tuple(provenance['dataset']['output_classes'])
+    checkpoint = next((name for name, _, labels in TRAINED_MODES.values() if labels == classes), None)
     if checkpoint is None:
-        parser.error(f'Unknown detector training task: {task}')
+        parser.error('Checkpoint classes do not match a review mode')
     destination = args.model_directory
     destination.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=destination) as temporary:
