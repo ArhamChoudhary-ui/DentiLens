@@ -9,7 +9,6 @@ College: Vellore Institute of Technology, Vellore
 | Member | Registration number |
 | --- | --- |
 | Arham Choudhary | 25BIT0208 |
-| Aadeesh Sanghi | 25BDS0044 |
 
 DentiLens XR is a dental video review prototype. The intended experience is to
 upload examination footage, identify visible dental regions, create timestamped
