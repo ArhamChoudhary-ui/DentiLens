@@ -49,3 +49,25 @@ def test_predictor_masks_preserve_timestamps_dimensions_and_source(tmp_path):
     assert report['capabilities']['individual_tooth_numbering'] is False
     assert report['model']['name'] == FixtureSegmenter.model_name
     assert 'text_prompt' not in report['model']
+
+
+def test_box_only_cavity_flags_save_evidence_without_sam(tmp_path):
+    class CandidateDetector(FixtureSegmenter):
+        mode = 'cavity-review'
+
+        def predict(self, frame):
+            return [dict(model_class_id=0, model_label='possible cavity',
+                         category='cavity_candidate', confidence=0.75,
+                         bbox_xyxy_normalized=[0.25, 0.25, 0.75, 0.75])], frame
+
+    source, destination = tmp_path / 'candidate.mp4', tmp_path / 'cavity-review'
+    writer = cv2.VideoWriter(str(source), cv2.VideoWriter_fourcc(*'mp4v'), 10, (96, 64))
+    assert writer.isOpened()
+    writer.write(np.zeros((64, 96, 3), dtype=np.uint8))
+    writer.release()
+    report = analyze(source, tmp_path / 'unused.pt', destination, predictor=CandidateDetector())
+    assert report['capabilities']['possible_cavity_flags']
+    mark, = report['observations']
+    assert mark['category'] == 'cavity_candidate'
+    assert 'mask_path' not in mark
+    assert (destination / mark['evidence']).is_file()

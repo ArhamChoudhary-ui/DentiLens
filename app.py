@@ -36,11 +36,14 @@ with upload_tab:
     uploaded = st.file_uploader('Choose a dental examination video', type=['mp4'])
     available = []
     sam_ready = (ROOT / 'models/grounded/sam2/model.safetensors').is_file()
-    if sam_ready and (ROOT / 'models/grounded/dino/model.safetensors').is_file():
+    dino_ready = (ROOT / 'models/grounded/dino/model.safetensors').is_file()
+    if sam_ready and dino_ready:
         available.append(('Text-guided tooth regions + SAM', 'grounded-sam2'))
         available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
     for mode, (checkpoint, label, _) in TRAINED_MODES.items():
         if mode in ('tooth-sam2', 'tooth-types') and not sam_ready:
+            continue
+        if mode == 'cavity-review' and not dino_ready:
             continue
         if all((ROOT / 'models' / f'{checkpoint}.{extension}').is_file() for extension in ('pt', 'json')):
             available.append((label, mode))

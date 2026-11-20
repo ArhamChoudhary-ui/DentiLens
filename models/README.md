@@ -34,4 +34,6 @@ continues to use Grounding DINO with SAM 2.1.
 | Possible cavity flags | `cavity-review.pt`, `cavity-review.json` | CAV-TEE Research Team, cavity and normal box annotations |
 
 The installer uses the recorded preparation task to select the destination.
-The tooth type mode also uses the locally installed SAM 2.1 model.
+The tooth type mode also uses the locally installed SAM 2.1 model. The cavity
+mode uses the local Grounding DINO weights to screen out flags outside detected
+tooth regions.

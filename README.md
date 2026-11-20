@@ -255,8 +255,9 @@ type names appear above predicted contours. FDI mode draws labeled boxes and
 shows the suggested number and tooth name together in the timeline. Use
 standard-orientation footage and verify the patient's side and jaw before
 saving a reviewer label. Cavity mode shows orange boxes in the **Possible
-cavities** lane. These flag areas for review. Absence of a flag does not rule
-out decay. Reviewer confirmations, notes and exports work with all modes.
+cavities** lane. Candidates must overlap a predicted tooth region, which can
+suppress flags when teeth are missed. Review the original footage even when no
+flag appears. Reviewer confirmations, notes and exports work with all modes.
 
 Prepare each ZIP with `scripts/prepare_intraoral.py ARCHIVE OUTPUT` and the
 appropriate option from the table. Use the prepared `OUTPUT/data.yaml` with

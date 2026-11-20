@@ -188,6 +188,8 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
                                 'Masks are independently predicted per sampled frame; temporal tracking is unavailable.',
                                 'Highlight video uses original frames and omits audio.'] + getattr(predictor, 'limitations', []),
                 'review_notice': 'Research prototype. All model observations require professional review.'}
+            if predictor is not None and hasattr(predictor, 'observation_counts'):
+                report['observation_counts'] = predictor.observation_counts
             if highlights:
                 export_clips(video, stage / 'highlights.mp4', highlights)
             write_json(stage / 'report.json', report)
@@ -198,13 +200,13 @@ def analyze(video, weights, output, sample_fps=1.0, confidence=0.35, device='cpu
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Analyze dental video with photo-based or text-grounded segmentation')
+    parser = argparse.ArgumentParser(description='Analyze dental video and save timestamped review evidence')
     parser.add_argument('video', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--weights', type=Path, default=Path(__file__).resolve().parents[1] / 'models/alphadent.pt')
     parser.add_argument('--sample-fps', type=float, default=1.0)
     parser.add_argument('--confidence', type=float,
-                        help='Defaults to 0.50 for text-guided regions or 0.35 for AlphaDent and the experimental tooth detector')
+                        help='Defaults to 0.50 for text-guided and cavity modes, or 0.35 for the other trained modes')
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', *TRAINED_MODES], default='grounded-sam2')
     parser.add_argument('--tooth-weights', type=Path, help='Override the local checkpoint for the selected trained mode')

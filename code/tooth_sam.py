@@ -9,7 +9,7 @@ from PIL import Image
 import torch
 
 from dental_modes import TRAINED_MODES, fdi_name
-from grounded_sam import GroundedSegmenter
+from grounded_sam import GroundedBoxDetector, GroundedSegmenter
 
 
 class ToothSegmenter:
@@ -38,9 +38,15 @@ class ToothSegmenter:
         self.image_size = metadata['training']['image_size']
         self.provenance = {'detector': metadata}
         if mode == 'cavity-review':
+            self.tooth_locator = GroundedBoxDetector(model_directory, device)
+            self.provenance.update(self.tooth_locator.provenance)
+            self.provenance['cavity_filter'] = {
+                'tooth_prompt': 'teeth.', 'tooth_score_threshold': 0.5, 'minimum_inside_fraction': 0.5}
+            self.observation_counts = {'candidates_before_tooth_filter': 0, 'rejected_outside_tooth_regions': 0}
             self.limitations = self.limitations + [
                 'A flag is a suggestion for visual review. Clinical diagnosis requires professional assessment.',
-                'A missing flag cannot rule out decay. Normal-appearance classes are suppressed in the interface.']
+                'A missing flag cannot rule out decay. Normal-appearance classes are suppressed in the interface.',
+                'Flags must overlap a predicted tooth region. This can suppress true findings when teeth are missed.']
         elif mode == 'tooth-fdi':
             self.limitations = self.limitations + [
                 'FDI numbers assume standard image orientation. Mirrored footage and partial views can lead to side or jaw errors.']
@@ -62,6 +68,27 @@ class ToothSegmenter:
         origin = (left, max(14, top - 4))
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 0, 0), 3)
         cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
+
+    def cavity_candidates(self, image, rows, boxes, frame):
+        if not rows:
+            return rows, frame
+        self.observation_counts['candidates_before_tooth_filter'] += len(rows)
+        detection = self.tooth_locator.detect(image, 'teeth.', 0.5)
+        tooth_boxes = [box.detach().cpu().tolist() for box, label in
+                       zip(detection['boxes'], detection['text_labels']) if 'teeth' in label.lower()]
+        retained = []
+        for row, box in zip(rows, boxes):
+            x1, y1, x2, y2 = box
+            area = (x2 - x1) * (y2 - y1)
+            overlaps = (max(0, min(x2, tx2) - max(x1, tx1)) * max(0, min(y2, ty2) - max(y1, ty1))
+                        for tx1, ty1, tx2, ty2 in tooth_boxes)
+            if max(overlaps, default=0) < area * 0.5:
+                self.observation_counts['rejected_outside_tooth_regions'] += 1
+                continue
+            row['category'] = 'cavity_candidate'
+            self.draw_label(frame, box, 'Possible cavity', (70, 185, 255))
+            retained.append(row)
+        return retained, frame
 
     def predict(self, source_frame):
         height, width = source_frame.shape[:2]
@@ -87,16 +114,17 @@ class ToothSegmenter:
                          'bbox_xyxy_normalized': [x1/image.width, y1/image.height,
                                                   x2/image.width, y2/image.height]})
         if self.mode == 'cavity-review':
-            for row, box in zip(rows, boxes):
-                row['category'] = 'cavity_candidate'
-                self.draw_label(frame, box, 'Possible cavity', (70, 185, 255))
-            return rows, frame
+            return self.cavity_candidates(image, rows, boxes, frame)
         if self.mode == 'tooth-fdi':
+            strongest = {}
             for row, box in zip(rows, boxes):
                 number = row['model_label']
+                if number not in strongest or row['confidence'] > strongest[number][0]['confidence']:
+                    strongest[number] = row, box
+            for number, (row, box) in strongest.items():
                 row.update(fdi_number=number, tooth_name=fdi_name(number))
                 self.draw_label(frame, box, f'FDI {number}?', (70, 220, 110))
-            return rows, frame
+            return [row for row, _ in strongest.values()], frame
         if not boxes:
             return [], frame
         inputs = self.mask_processor(images=image, input_boxes=[boxes], return_tensors='pt').to(self.device)

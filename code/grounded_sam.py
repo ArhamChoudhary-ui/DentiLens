@@ -8,32 +8,15 @@ from PIL import Image
 import torch
 
 
-class GroundedSegmenter:
-    def __init__(self, model_directory, confidence=0.5, device='cpu', include_mirror=False):
-        from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection, Sam2Processor, Sam2Model
+class GroundedBoxDetector:
+    def __init__(self, model_directory, device='cpu'):
+        from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 
         root = Path(model_directory)
         self.device = device
-        self.confidence = confidence
-        self.prompt = 'teeth.'
-        self.names = {0: 'teeth'}
-        self.include_mirror = include_mirror
-        if include_mirror:
-            self.names[1] = 'dental mirror head'
-            self.model_name = 'Grounding DINO + SAM 2.1 (teeth and experimental mirror)'
-            self.limitations = ['Experimental mirror-head localization can miss mirrors or confuse other objects with mirrors.']
         self.detector_processor = AutoProcessor.from_pretrained(root / 'dino', local_files_only=True)
         self.detector = self._load(AutoModelForZeroShotObjectDetection, root / 'dino')
-        self.mask_processor = Sam2Processor.from_pretrained(root / 'sam2', local_files_only=True)
-        self.mask_model = self._load(Sam2Model, root / 'sam2')
-        self.provenance = {}
-        for name in ('dino', 'sam2'):
-            self.provenance[name] = json.loads((root / name / 'provenance.json').read_text())
-
-        if include_mirror:
-            self.provenance['mirror_detection'] = {
-                'prompt': 'small round dental mirror.', 'confidence_threshold': 0.5,
-                'box_width_to_height_range': [0.65, 1.55]}
+        self.provenance = {'dino': json.loads((root / 'dino/provenance.json').read_text())}
 
     def _load(self, model_class, directory):
         model, information = model_class.from_pretrained(
@@ -49,6 +32,27 @@ class GroundedSegmenter:
         return self.detector_processor.post_process_grounded_object_detection(
             prediction, inputs.input_ids, threshold=threshold, text_threshold=0.2,
             target_sizes=[image.size[::-1]])[0]
+
+class GroundedSegmenter(GroundedBoxDetector):
+    def __init__(self, model_directory, confidence=0.5, device='cpu', include_mirror=False):
+        from transformers import Sam2Processor, Sam2Model
+
+        super().__init__(model_directory, device)
+        root = Path(model_directory)
+        self.confidence = confidence
+        self.prompt = 'teeth.'
+        self.names = {0: 'teeth'}
+        self.include_mirror = include_mirror
+        self.mask_processor = Sam2Processor.from_pretrained(root / 'sam2', local_files_only=True)
+        self.mask_model = self._load(Sam2Model, root / 'sam2')
+        self.provenance['sam2'] = json.loads((root / 'sam2/provenance.json').read_text())
+        if include_mirror:
+            self.names[1] = 'dental mirror head'
+            self.model_name = 'Grounding DINO + SAM 2.1 (teeth and experimental mirror)'
+            self.limitations = ['Experimental mirror-head localization can miss mirrors or confuse other objects with mirrors.']
+            self.provenance['mirror_detection'] = {
+                'prompt': 'small round dental mirror.', 'confidence_threshold': 0.5,
+                'box_width_to_height_range': [0.65, 1.55]}
 
     def predict(self, source_frame):
         height, width = source_frame.shape[:2]
