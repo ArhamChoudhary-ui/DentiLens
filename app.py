@@ -38,7 +38,7 @@ with upload_tab:
     sam_ready = (ROOT / 'models/grounded/sam2/model.safetensors').is_file()
     dino_ready = (ROOT / 'models/grounded/dino/model.safetensors').is_file()
     if sam_ready and dino_ready:
-        available.append(('Text-guided tooth regions + SAM', 'grounded-sam2'))
+        available.append(('Tooth outlines only', 'grounded-sam2'))
         available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
     for mode, (checkpoint, label, _) in TRAINED_MODES.items():
         if mode in ('tooth-sam2', 'tooth-types') and not sam_ready:
@@ -50,26 +50,30 @@ with upload_tab:
     if not available:
         st.info('Install the local model files using the repository setup instructions to enable analysis.')
     else:
-        choice = st.selectbox('Analysis model', available, format_func=lambda value: value[0])
-        if choice[1] == 'tooth-sam2':
+        choice = st.selectbox('What should DentiLens look for?', available, index=None,
+                              placeholder='Choose an analysis mode', format_func=lambda value: value[0])
+        mode = choice[1] if choice else None
+        if mode in ('grounded-sam2', 'tooth-sam2'):
+            st.caption('This mode draws tooth outlines. Choose Tooth numbers for suggested numbers and names.')
+        if mode == 'tooth-sam2':
             st.warning('This experimental detector produced glove and face false positives on the supplied videos. '
                        'Its still-image test score does not establish reliable video segmentation.')
-        if choice[1] == 'tooth-fdi':
+        if mode == 'tooth-fdi':
             st.info('Use footage in standard orientation. Confirm jaw and patient side before saving a tooth number.')
-        if choice[1] == 'cavity-review':
+        if mode == 'cavity-review':
             st.info('Flags are for visual review. A frame without a flag does not rule out decay.')
         st.caption('One frame per second is analyzed. CPU processing can take several minutes. '
                    'Highlights use original footage and omit audio.')
         if uploaded is not None:
             st.video(uploaded)
-        if st.button('Analyze video', type='primary', disabled=uploaded is None):
+        if st.button('Analyze video', type='primary', disabled=uploaded is None or choice is None):
             identifier = uuid.uuid4().hex[:12]
             RUNTIME.mkdir(exist_ok=True)
             source = RUNTIME / f'{identifier}.mp4'
             source.write_bytes(uploaded.getbuffer())
             destination = RESULTS / f'upload-{identifier}'
             command = [sys.executable, str(ROOT / 'code/dental_video.py'), str(source),
-                       str(destination), '--engine', choice[1], '--device', 'cpu']
+                       str(destination), '--engine', mode, '--device', 'cpu']
             with st.status('Analyzing video…', expanded=True) as status:
                 st.write('Running the selected model and saving timestamped evidence.')
                 completed = subprocess.run(command, capture_output=True, text=True)
@@ -83,7 +87,7 @@ with upload_tab:
                         'path': str(source), 'display_name': uploaded.name}, indent=2))
                     st.session_state['last_result'] = destination.name
                     status.update(label='Analysis ready', state='complete')
-                    st.success('Open “Review saved results” to inspect the predictions.')
+                    st.success(f'{choice[0]} finished. Open “Review saved results” to inspect the output.')
 
 with review_tab:
     directories = sorted((p for p in RESULTS.glob('*') if not p.name.startswith('.') and (p / 'report.json').is_file()),
@@ -108,6 +112,10 @@ with review_tab:
             source = Path(source_data['path'])
             display_name = source_data.get('display_name', display_name)
         st.subheader(display_name)
+        features = report.get('capabilities', {})
+        if not any(features.get(name) for name in (
+                'individual_tooth_numbering', 'tooth_type_suggestions', 'possible_cavity_flags')):
+            st.caption('This analysis has no tooth names or numbers. Run Tooth numbers to generate FDI suggestions.')
         columns = st.columns(3)
         columns[0].metric('Source duration', f"{report['duration_sec']:.1f} s")
         columns[1].metric('Frames analyzed', report['sampled_frames'])
