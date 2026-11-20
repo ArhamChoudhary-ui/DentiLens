@@ -25,8 +25,8 @@ are selected chronologically within 15% of the source duration and exported
 as a video-only MP4.
 
 AlphaDent's classes cover abrasion, fillings, crowns and annotated caries
-categories. Visible-tooth localization, instrument tracking and procedure-action
-recognition remain development tasks. All model observations require professional
+categories. The tooth-region engine below adds a separate localization option. Instrument
+tracking and procedure-action recognition remain development tasks. All model observations require professional
 review. The prototype's clinical accuracy has yet to be evaluated.
 
 ## Set up on macOS
@@ -65,15 +65,53 @@ decoded, and inference sampled 43 frames. AlphaDent returned zero observations
 at confidence 0.35, so the selected highlight list was empty. This establishes
 pipeline execution on that clip. It provides no measured dental accuracy.
 
-## Next model investigation
+## Tooth-region segmentation
 
-The optical model at https://github.com/mireiffe/individual_tooth_segmentation
-targets individual teeth in optical photographs. Its source has been inspected
-locally. The published checkpoint transfer is incomplete after a certificate
-verification failure on its hosting server. Inference remains pending.
+The text-grounded engine combines Grounding DINO tiny with SAM 2.1 tiny.
+Grounding DINO locates visible teeth from the text prompt `teeth.`. SAM 2 predicts
+masks inside those model-generated boxes. The pipeline independently processes
+sampled frames and saves binary masks, overlays and normalized source coordinates.
+The masks may cover several adjacent teeth. Individual numbering, temporal
+tracking and procedure-action classification remain development tasks.
 
-Potential instrument tracking candidates include Grounded-SAM 2 and SAM 3.
-Model access, dependencies and performance on our footage need verification.
+```bash
+python -m pip install -r requirements-grounded.txt
+python scripts/download_grounded_models.py
+bash run.sh /path/to/video.mp4 results/tooth-review \
+  --engine grounded-sam2 --confidence 0.50 --device cpu
+```
+
+The grounded engine defaults to confidence 0.50. Qualitative inspection of the
+supplied braces clip at 0.35 showed lip regions being mislabeled as teeth. The
+higher threshold removes those observed lower-confidence detections, while also
+missing some visible-tooth frames. It is a prototype setting selected on this
+clip and requires validation on separate annotated videos.
+
+Both model revisions and weight hashes are pinned in
+`reference/grounded-models.json`. The downloader verifies the weights, and model
+loading rejects missing or mismatched parameters. The SAM 2.1 video checkpoint's
+image-segmentation components are used here. Mask quality estimates in the report
+are model outputs and require evaluation against annotated reference masks.
+
+The downloaded optical research checkpoint produced tooth-edge predictions on
+the braces footage, but its contour stage failed with empty initial regions at
+both tested input resolutions. This candidate is excluded from the active engine.
+Instrument prompts were also excluded after qualitative inspection showed glove
+regions being included in instrument detections.
+
+Model references are https://huggingface.co/IDEA-Research/grounding-dino-tiny and
+https://huggingface.co/facebook/sam2.1-hiera-tiny.
+
+## Recorded tooth-region test
+
+The supplied 6528841 clip is 27 seconds at 2732×1440 and 25 fps. The pipeline
+verified all 675 source frames and sampled 27 frames. At confidence 0.50, it
+retained seven teeth-region observations and exported a four-second original-
+footage highlight, within the 4.05-second budget. Masks and source timestamps
+were checked, and selected overlays were inspected visually. The threshold
+was selected using this clip. Ground-truth annotations and evaluation on separate
+videos are still needed to measure accuracy. The aggregate verification record
+is saved in `reference/tooth-region-smoke-test.json`.
 
 ## Samsung Track 4
 

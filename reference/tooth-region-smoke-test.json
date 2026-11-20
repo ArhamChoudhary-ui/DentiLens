@@ -1,0 +1,43 @@
+{
+  "input_basename": "6528841-uhd_4096_2160_25fps.mp4",
+  "input_sha256": "c5315b92a43a4a53212e279d2cd563f9b1b2feb9636303f2f39a4d6e659e2390",
+  "duration_sec": 27.0,
+  "source_dimensions": [
+    2732,
+    1440
+  ],
+  "source_fps": 25.0,
+  "frames_decoded": 675,
+  "sampled_frames": 27,
+  "retained_frame_timestamps_sec": [
+    7.0,
+    9.0,
+    10.0,
+    12.0,
+    18.0,
+    20.0,
+    26.0
+  ],
+  "region_observations": 7,
+  "confidence_threshold": 0.5,
+  "highlight_duration_sec": 4.0,
+  "model_provenance": {
+    "dino": {
+      "repository": "IDEA-Research/grounding-dino-tiny",
+      "revision": "a2bb814dd30d776dcf7e30523b00659f4f141c71",
+      "weights_sha256": "1a2412ef99bd74bcd3c2a246fa1e48581f8889a1300c9051974741314fc042f3"
+    },
+    "sam2": {
+      "repository": "facebook/sam2.1-hiera-tiny",
+      "revision": "de431c4043854a71d8101e17995dfe596bf101a5",
+      "weights_sha256": "48c14467e5cf9e51870511feb72c89688e82dd74523142c0538b663e193ac2a7"
+    }
+  },
+  "device": "cpu",
+  "verification": "Source timing, mask files and MP4 duration checked. Selected overlays visually inspected.",
+  "limitations": [
+    "Threshold selected on this clip after lower-confidence lip false positives.",
+    "No annotated ground-truth evaluation; no segmentation accuracy metric.",
+    "Masks cover groups of teeth; no individual-tooth numbering or tracking."
+  ]
+}
