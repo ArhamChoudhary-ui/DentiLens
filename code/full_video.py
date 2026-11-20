@@ -78,10 +78,15 @@ def stamp(frame, timestamp, rows, options=None):
     marker_size = round(16 * ui_scale)
     for index, row in enumerate(chosen, 1):
         cavity = row['category'] == 'cavity_candidate'
-        color = (85, 191, 255) if cavity else (126, 223, 178)
+        color = ((85, 191, 255) if cavity else
+                 (247, 196, 141) if row['category'] == 'instrument' else (126, 223, 178))
         x1, y1, x2, y2 = map(round, row['box'])
         if options.get('boxes', True):
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, stroke + 1)
+            if row['category'] == 'instrument' and row.get('polygon'):
+                corners = np.rint(np.asarray(row['polygon']) * [width, height]).astype(np.int32)
+                cv2.polylines(frame, [corners], True, color, stroke + 1, cv2.LINE_AA)
+            else:
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, stroke + 1)
         if not show_text:
             continue
         anchor_x = max(0, min(x1, width - marker_size))

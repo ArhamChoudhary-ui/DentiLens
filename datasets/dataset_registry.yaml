@@ -1,0 +1,81 @@
+schema_version: 1
+datasets:
+  - name: Dental Instruments v30
+    source: https://universe.roboflow.com/object-detect-k48yz/dental-instruments
+    version: v30
+    export_date: '2026-11-20'
+    license: CC BY 4.0, declared by the supplied Roboflow export
+    access: User-supplied archive
+    archive_sha256: dc6b20d3d8d6fe43ef1429e23a4bff56a11c4a5dd8b02ebb9cae66ac20af6d26
+    patients: null
+    images: 3605
+    videos: 0
+    annotations: Normalized YOLO OBB quadrilaterals
+    taxonomy: See reference/instrument-dataset-v30-audit.json
+    task: Instrument localization and classification
+    prepared: data/instrument-obb-v30
+    validation: Structurally checked; filename-grouped and exact deduplicated
+    attribution: Dental Instruments, provided by a Roboflow user
+    restrictions: Keep raw images local; this still-image set does not label dental procedures.
+  - name: OrganUI Teeth 3D
+    source: https://github.com/organui/teeth-3d
+    version: f2cfe96f19dba7ec3982f2b06e6a34a1f6670450
+    download_date: '2026-11-20'
+    license: CC BY-SA 2.1 Japan for the model; MIT for OrganUI code
+    access: Public upstream GLB
+    annotations: Named meshes and anatomical concept IDs
+    taxonomy: 28 permanent teeth plus upper and lower gums and three jaw bones
+    task: Educational anatomy visualization
+    upstream_attribution: https://github.com/organui/teeth-3d/blob/f2cfe96f19dba7ec3982f2b06e6a34a1f6670450/public/models/ATTRIBUTION.md
+    archive_sha256: 89a1074b0806eb41c318d38c78a269134c5070be7b90cb2f93ab2de7d35ec239
+    prepared: frontend/public/anatomy
+    validation: Pinned asset, manifest and attribution checksums
+    restrictions: Mesh credit and share-alike terms apply to mesh adaptations.
+  - name: IOP-Compass
+    source: https://ditto.ing.unimore.it/iop-compass/
+    task: Tooth instance and FDI research
+    validation: Pending owner access and annotation inspection
+  - name: Dental Instrument Detection V2
+    source: https://universe.roboflow.com/object-identification-and-localization-using-yolo/dental-instrument-detection-v2-jnc9p
+    task: Orthodontic instruments
+    validation: Candidate only; exact export and terms not inspected
+  - name: Mendeley instrument dataset
+    source: https://data.mendeley.com/datasets/mh6zpc7y9g/1
+    task: Supplementary instrument detection
+    validation: Candidate only; terms and annotations not inspected
+  - name: Teeth Type
+    source: https://universe.roboflow.com/dental-icqjl/teeth_type
+    task: Supplementary tooth classification
+    validation: Candidate only
+  - name: Preclinical Tooth Preparation
+    source: https://data.mendeley.com/datasets/27kp5jg4c3/2
+    task: Educational morphology
+    validation: Candidate only
+  - name: Annotated Intraoral Caries
+    source: https://zenodo.org/records/14827784
+    task: Experimental caries localization
+    validation: Candidate only
+  - name: Caries-Spectra
+    source: https://data.mendeley.com/datasets/9jnf2jvghy/2
+    task: Experimental image-level classification
+    validation: Candidate only
+  - name: MouthCare
+    source: https://www.mouthcare.fr/en/dataset
+    task: Potential approved intraoral research
+    validation: Full collection access and terms pending
+  - name: TeethAlign3D
+    source: https://californiachen.github.io/datasets/TeethAlign3D
+    task: Orthodontic 3D research
+    validation: Candidate only
+  - name: Bite2Text
+    source: https://ditto.ing.unimore.it/bite2text/
+    task: Orthodontic reporting research
+    validation: Candidate only
+  - name: Bits2Bites
+    source: https://ditto.ing.unimore.it/bits2bites/
+    task: 3D occlusion research
+    validation: Candidate only
+  - name: Dental Treatment Process Action Recognition
+    source: https://huggingface.co/datasets/shangzx/Dental-Treatment-Process-Action-Recognition-Dataset
+    task: Temporal annotation research
+    validation: Candidate only

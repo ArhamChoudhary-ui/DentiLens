@@ -1,4 +1,5 @@
 """Render a new full recording from saved observations and a snapshot of reviews."""
+from collections import defaultdict
 import json
 from pathlib import Path
 import tempfile
@@ -59,11 +60,24 @@ def confirmed_row(row, review, finding, frame, width, height):
     return item
 
 
-def render_reviewed(work, report, reviews, options):
+def instrument_marks(record, reviewed):
+    reviews = {item['detection_id']: item for item in record.get('reviews', [])}
+    frames = defaultdict(list)
+    for row in record.get('observations', []):
+        review = reviews.get(row['detection_id'], {})
+        if reviewed and review.get('decision') != 'confirmed':
+            continue
+        frames[row['frame']].append(dict(row, label=(review.get('label') or row['class']) if reviewed else row['class'],
+                                       category='instrument', review_status='confirmed' if reviewed else 'suggested'))
+    return frames
+
+
+def render_reviewed(work, report, reviews, options, instruments=None):
     video = report['video']
     width, height, fps = (video[key] for key in ('width', 'height', 'fps'))
     reviewed = options['version'] == 'confirmed'
     tracks, frames = review_index(report, reviews)
+    instrument_frames = instrument_marks(instruments or {}, reviewed)
     source = work / 'source.mp4'
     with tempfile.TemporaryDirectory(dir=work, prefix='.rerender-') as temporary:
         raw = Path(temporary) / 'video.mp4'
@@ -81,7 +95,11 @@ def render_reviewed(work, report, reviews, options):
                     if not ok or entry['frame'] != count:
                         raise ValueError('The saved frame records do not match the recording.')
                     rows = (corrected_rows(entry, tracks, frames, width, height) if reviewed else entry['annotations'])
-                    writer.send(stamp(frame, entry['time'], rows, options=options))
+                    extra = []
+                    for row in instrument_frames.get(count, []):
+                        box = [value * extent for value, extent in zip(row['box'], [width, height] * 2)]
+                        extra.append({**row, 'box': box})
+                    writer.send(stamp(frame, entry['time'], rows + extra, options=options))
                     count += 1
         finally:
             writer.close()

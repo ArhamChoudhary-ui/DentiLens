@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
@@ -11,7 +11,10 @@ import { api, clock, send } from './api'
 import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
 import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
 import { ExamIntelligence } from './intelligence'
+import { Instruments } from './instruments'
 import './styles.css'
+
+const Anatomy = lazy(() => import('./anatomy'))
 
 const profiles = [
   { id: 'fast', name: 'Fast', detail: 'Detect every 2 s' },
@@ -224,7 +227,7 @@ function XR({ exam, refresh, openReview }: { exam: Exam; refresh: () => Promise<
   </div>
 }
 
-function PatientView({ exam, moments, reel }: { exam: Exam; moments: Review[]; reel: string }) {
+function PatientView({ exam, moments, reel, openAnatomy }: { exam: Exam; moments: Review[]; reel: string; openAnatomy:(fdi:string)=>void }) {
   const player = useRef<HTMLVideoElement>(null)
   const [selected,setSelected]=useState<string>()
   const [compare,setCompare]=useState<string>()
@@ -244,6 +247,9 @@ function PatientView({ exam, moments, reel }: { exam: Exam; moments: Review[]; r
       </button>)}
     </div> : <p className="quiet">Confirm a bookmark in Review video.</p>}
     {first && <div className="patient-stills">
+      {first.fdi_number && <div><button className="subtle compact-action" onClick={()=>{
+        if(first.fdi_number)openAnatomy(first.fdi_number)
+      }}>View tooth {first.fdi_number} in 3D</button></div>}
       <div className="still-comparison">
         {[first,second].filter((item): item is Review=>Boolean(item)).map(item=><figure key={item.id}>
           <img src={still(item)} alt={item.label || 'Reviewed examination frame'}/><figcaption>{clock(item.time,true)} · {item.label || 'Bookmark'}</figcaption>
@@ -278,7 +284,9 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   const [building,setBuilding]=useState(false)
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
-  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence'>('review')
+  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence' | 'anatomy' | 'instruments'>('review')
+  const [anatomyTooth,setAnatomyTooth]=useState('')
+  const [chartTooth,setChartTooth]=useState('')
   const reviews=exam.reviews ?? []
   const confirmed=reviews.filter(item=>item.decision==='confirmed')
   const selectedReview=reviews.find(item=>item.id===selected?.id)
@@ -300,6 +308,7 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
     else pending.current=at
     setTime(at)
   }
+  function openAnatomy(code:string) {setAnatomyTooth(code);setTab('anatomy')}
   function chooseFinding(item: Finding) { setSelected(item); seek(item.time); setFeedback(undefined) }
   function manual(seconds: number) {
     const at=Math.min(seconds,Math.max(0,report.video.duration-.001))
@@ -350,13 +359,19 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
       <button className={tab==='review'?'active':''} aria-pressed={tab==='review'} onClick={()=>setTab('review')}><ScanLine size={16}/> Review video</button>
       <button className={tab==='teeth'?'active':''} aria-pressed={tab==='teeth'} onClick={()=>setTab('teeth')}>Tooth chart</button>
       <button className={tab==='intelligence'?'active':''} aria-pressed={tab==='intelligence'} onClick={()=>setTab('intelligence')}>Search & quality</button>
+      <button className={tab==='instruments'?'active':''} aria-pressed={tab==='instruments'} onClick={()=>setTab('instruments')}>Instruments</button>
+      <button className={tab==='anatomy'?'active':''} aria-pressed={tab==='anatomy'} onClick={()=>{setAnatomyTooth('');setTab('anatomy')}}>3D anatomy</button>
       <button className={tab==='patient'?'active':''} aria-pressed={tab==='patient'} onClick={()=>setTab('patient')}><Play size={16}/> Patient view</button>
       <button className={tab==='xr'?'active':''} aria-pressed={tab==='xr'} onClick={()=>setTab('xr')}><Glasses size={17}/> XR preview</button>
     </div>
     {tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
-      <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview}/> : tab==='intelligence' ?
+      <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview} initial={chartTooth}
+        openAnatomy={openAnatomy}/> : tab==='instruments' ?
+      <Instruments examId={exam.id} duration={report.video.duration} jump={seconds=>{setPlayerMode('source');openReview(seconds)}} refresh={refresh}/> : tab==='anatomy' ?
+      <Suspense fallback={<p role="status">Loading anatomy…</p>}><Anatomy examId={exam.id} initial={anatomyTooth} jump={openReview}
+        openChart={code=>{setChartTooth(code);setTab('teeth')}}/></Suspense> : tab==='intelligence' ?
       <ExamIntelligence exam={exam} jump={openReview}/> : tab==='patient' ?
-      <PatientView exam={exam} moments={confirmed} reel={reel}/> : <div className="review-grid">
+      <PatientView exam={exam} moments={confirmed} reel={reel} openAnatomy={openAnatomy}/> : <div className="review-grid">
       <div className="review-main">
         <section className="panel player-panel">
           <div className="player-heading"><strong>Video</strong>

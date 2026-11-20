@@ -5,10 +5,13 @@ from datetime import datetime, timezone
 from io import BytesIO
 import json
 import logging
+import mimetypes
 from pathlib import Path
 import shutil
 import sqlite3
 import sys
+from threading import Lock
+from tempfile import NamedTemporaryFile
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from zipfile import ZipFile
@@ -24,8 +27,10 @@ sys.path.insert(0, str(ROOT / 'code'))
 from annotated_reel import context_windows, export_annotated_reel
 from full_video import process_exam, stamp, video_info
 from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
+from instrument_video import instrument_model_ready, measure_instruments
 from reviewed_video import confirmed_row, render_reviewed
 
+mimetypes.add_type('model/gltf-binary', '.glb')
 LOG = logging.getLogger('dentilens')
 MAX_BYTES = 500 * 1024 * 1024
 EXTENSIONS = {'.mp4', '.mov', '.m4v', '.webm'}
@@ -60,6 +65,14 @@ class VideoExport(BaseModel):
     timestamp: bool = True
     scores: bool = False
     track_ids: bool = False
+    instruments: bool = False
+
+
+class InstrumentReview(BaseModel):
+    detection_id: str = Field(pattern=r'^instrument-\d+-\d+$')
+    decision: Literal['confirmed', 'dismissed']
+    label: str = Field(default='', max_length=100)
+    note: str = Field(default='', max_length=500)
 
 
 class AnalysisCancelled(Exception):
@@ -84,6 +97,7 @@ def models_ready():
 def create_app(storage=None, processor=process_exam, serve_frontend=True):
     storage = Path(storage or ROOT / 'runtime/full-video').resolve()
     database = storage / 'exams.sqlite3'
+    instrument_scan_lock = Lock()
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='dentilens-exam')
 
     def connect():
@@ -181,6 +195,10 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                     exam_id TEXT NOT NULL, id TEXT NOT NULL, updated TEXT NOT NULL,
                     payload TEXT NOT NULL, PRIMARY KEY (exam_id, id)
                 );
+                CREATE TABLE IF NOT EXISTS instrument_reviews (
+                    exam_id TEXT NOT NULL, id TEXT NOT NULL, payload TEXT NOT NULL,
+                    PRIMARY KEY (exam_id, id)
+                );
                 CREATE TABLE IF NOT EXISTS review_history (
                     exam_id TEXT NOT NULL, id TEXT NOT NULL, updated TEXT NOT NULL, payload TEXT NOT NULL
                 );
@@ -253,6 +271,10 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         result['reviews'] = reviews_for(exam_id.hex)
         if result['state'] == 'ready':
             result['report'] = report_for(exam_id.hex)
+            instrument_data = instrument_records(exam_id.hex)
+            result['instruments_available'] = instrument_data is not None
+            result['confirmed_instruments'] = bool(instrument_data and any(
+                item['decision'] == 'confirmed' for item in instrument_data['reviews']))
             if (storage / exam_id.hex / 'reviewed-reel.mp4').is_file():
                 result['reel_url'] = f'/api/exams/{exam_id.hex}/media/reviewed-reel.mp4'
         return result
@@ -268,7 +290,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             if current['state'] in ('queued', 'running', 'canceling'):
                 raise HTTPException(409, 'Stop analysis before deleting this examination.')
             shutil.rmtree(storage / key)
-            for table in ('review_history', 'reviews'):
+            for table in ('review_history', 'reviews', 'instrument_reviews'):
                 con.execute(f'DELETE FROM {table} WHERE exam_id=?', (key,))
             con.execute('DELETE FROM exams WHERE id=?', (key,))
         return Response(status_code=204)
@@ -318,6 +340,60 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             con.execute('INSERT INTO review_history VALUES (?,?,?,?)', record)
         return data
 
+    def instrument_records(key):
+        file = storage / key / 'instruments.json'
+        if not file.is_file():
+            return None
+        report = json.loads(file.read_text())
+        with closing(connect()) as con:
+            reviews = [json.loads(row[0]) for row in con.execute(
+                'SELECT payload FROM instrument_reviews WHERE exam_id=?', (key,))]
+        return {**report, 'reviews': reviews}
+
+    @app.get('/api/exams/{exam_id}/instruments')
+    def instruments(exam_id: UUID):
+        report_for(exam_id.hex)
+        return {'model_ready': instrument_model_ready(ROOT / 'models'),
+                'report': instrument_records(exam_id.hex)}
+
+    @app.post('/api/exams/{exam_id}/instruments')
+    def scan_instruments(exam_id: UUID):
+        key = exam_id.hex
+        report = report_for(key)
+        models = ROOT / 'models'
+        if not instrument_model_ready(models):
+            raise HTTPException(503, 'Install the evaluated instrument checkpoint before scanning.')
+        if not instrument_scan_lock.acquire(blocking=False):
+            raise HTTPException(409, 'An instrument scan is running. Try again when it finishes.')
+        try:
+            existing = instrument_records(key)
+            if existing:
+                return existing
+            work = storage / key
+            measured = measure_instruments(work / 'source.mp4', report['video'], models)
+            with NamedTemporaryFile(mode='w', dir=work, delete=False) as temporary:
+                json.dump(measured, temporary, allow_nan=False)
+            Path(temporary.name).replace(work / 'instruments.json')
+            return {**measured, 'reviews': []}
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        finally:
+            instrument_scan_lock.release()
+
+    @app.post('/api/exams/{exam_id}/instrument-reviews')
+    def review_instrument(exam_id: UUID, body: InstrumentReview):
+        key = exam_id.hex
+        report_for(key)
+        instruments = instrument_records(key)
+        record = next((row for row in instruments['observations'] if row['detection_id'] == body.detection_id), None) if instruments else None
+        if record is None:
+            raise HTTPException(404, 'This instrument observation is unavailable.')
+        data = {**body.model_dump(), 'original_label': record['class'], 'time': record['time'], 'updated': utcnow()}
+        with closing(connect()) as con, con:
+            con.execute('INSERT OR REPLACE INTO instrument_reviews VALUES (?,?,?)',
+                        (key, body.detection_id, json.dumps(data, allow_nan=False)))
+        return data
+
     @app.get('/api/exams/{exam_id}/tooth-history')
     def history(exam_id: UUID, fdi: Annotated[str | None, Query(pattern=r'^[1-4][1-8]$')] = None,
                 track: Annotated[str | None, Query(pattern=r'^T\d+-\d+$')] = None):
@@ -331,13 +407,14 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
     def intelligence(exam_id: UUID, q: Annotated[str, Query(min_length=1, max_length=160)]):
         key = exam_id.hex
         report = report_for(key)
-        return search_exam(storage / key / 'timeline.jsonl', report, reviews_for(key), q.strip())
+        return search_exam(storage / key / 'timeline.jsonl', report, reviews_for(key), q.strip(), instrument_records(key))
 
     @app.get('/api/exams/{exam_id}/evidence-index')
     def export_evidence_index(exam_id: UUID):
         key = exam_id.hex
         report = report_for(key)
         data = evidence_index(storage / key / 'timeline.jsonl', report, reviews_for(key))
+        data['instruments'] = instrument_records(key)
         return JSONResponse({'examination_id': key, **data},
                             headers={'Content-Disposition': 'attachment; filename=dentilens-evidence-index.json'})
 
@@ -430,17 +507,23 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             history = [json.loads(row[0]) for row in con.execute(
                 'SELECT payload FROM review_history WHERE exam_id=? ORDER BY rowid', (exam_id.hex,))]
         return JSONResponse({'examination_id': exam_id.hex, 'title': exam['title'], **report,
-                             'reviewer_notes': reviews, 'review_history': history},
+                             'reviewer_notes': reviews, 'review_history': history,
+                             'instrument_scan': instrument_records(exam_id.hex)},
                             headers={'Content-Disposition': 'attachment; filename=dentilens-examination.json'})
 
     @app.post('/api/exams/{exam_id}/video-export')
     def video_export(exam_id: UUID, body: VideoExport):
         report = report_for(exam_id.hex)
         reviews = reviews_for(exam_id.hex)
-        if body.version == 'confirmed' and not any(item['decision'] == 'confirmed' and (item.get('finding_id') or item.get('box')) for item in reviews):
-            raise HTTPException(422, 'Confirm a bookmark with a region before exporting.')
+        instruments = instrument_records(exam_id.hex) if body.instruments else None
+        if body.instruments and instruments is None:
+            raise HTTPException(422, 'Scan for instruments before exporting their overlays.')
+        confirmed_instrument = instruments and any(item['decision'] == 'confirmed' for item in instruments['reviews'])
+        confirmed_tooth = any(item['decision'] == 'confirmed' and (item.get('finding_id') or item.get('box')) for item in reviews)
+        if body.version == 'confirmed' and not (confirmed_tooth or confirmed_instrument):
+            raise HTTPException(422, 'Confirm a bookmark with a region or an instrument observation before exporting.')
         try:
-            result = render_reviewed(storage / exam_id.hex, report, reviews, body.model_dump())
+            result = render_reviewed(storage / exam_id.hex, report, reviews, body.model_dump(), instruments)
         except (ValueError, OSError, RuntimeError) as exc:
             raise HTTPException(422, str(exc)) from exc
         return {'url': f'/api/exams/{exam_id.hex}/media/{result.name}'}

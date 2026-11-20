@@ -13,8 +13,9 @@ function suggestionNumber(item: Finding) {
   return item.fdi_number ?? item.label.match(/^FDI (\d{2})\b/)?.[1]
 }
 
-export function ToothChart({exam, jump, jumpToTime}: {exam: Exam; jump: (item: Finding) => void; jumpToTime: (time:number)=>void}) {
-  const [tooth, setTooth] = useState('')
+export function ToothChart({exam, jump, jumpToTime, initial, openAnatomy}: {exam: Exam; jump: (item: Finding) => void;
+  jumpToTime: (time:number)=>void; initial:string; openAnatomy:(fdi:string)=>void}) {
+  const [tooth, setTooth] = useState(initial)
   const reviews = exam.reviews ?? []
   const report = exam.report!
   function associations(code: string) {
@@ -47,7 +48,8 @@ export function ToothChart({exam, jump, jumpToTime}: {exam: Exam; jump: (item: F
     <div className="arch-legend"><span className="confirmed">Confirmed</span><span className="suggested">Suggested</span>
       <span className="dismissed">Dismissed</span><span>Unobserved</span></div>
     {tooth ? <div className="chart-detail">
-      <h3>{tooth} · {subtypes[Number(tooth[1])-1]}</h3>
+      <div className="section-heading"><h3>{tooth} · {subtypes[Number(tooth[1])-1]}</h3>
+        <button className="subtle compact-action" onClick={()=>openAnatomy(tooth)}>View anatomy</button></div>
       {selected.map(({item, review})=><button className="chart-finding" key={item.id} onClick={()=>jump(item)}>
         <img src={`/api/exams/${exam.id}/images/${item.image}`} alt="" loading="lazy"/>
         <span><strong>{review?.label || item.label}</strong><small>{review?.decision ?? 'Suggested'} · {clock(item.time,true)}</small></span>
@@ -101,6 +103,7 @@ export function RegionEditor({src, value, change}: {src: string; value: Box | nu
 
 export function FullVideoExport({exam, request}: {exam: Exam; request: (options: object) => Promise<string>}) {
   const [version,setVersion]=useState('confirmed')
+  const [includeInstruments,setIncludeInstruments]=useState(false)
   const [preset,setPreset]=useState('labels')
   const [url,setUrl]=useState('')
   const [status,setStatus]=useState('')
@@ -115,7 +118,7 @@ export function FullVideoExport({exam, request}: {exam: Exam; request: (options:
     <form onSubmit={async e=>{
       e.preventDefault();setWorking(true);setStatus('');setUrl('')
       try {
-        const result=await request({version,...overlay})
+        const result=await request({version,...overlay,instruments:includeInstruments})
         setUrl(result);setStatus('Video ready.')
       } catch(e) {setStatus(e instanceof Error?e.message:'Export failed. Try again.')}
       finally {setWorking(false)}
@@ -132,7 +135,11 @@ export function FullVideoExport({exam, request}: {exam: Exam; request: (options:
           <span>{controls[key]}</span>
         </label>)}
       </details>
-      <button className="subtle" disabled={working || (version==='confirmed' && !exam.reviews?.some(item=>item.decision==='confirmed' && (item.finding_id || item.box)))}>
+      {exam.instruments_available && <label className="toggle"><input type="checkbox" checked={includeInstruments}
+        disabled={working} onChange={e=>setIncludeInstruments(e.target.checked)}/><span>Include instrument markings</span></label>}
+      <button className="subtle" disabled={working || (version==='confirmed' &&
+        !(includeInstruments && exam.confirmed_instruments) &&
+        !exam.reviews?.some(item=>item.decision==='confirmed' && (item.finding_id || item.box)))}>
         <Download size={15}/>{working?'Building video…':'Build video'}
       </button>
       {status && <div role="status">{status}</div>}

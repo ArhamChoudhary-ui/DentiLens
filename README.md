@@ -88,6 +88,47 @@ python scripts/evaluate_frame_coverage.py /path/to/timeline.jsonl /path/to/visib
 See the [3.0 repository audit](reference/xr3-audit.md) for the Track 4
 package findings and model dependencies.
 
+### Use the 3.5 instrument and anatomy features
+
+- Open **Instruments** on a finished examination and choose **Scan recording**.
+  Select an appearance to inspect its polygon, edit the label, add a note,
+  confirm or dismiss it. **Search & quality** indexes measured instrument
+  observations and saves their source timestamps in the evidence index.
+- Under **Export full video**, choose **Include instrument markings** after
+  scanning. Confirmed exports include instrument observations you confirmed.
+- Open **3D anatomy** or select a position in **Tooth chart** and choose
+  **View anatomy**. Drag to rotate, zoom, and use the structure selector
+  to isolate a tooth, gum or jaw. The model is educational. It provides
+  28 permanent teeth and source attribution.
+
+Install the pinned [OrganUI anatomy model](https://github.com/organui/teeth-3d)
+using the command below before building. The GLB and its attribution retain
+the BodyParts3D / Anatomography CC BY-SA 2.1 Japan license. Files are served
+locally from the app after installation.
+
+```bash
+python3 scripts/install_anatomy.py
+npm --prefix frontend ci
+npm --prefix frontend run build
+bash run_full.sh
+```
+
+The instrument model uses the user-supplied [Dental Instruments v30
+export](https://universe.roboflow.com/object-detect-k48yz/dental-instruments)
+and a local YOLOv8n OBB backbone. Raw images and trained checkpoints stay
+local. Reproduce training with these commands after installing the full
+backend dependencies and obtaining the official `yolov8n-obb.pt` backbone.
+
+```bash
+python scripts/prepare_instruments.py "/path/to/Dental Instruments.v30i.yolov8-obb.zip" data/instrument-v30
+python scripts/train_instruments.py data/instrument-v30 /path/to/yolov8n-obb.pt runtime/instrument-fit --epochs 3
+python scripts/train_instruments.py data/instrument-v30 runtime/instrument-fit/fit/weights/best.pt runtime/instrument-refine --epochs 8 --install models
+```
+
+See the [dataset registry](datasets/dataset_registry.yaml),
+[technical audit](reference/xr35-validation.md) and
+[held-out photo evaluation](reference/instrument-model-v30-evaluation.json).
+
 ### Install on a fresh checkout
 
 Use Python 3.11 and Node.js 22. The app prefers PyTorch MPS when available and

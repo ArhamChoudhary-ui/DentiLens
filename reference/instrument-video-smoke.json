@@ -1,0 +1,59 @@
+{
+  "device": "cpu",
+  "labelled_video_available": false,
+  "clips": [
+    {
+      "clip": "33337556",
+      "frames": 303,
+      "samples": 51,
+      "seconds": 2.33,
+      "classes": {
+        "Three-way dental syringe": 24
+      },
+      "suggestions": 24,
+      "appearance_groups": 5
+    },
+    {
+      "clip": "4490363",
+      "frames": 297,
+      "samples": 60,
+      "seconds": 0.63,
+      "classes": {},
+      "suggestions": 0,
+      "appearance_groups": 0
+    },
+    {
+      "clip": "5099636",
+      "frames": 455,
+      "samples": 76,
+      "seconds": 0.76,
+      "classes": {
+        "Three-way dental syringe": 3
+      },
+      "suggestions": 3,
+      "appearance_groups": 3
+    },
+    {
+      "clip": "6502766",
+      "frames": 1054,
+      "samples": 211,
+      "seconds": 1.99,
+      "classes": {},
+      "suggestions": 0,
+      "appearance_groups": 0
+    },
+    {
+      "clip": "braces",
+      "frames": 675,
+      "samples": 135,
+      "seconds": 2.82,
+      "classes": {
+        "Prophy instrument": 38,
+        "Three-way dental syringe": 3,
+        "Contra-angle handpiece": 17
+      },
+      "suggestions": 58,
+      "appearance_groups": 21
+    }
+  ]
+}

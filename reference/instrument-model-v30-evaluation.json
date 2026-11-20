@@ -1,0 +1,246 @@
+{
+  "stages": [
+    {
+      "dataset_sha256": "dc6b20d3d8d6fe43ef1429e23a4bff56a11c4a5dd8b02ebb9cae66ac20af6d26",
+      "classes": {
+        "0": "Blade holder",
+        "1": "Burnisher",
+        "2": "Contra-angle handpiece",
+        "3": "Cord packer",
+        "4": "Dycal carrier",
+        "5": "Explorer No.5",
+        "6": "Mouth mirror",
+        "7": "airotor",
+        "8": "composite instrument",
+        "9": "forcep",
+        "10": "plastic filling instrument",
+        "11": "prophy",
+        "12": "spoon excavators",
+        "13": "triple syringe dental"
+      },
+      "weights_sha256": "871af5bd7b40800819e0d6db296bee9a2da441cd7a58ebbcc0902a73835aed2e",
+      "foundation_sha256": "fa6e4cd2691f132875c143135affaa66b5d89394ebb1d07d19770a9b6382c1b8",
+      "training_seconds": 122.97,
+      "epochs": 3,
+      "image_size": 320,
+      "device": "cpu",
+      "per_class": {
+        "Blade holder": {
+          "precision": 0.2507509123037224,
+          "recall": 0.45,
+          "ap50": 0.28653929293612657,
+          "ap50_95": 0.12632367264291408
+        },
+        "Burnisher": {
+          "precision": 0.1801400446135093,
+          "recall": 0.25,
+          "ap50": 0.17777764292344506,
+          "ap50_95": 0.05698618774252242
+        },
+        "Contra-angle handpiece": {
+          "precision": 0.25331360822606663,
+          "recall": 0.9666666666666667,
+          "ap50": 0.3721811209759487,
+          "ap50_95": 0.23967869397149338
+        },
+        "Cord packer": {
+          "precision": 0.18622212371832658,
+          "recall": 0.25,
+          "ap50": 0.1650529544138362,
+          "ap50_95": 0.07293216873013815
+        },
+        "Dycal carrier": {
+          "precision": 0.28617784246699185,
+          "recall": 0.05,
+          "ap50": 0.0920883211748097,
+          "ap50_95": 0.03434258709251708
+        },
+        "Explorer No.5": {
+          "precision": 0.20846215212769392,
+          "recall": 0.6153846153846154,
+          "ap50": 0.264897449356819,
+          "ap50_95": 0.10167524080377352
+        },
+        "Mouth mirror": {
+          "precision": 0.2594827424905045,
+          "recall": 0.25,
+          "ap50": 0.1615167114990272,
+          "ap50_95": 0.054118457442844284
+        },
+        "airotor": {
+          "precision": 0.2552026318387278,
+          "recall": 0.9261123270169153,
+          "ap50": 0.6085078463681978,
+          "ap50_95": 0.36981888107985694
+        },
+        "composite instrument": {
+          "precision": 0.1636934475671483,
+          "recall": 0.7,
+          "ap50": 0.17980453750660025,
+          "ap50_95": 0.07305299959771552
+        },
+        "forcep": {
+          "precision": 0.14256235251722396,
+          "recall": 0.42105263157894735,
+          "ap50": 0.10122919942571694,
+          "ap50_95": 0.04619458256610258
+        },
+        "plastic filling instrument": {
+          "precision": 0.24772619684388056,
+          "recall": 0.25,
+          "ap50": 0.1903830469402755,
+          "ap50_95": 0.07485415540603867
+        },
+        "prophy": {
+          "precision": 0.3360324037135346,
+          "recall": 0.9487179487179487,
+          "ap50": 0.5902321173420623,
+          "ap50_95": 0.44258179615010984
+        },
+        "spoon excavators": {
+          "precision": 0.15888077864679184,
+          "recall": 0.23076923076923078,
+          "ap50": 0.16169959548920718,
+          "ap50_95": 0.060338499819362845
+        },
+        "triple syringe dental": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "ap50": 0.10704489921535722,
+          "ap50_95": 0.04311721093491224
+        }
+      },
+      "test": {
+        "metrics/precision(B)": 0.20918908836243727,
+        "metrics/recall(B)": 0.45062167286673743,
+        "metrics/mAP50(B)": 0.24706819539767358,
+        "metrics/mAP50-95(B)": 0.12828679528430725,
+        "fitness": 0.12828679528430725
+      },
+      "scope": "Held-out still images after filename grouping and exact deduplication."
+    },
+    {
+      "dataset_sha256": "dc6b20d3d8d6fe43ef1429e23a4bff56a11c4a5dd8b02ebb9cae66ac20af6d26",
+      "classes": {
+        "0": "Blade holder",
+        "1": "Burnisher",
+        "2": "Contra-angle handpiece",
+        "3": "Cord packer",
+        "4": "Dycal carrier",
+        "5": "Explorer No.5",
+        "6": "Mouth mirror",
+        "7": "airotor",
+        "8": "composite instrument",
+        "9": "forcep",
+        "10": "plastic filling instrument",
+        "11": "prophy",
+        "12": "spoon excavators",
+        "13": "triple syringe dental"
+      },
+      "weights_sha256": "0d1ac58db4411509e7984cc3bcf73dd3e5936c52fd99a48a33bfaf866bbbe26b",
+      "foundation_sha256": "871af5bd7b40800819e0d6db296bee9a2da441cd7a58ebbcc0902a73835aed2e",
+      "training_seconds": 294.94,
+      "epochs": 8,
+      "image_size": 320,
+      "device": "cpu",
+      "per_class": {
+        "Blade holder": {
+          "precision": 0.4014630211396189,
+          "recall": 0.8,
+          "ap50": 0.6810443762802256,
+          "ap50_95": 0.4226517028001435
+        },
+        "Burnisher": {
+          "precision": 0.19933951684850817,
+          "recall": 0.6,
+          "ap50": 0.24031590413155707,
+          "ap50_95": 0.096103679294159
+        },
+        "Contra-angle handpiece": {
+          "precision": 0.372200943489975,
+          "recall": 0.7,
+          "ap50": 0.4141268032548654,
+          "ap50_95": 0.30736119047252064
+        },
+        "Cord packer": {
+          "precision": 0.37416511355964144,
+          "recall": 0.75,
+          "ap50": 0.5480583558070999,
+          "ap50_95": 0.29675876381341504
+        },
+        "Dycal carrier": {
+          "precision": 0.12269397053503932,
+          "recall": 0.2,
+          "ap50": 0.11115949648679274,
+          "ap50_95": 0.04925315805808586
+        },
+        "Explorer No.5": {
+          "precision": 0.29423359998422866,
+          "recall": 0.6410256410256411,
+          "ap50": 0.27421257189629655,
+          "ap50_95": 0.12554848205370409
+        },
+        "Mouth mirror": {
+          "precision": 0.3583319506330155,
+          "recall": 0.34904795083812895,
+          "ap50": 0.21821069932875212,
+          "ap50_95": 0.07783934039434644
+        },
+        "airotor": {
+          "precision": 0.5031121543919754,
+          "recall": 0.972972972972973,
+          "ap50": 0.9311738901077137,
+          "ap50_95": 0.6729045095701729
+        },
+        "composite instrument": {
+          "precision": 0.17129041321419392,
+          "recall": 0.375,
+          "ap50": 0.17581246792010047,
+          "ap50_95": 0.0924020218275016
+        },
+        "forcep": {
+          "precision": 0.1981526029028644,
+          "recall": 0.5789473684210527,
+          "ap50": 0.30136446858242216,
+          "ap50_95": 0.11001426478581615
+        },
+        "plastic filling instrument": {
+          "precision": 0.21930223204226296,
+          "recall": 0.275,
+          "ap50": 0.16841378595319323,
+          "ap50_95": 0.06680123617011943
+        },
+        "prophy": {
+          "precision": 0.4928332743402213,
+          "recall": 0.8974358974358975,
+          "ap50": 0.5723500805636775,
+          "ap50_95": 0.4551004181688844
+        },
+        "spoon excavators": {
+          "precision": 0.15385167312463982,
+          "recall": 0.5128205128205128,
+          "ap50": 0.17734184578530524,
+          "ap50_95": 0.08004227880291012
+        },
+        "triple syringe dental": {
+          "precision": 0.3392553898071489,
+          "recall": 0.775,
+          "ap50": 0.6322333118717348,
+          "ap50_95": 0.307424085202194
+        }
+      },
+      "test": {
+        "metrics/precision(B)": 0.30001613257238097,
+        "metrics/recall(B)": 0.6019464531081576,
+        "metrics/mAP50(B)": 0.3889870041406955,
+        "metrics/mAP50-95(B)": 0.22572893795814092,
+        "fitness": 0.22572893795814092
+      },
+      "scope": "Held-out still images after filename grouping and exact deduplication."
+    }
+  ],
+  "original_export_version": "v30",
+  "held_out_images": 152,
+  "visibility_ground_truth_available": false,
+  "noted_split_caveat": "Perceptual similarity candidates remain across splits. Photo AP does not predict video accuracy."
+}

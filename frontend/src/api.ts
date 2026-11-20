@@ -78,6 +78,8 @@ export interface Exam {
   metadata?: MediaInfo | null
   error?: string | null
   reel_url?: string | null
+  instruments_available?: boolean
+  confirmed_instruments?: boolean
   reviews?: Review[]
   report?: Report
 }
