@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'code'))
 from dental_modes import TRAINED_MODES
 from dental_video import export_clips
+from review_preview import focused_tooth_preview
 RESULTS = ROOT / 'results'
 RUNTIME = ROOT / 'runtime'
 
@@ -162,11 +163,19 @@ with review_tab:
                 moment = moments[marker]
                 timestamp = moment['timestamp_sec']
                 if 'evidence' in moment:
-                    st.image(str(selected / moment['evidence']), width='stretch')
                     if 'fdi_number' in moment:
-                        st.write(f"Suggested FDI {moment['fdi_number']} · {moment['tooth_name']}")
-                    elif report.get('capabilities', {}).get('tooth_type_suggestions'):
-                        st.write(f"Suggested tooth type · {moment['model_label']}")
+                        st.write(f"**Suggested FDI {moment['fdi_number']} · {moment['tooth_name']}**")
+                        preview = focused_tooth_preview(source, moment)
+                        if preview is not None:
+                            st.image(preview, width='stretch', caption='Selected tooth · model suggestion')
+                        else:
+                            st.image(str(selected / moment['evidence']), width='stretch')
+                        with st.expander('All predictions on this frame'):
+                            st.image(str(selected / moment['evidence']), width='stretch')
+                    else:
+                        st.image(str(selected / moment['evidence']), width='stretch')
+                        if report.get('capabilities', {}).get('tooth_type_suggestions'):
+                            st.write(f"Suggested tooth type · {moment['model_label']}")
                     if 'confidence' in moment:
                         st.caption(f"Model score {moment['confidence']:.0%} · verify against the source footage.")
                     if lane == 'Possible cavities':
