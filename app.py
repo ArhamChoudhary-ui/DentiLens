@@ -34,6 +34,7 @@ with upload_tab:
     sam_ready = (ROOT / 'models/grounded/sam2/model.safetensors').is_file()
     if sam_ready and (ROOT / 'models/grounded/dino/model.safetensors').is_file():
         available.append(('Text-guided tooth regions + SAM', 'grounded-sam2'))
+        available.append(('Teeth and dental mirror head (experimental)', 'teeth-mirror'))
     if sam_ready and (ROOT / 'models/tooth-detector.pt').is_file() and (ROOT / 'models/tooth-detector.json').is_file():
         available.append(('Experimental trained tooth detector + SAM', 'tooth-sam2'))
     if not available:
@@ -111,7 +112,7 @@ with review_tab:
                     format_func=lambda index: f"{frames[index]['timestamp_sec']:.2f} s")
                 observation = frames[frame]
                 st.image(str(selected / observation['evidence']), width='stretch')
-                st.caption('Green contours are model predictions. Check them against the original video.')
+                st.caption('Green outlines mark predicted teeth. Blue outlines mark experimental mirror predictions. Compare with the original video.')
                 if source is not None and source.is_file():
                     st.video(str(source), start_time=observation['timestamp_sec'])
             else:

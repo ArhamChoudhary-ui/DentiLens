@@ -201,19 +201,19 @@ def main():
     parser.add_argument('--confidence', type=float,
                         help='Defaults to 0.50 for text-guided regions or 0.35 for AlphaDent and the experimental tooth detector')
     parser.add_argument('--device', default='cpu')
-    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'tooth-sam2'], default='grounded-sam2')
+    parser.add_argument('--engine', choices=['alphadent', 'grounded-sam2', 'teeth-mirror', 'tooth-sam2'], default='grounded-sam2')
     parser.add_argument('--tooth-weights', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/tooth-detector.pt')
     parser.add_argument('--model-directory', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'models/grounded')
     args = parser.parse_args()
     if args.confidence is None:
-        args.confidence = 0.5 if args.engine == 'grounded-sam2' else 0.35
+        args.confidence = 0.5 if args.engine in ('grounded-sam2', 'teeth-mirror') else 0.35
     try:
         predictor = None
-        if args.engine == 'grounded-sam2':
+        if args.engine in ('grounded-sam2', 'teeth-mirror'):
             from grounded_sam import GroundedSegmenter
-            predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device)
+            predictor = GroundedSegmenter(args.model_directory, args.confidence, args.device, include_mirror=args.engine == 'teeth-mirror')
         elif args.engine == 'tooth-sam2':
             from tooth_sam import ToothSegmenter
             predictor = ToothSegmenter(args.tooth_weights, args.model_directory, args.confidence, args.device)

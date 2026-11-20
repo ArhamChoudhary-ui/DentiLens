@@ -233,3 +233,16 @@ followed by a "Brownie Slides" section and closing slide. The template is blank.
 AlphaDent by Sosnin et al. Published model release and source are available at
 https://github.com/ZFTurbo/AlphaDent/releases/tag/v1.0. Checkpoint provenance and
 the publisher's accompanying license are preserved under `reference/`.
+
+## Experimental mirror review
+
+Choose **Teeth and dental mirror head (experimental)** in the app, or pass
+`--engine teeth-mirror` to the CLI. Green contours show predicted tooth regions.
+Blue contours show candidate round mirror heads. The mirror model uses a
+separate text prompt and a box shape filter. It can miss mirrors or outline
+other objects. Tool type coverage is currently limited to round mirror heads.
+
+`scripts/sample_video_labels.py` exports local frames and a manifest with source
+frame numbers and timestamps for annotation. The export marks every frame
+unlabeled. For the next training round, label visible teeth and instruments and
+reserve separate source videos for evaluation.

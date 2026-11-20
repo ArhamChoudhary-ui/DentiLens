@@ -9,7 +9,7 @@ import torch
 
 
 class GroundedSegmenter:
-    def __init__(self, model_directory, confidence=0.5, device='cpu'):
+    def __init__(self, model_directory, confidence=0.5, device='cpu', include_mirror=False):
         from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection, Sam2Processor, Sam2Model
 
         root = Path(model_directory)
@@ -17,6 +17,11 @@ class GroundedSegmenter:
         self.confidence = confidence
         self.prompt = 'teeth.'
         self.names = {0: 'teeth'}
+        self.include_mirror = include_mirror
+        if include_mirror:
+            self.names[1] = 'dental mirror head'
+            self.model_name = 'Grounding DINO + SAM 2.1 (teeth and experimental mirror)'
+            self.limitations = ['Experimental mirror-head localization can miss mirrors or confuse other objects with mirrors.']
         self.detector_processor = AutoProcessor.from_pretrained(root / 'dino', local_files_only=True)
         self.detector = self._load(AutoModelForZeroShotObjectDetection, root / 'dino')
         self.mask_processor = Sam2Processor.from_pretrained(root / 'sam2', local_files_only=True)
@@ -25,6 +30,11 @@ class GroundedSegmenter:
         for name in ('dino', 'sam2'):
             self.provenance[name] = json.loads((root / name / 'provenance.json').read_text())
 
+        if include_mirror:
+            self.provenance['mirror_detection'] = {
+                'prompt': 'small round dental mirror.', 'confidence_threshold': 0.5,
+                'box_width_to_height_range': [0.65, 1.55]}
+
     def _load(self, model_class, directory):
         model, information = model_class.from_pretrained(
             directory, local_files_only=True, use_safetensors=True, output_loading_info=True)
@@ -32,17 +42,20 @@ class GroundedSegmenter:
             raise ValueError(f'Incomplete or incompatible model weights in {directory}')
         return model.to(self.device).eval()
 
+    def detect(self, image, prompt, threshold):
+        inputs = self.detector_processor(images=image, text=prompt, return_tensors='pt').to(self.device)
+        with torch.inference_mode():
+            prediction = self.detector(**inputs)
+        return self.detector_processor.post_process_grounded_object_detection(
+            prediction, inputs.input_ids, threshold=threshold, text_threshold=0.2,
+            target_sizes=[image.size[::-1]])[0]
+
     def predict(self, source_frame):
         height, width = source_frame.shape[:2]
         scale = min(1.0, 960 / width)
         frame = cv2.resize(source_frame, (round(width * scale), round(height * scale)))
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        inputs = self.detector_processor(images=image, text=self.prompt, return_tensors='pt').to(self.device)
-        with torch.inference_mode():
-            prediction = self.detector(**inputs)
-        detection = self.detector_processor.post_process_grounded_object_detection(
-            prediction, inputs.input_ids, threshold=self.confidence, text_threshold=0.2,
-            target_sizes=[image.size[::-1]])[0]
+        detection = self.detect(image, self.prompt, self.confidence)
         labels = detection['text_labels']
         boxes, rows = [], []
         for box, score, label in zip(detection['boxes'], detection['scores'], labels):
@@ -60,6 +73,20 @@ class GroundedSegmenter:
                          'confidence': float(score), 'text_prediction': label,
                          'bbox_xyxy_normalized': [x1/image.width, y1/image.height,
                                                   x2/image.width, y2/image.height]})
+        if self.include_mirror:
+            mirrors = self.detect(image, 'small round dental mirror.', 0.5)
+            for box, score, label in zip(mirrors['boxes'], mirrors['scores'], mirrors['text_labels']):
+                if 'mirror' not in label.lower():
+                    continue
+                x1, y1, x2, y2 = box.detach().cpu().tolist()
+                x1, x2 = np.clip([x1, x2], 0, image.width).tolist()
+                y1, y2 = np.clip([y1, y2], 0, image.height).tolist()
+                if y2 <= y1 or not 0.65 <= (x2-x1)/(y2-y1) <= 1.55:
+                    continue
+                boxes.append([x1,y1,x2,y2])
+                rows.append(dict(model_class_id=1, model_label=self.names[1],
+                                 confidence=float(score), text_prediction=label,
+                                 bbox_xyxy_normalized=[x1/image.width,y1/image.height,x2/image.width,y2/image.height]))
         if not boxes:
             return [], frame
         from torchvision.ops import batched_nms
@@ -83,6 +110,7 @@ class GroundedSegmenter:
             row['mask'] = binary
             row['mask_quality_estimate'] = quality
             contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(frame, contours, -1, (70, 220, 110), 2)
+            color = (245, 190, 70) if row['model_class_id'] == 1 else (70, 220, 110)
+            cv2.drawContours(frame, contours, -1, color, 2)
             retained.append(row)
         return retained, frame
