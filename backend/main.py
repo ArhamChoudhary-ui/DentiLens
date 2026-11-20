@@ -246,12 +246,14 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         return data
 
     @app.get('/api/exams/{exam_id}/preview')
+    @app.head('/api/exams/{exam_id}/preview', include_in_schema=False)
     def preview(exam_id: UUID):
         exam = find(exam_id.hex)
         source = storage / exam_id.hex / exam['filename']
         return FileResponse(source)
 
     @app.get('/api/exams/{exam_id}/media/{asset}')
+    @app.head('/api/exams/{exam_id}/media/{asset}', include_in_schema=False)
     def media(exam_id: UUID, asset: Asset, download: bool = False):
         report_for(exam_id.hex)
         path = storage / exam_id.hex / asset
@@ -261,6 +263,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                             filename=asset if download else None)
 
     @app.get('/api/exams/{exam_id}/images/{name}')
+    @app.head('/api/exams/{exam_id}/images/{name}', include_in_schema=False)
     def evidence(exam_id: UUID, name: str, download: bool = False):
         report = report_for(exam_id.hex)
         if name not in {item['image'] for item in report['findings']}:

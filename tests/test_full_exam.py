@@ -69,7 +69,10 @@ def test_examination_workflow(examination_video, tmp_path):
         frames = [json.loads(line) for line in timeline]
         assert [entry['frame'] for entry in frames] == list(range(30))
         assert all(not entry['annotations'] for entry in frames[20:])
-        full = client.get(url + '/media/annotated.mp4', headers={'Range': 'bytes=0-63'})
+        media_url = url + '/media/annotated.mp4'
+        headers = client.head(media_url)
+        assert headers.status_code == 200 and headers.headers['content-type'] == 'video/mp4'
+        full = client.get(media_url, headers={'Range': 'bytes=0-63'})
         assert full.status_code == 206 and len(full.content) == 64
         output = storage / exam['id'] / 'annotated.mp4'
         assert video_info(output)['frames'] == 30
