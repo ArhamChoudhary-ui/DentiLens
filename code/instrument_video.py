@@ -41,6 +41,7 @@ def group_instruments(observations, stride):
 def measure_instruments(source, video, models, detector=None, *, experimental=False):
     started = perf_counter()
     device = 'cpu'
+    raw_classes = {}
     with tempfile.TemporaryDirectory(prefix='tracker-', dir=source.parent) as temporary:
         config = Path(temporary) / 'instrument-bytetrack.yaml'
         config.write_text('tracker_type: bytetrack\ntrack_high_thresh: 0.40\ntrack_low_thresh: 0.25\n'
@@ -57,6 +58,7 @@ def measure_instruments(source, video, models, detector=None, *, experimental=Fa
             model = YOLO(str(weight), task='obb')
             if model.names != {int(k):v for k,v in metadata['classes'].items()}:
                 raise ValueError('Instrument checkpoint classes do not match metadata.')
+            raw_classes = {display_name(name):(key,name) for key,name in model.names.items()}
             # The model was evaluated and qualified in CPU mode.
             torch.set_num_threads(min(4, torch.get_num_threads()))
 
@@ -82,6 +84,7 @@ def measure_instruments(source, video, models, detector=None, *, experimental=Fa
             torch.set_num_threads(min(4, torch.get_num_threads()))
             model = YOLO(str(weight), task='detect')
             threshold = report['comparison']['pilot']['score_threshold']
+            raw_classes = {'Dental instrument · type uncertain':(0,model.names[0])}
 
             def detector(frame):
                 boxes = model.predict(frame, imgsz=report['image_size'], conf=threshold,
@@ -113,7 +116,9 @@ def measure_instruments(source, video, models, detector=None, *, experimental=Fa
                     top, bottom = sorted((min(p[1] for p in points), max(p[1] for p in points)))
                     if right <= left or bottom <= top:
                         continue
-                    observations.append({'detection_id': f'instrument-{"video-" if experimental else ""}{index}-{i}', 'track_id': f'I-{track}' if track is not None else None,
+                    class_id, raw_class = raw_classes.get(label,(None,label))
+                    observations.append({'detector_class_id':class_id, 'detector_class_name':raw_class,
+                                         'detector_model':'video-v3' if experimental else 'v30-obb', 'detection_id': f'instrument-{"video-" if experimental else ""}{index}-{i}', 'track_id': f'I-{track}' if track is not None else None,
                                          'class': label, 'confidence': confidence, 'polygon': points,
                                          'box': [left, top, right, bottom], 'frame': index,
                                          'time': index / video['fps'], 'review_status': 'suggested'})

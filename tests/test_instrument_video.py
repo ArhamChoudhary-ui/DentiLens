@@ -68,3 +68,32 @@ def test_instrument_scan_api_and_full_video_export(monkeypatch, examination_vide
         result = client.post(path + '/video-export', json={'version':'confirmed','instruments':True})
         assert result.status_code == 200, result.text
         assert video_info(storage / exam['id'] / 'confirmed-export.mp4')['frames'] == 30
+        assert reviewed.json()['review_action'] == 'corrected'
+        assert client.get(path + '/still.jpg', params={'instrument': first['detection_id']}).headers['content-type'] == 'image/jpeg'
+        rejected = client.post(path + '/instrument-reviews',json={'detection_id':first['detection_id'],'decision':'dismissed'}).json()
+        assert rejected['review_action'] == 'rejected'
+        assert [row['action'] for row in rejected['history']] == ['corrected','rejected']
+        assert rejected['original_label'] == 'Dental mirror'
+        assert not client.get(path + '/intelligence', params={'q':'Show explorer'}).json()['results']
+
+
+
+def test_identity_association_and_confidence():
+    import numpy as np
+    import torch
+    from instrument_identity import associate, classify
+
+    model = torch.nn.Sequential(torch.nn.Flatten(), torch.nn.Linear(96*96,2))
+    with torch.no_grad():
+        model[1].weight.zero_()
+        model[1].bias.copy_(torch.tensor([3., 0.]))
+    info = {'classes':['dental_mirror','unknown'],'thresholds':{'dental_mirror':.9},'model':'test'}
+    image = np.zeros((128,128,3),dtype=np.uint8)
+    box = [.1,.1,.4,.4]
+    prediction = classify(model,info,image,[box])[0]
+    assert prediction['label']=='Dental mirror' and prediction['accepted']
+    info['thresholds']['dental_mirror'] = .99
+    assert not classify(model,info,image,[box])[0]['accepted']
+    tracks = list(associate([{'box':box,'time':0}, {'box':[.12,.1,.4,.4],'time':.2},
+                             {'box':[.6,.6,.9,.9],'time':.2}, {'box':box,'time':.8}]))
+    assert [len(track) for track in tracks]==[2,1,1]

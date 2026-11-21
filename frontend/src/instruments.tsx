@@ -3,14 +3,16 @@ import { api, clock, send } from './api'
 import type { Box } from './api'
 import { RegionEditor } from './review-tools'
 
-type Observation = {
+type Prediction = {label:string;confidence:number;accepted:boolean;model:string;alternatives:{label:string;confidence:number}[]}
+type IdentityInfo = {model?:string;thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
+type Observation = {identity?:Prediction | null;
   detection_id:string; class:string; time:number; confidence:number | null; polygon:number[][] | null; box:Box
 }
-type Appearance = { id:string; time:number; end:number; best:Observation }
-type Review = { detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
-type InstrumentReport = { device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
+type Appearance = { samples?:number; id:string; time:number; end:number; best:Observation }
+type Review = { review_action?:string; detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
+type InstrumentReport = {identity_model?:string | null; device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
 type TrackedFrame = {frame:number; time:number; box:Box}
-type InstrumentResponse = {model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
+type InstrumentResponse = {identity?:IdentityInfo;model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
 
 export function Instruments({examId, duration, currentTime, jump, refresh}: {
   examId:string; duration:number; currentTime:number; jump:(time:number)=>void; refresh:()=>Promise<void>
@@ -33,13 +35,15 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const [error,setError]=useState('')
   const [candidates,setCandidates]=useState(false)
   const [experimentalReady,setExperimentalReady]=useState(false)
+  const [identity,setIdentity]=useState<IdentityInfo>()
+  const [identifying,setIdentifying]=useState(false)
   const [tracking,setTracking]=useState(false)
   const [tracked,setTracked]=useState<TrackedFrame[] | null>(null)
   const [trackedFrame,setTrackedFrame]=useState<TrackedFrame>()
   useEffect(()=>{
     const controller=new AbortController()
     api<InstrumentResponse>(root+'/instruments',{signal:controller.signal})
-      .then(data=>{setAvailable(data.model_ready);setExperimentalReady(!!data.experimental_ready);setReport(data.report);setCandidates(data.report?.experimental_samples != null)})
+      .then(data=>{setAvailable(data.model_ready);setExperimentalReady(!!data.experimental_ready);setIdentity(data.identity);setReport(data.report);setCandidates(data.report?.experimental_samples != null)})
       .catch(e=>{if(!controller.signal.aborted)setError(e.message)})
     return ()=>controller.abort()
   },[root])
@@ -60,7 +64,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     clearTrack()
     const record=reviews.get(item.best.detection_id)
     setSelected(item);setManual(false);setRedraw(false);setBox(record?.box ?? null);setError('')
-    setLabel(record?.label ?? '');setNote(record?.note ?? '')
+    setLabel(record?.label ?? (item.best.identity?.accepted ? item.best.identity.label : ''));setNote(record?.note ?? '')
     setFdi(record?.fdi_number ?? '');setVisibility(record?.visibility ?? '');setAnchor(undefined)
   }
   function addManual() {
@@ -70,9 +74,25 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   }
   async function scan(experimental = false) {
     setBusy(true);setError('')
-    try {setReport(await send<InstrumentReport>(root+'/instruments'+(experimental?'?experimental=true':''),{}));setCandidates(true);await refresh()}
+    try {
+      setReport(await send<InstrumentReport>(root+'/instruments'+(experimental?'?experimental=true':''),{}))
+      setCandidates(true)
+      if(experimental && identity?.model) {
+        setIdentifying(true)
+        setReport(await send<InstrumentReport>(root+'/instrument-identities',{}))
+      }
+      await refresh()
+    }
     catch(e) {setError(e instanceof Error?e.message:'Instrument scan failed.')}
-    finally {setBusy(false)}
+    finally {setBusy(false);setIdentifying(false)}
+  }
+  async function identify() {
+    setIdentifying(true);setError('')
+    try {
+      setReport(await send<InstrumentReport>(root+'/instrument-identities',{}))
+      setSelected(undefined);setCandidates(true);await refresh()
+    } catch(e) {setError(e instanceof Error?e.message:'Instrument identification failed.')}
+    finally{setIdentifying(false)}
   }
   async function follow() {
     if(!selected) return
@@ -110,12 +130,24 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
       <div className="actions">
         <button className="subtle compact-action" disabled={saving || tracking} onClick={addManual}>Mark instrument</button>
         <button className="subtle compact-action" disabled={!available || busy || !!report?.scanned} onClick={()=>void scan()}>
-          {busy?'Scanning…':report?.scanned?'Still-photo scan complete':'Scan with still-photo model'}</button>
+          {busy && !identifying?'Scanning…':report?.scanned?'Still-photo scan complete':'Scan with still-photo model'}</button>
         {experimentalReady && <button className="subtle compact-action" disabled={busy || report?.experimental_samples != null}
           onClick={()=>void scan(true)}>{report?.experimental_samples != null?'Video scan complete':'Scan with experimental video model'}</button>}
       </div>
     </div>
-    {busy && <p role="status" className="quiet">Checking video frames for possible instrument regions…</p>}
+    {report?.experimental_samples != null && <div className="actions">
+      <button className="subtle compact-action" disabled={busy || identifying || !identity?.model || saving}
+        onClick={()=>void identify()}>{identifying?'Identifying…':report.identity_model?'Check saved identities':'Identify instruments'}</button>
+      {report.identity_model && <small className="quiet">Identification complete · {report.identity_model}</small>}
+    </div>}
+    <details>
+      <summary>Instrument model</summary>
+      <p className="quiet">{identity?.error ?? identity?.model ?? 'Checking classifier…'}</p>
+      {!!identity?.model && <p className="quiet">Local weights · models/instrument-identity.pt · V3 photos and reviewed video crops</p>}
+      {identity?.thresholds && <p className="quiet">{Object.entries(identity.thresholds).map(([key,value])=>key.replaceAll('_',' ')+' '+Math.round(value*100)+'%').join(' · ') || 'No enabled identities'}</p>}
+      {identity?.scores?.video_test && <p className="quiet">Held-out video · {identity.scores.video_test.crops} checked crops · {Math.round(identity.scores.video_test.abstention*100)}% uncertain</p>}
+    </details>
+    {busy && !identifying && <p role="status" className="quiet">Checking video frames for possible instrument regions…</p>}
     {error && <p className="error" role="alert">{error}</p>}
     {(report?.scanned || report?.experimental_samples != null) && <label className="toggle"><input type="checkbox" checked={candidates} disabled={saving}
       onChange={e=>{setCandidates(e.target.checked);if(!e.target.checked && current?.decision!=='confirmed')setSelected(undefined)}}/>
@@ -135,10 +167,16 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
         <div className="instrument-list">
           {visible.map(item=>{
             const saved=reviews.get(item.best.detection_id)
-            return <button className="history-row" key={item.id} disabled={saving || tracking} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
-              <time>{clock(item.best.time,true)}</time>
-              <span>{saved?.decision==='confirmed'?saved.label || 'Reviewed instrument':item.best.detection_id.startsWith('instrument-video-')?'Experimental candidate':'Model candidate'}</span>
-              <small>{saved?.decision ?? 'Unreviewed'}</small>
+            const classification=item.best.identity
+            const heading=saved?.decision==='confirmed'?saved.label:classification?.accepted?classification.label:
+              classification?'Uncertain instrument':item.best.detection_id.startsWith('instrument-video-')?'Unclassified candidate':item.best.class
+            const status=saved?.decision==='dismissed'?'Rejected':saved?.decision==='confirmed'?
+              (saved.review_action==='corrected'?'Corrected':'Confirmed'):'Needs review'
+            return <button className="history-row instrument-row" key={item.id} disabled={saving || tracking || identifying}
+              onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
+              <img loading="lazy" alt="" src={root+'/still.jpg?instrument='+encodeURIComponent(item.best.detection_id)}/>
+              <span><strong>{heading}</strong><small>{clock(item.time,true)}{item.end>item.time && `–${clock(item.end,true)} · ${item.samples} frames`}</small></span>
+              <small>{classification?.accepted ? `${Math.round(classification.confidence*100)}% · ` : ''}{status}</small>
             </button>
           })}
         </div>
@@ -156,6 +194,10 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
         <p className="quiet">{clock(sourceTime,true)}
           {selected && current?.decision!=='confirmed' && selected.best.confidence!==null &&
             ` · Model guess: ${selected.best.class} (${Math.round(selected.best.confidence*100)}%)`}</p>
+        {selected?.best.identity && <p className="quiet">
+          {selected.best.identity.accepted ? selected.best.identity.label : 'Uncertain instrument'} · {selected.best.identity.model}
+          {' · '}{selected.best.identity.alternatives.map(value=>`${value.label} ${Math.round(value.confidence*100)}%`).join(' · ')}
+        </p>}
         <div className="actions">
           <button className="subtle compact-action" onClick={()=>jump(sourceTime)}>Open source video</button>
           {!manual && !redraw && !trackedFrame && <button className="subtle compact-action" disabled={tracking} onClick={()=>{clearTrack();setRedraw(true)}}>Redraw box</button>}
@@ -188,9 +230,9 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
         <label className="field">Note<textarea maxLength={500} rows={2} value={note} disabled={saving} onChange={e=>setNote(e.target.value)}/></label>
         <div className="actions">
           <button className="primary compact-action" disabled={saving || tracking || !label.trim() || (redraw && !box)}
-            onClick={()=>void review('confirmed')}>{current?.decision==='confirmed'?'Save changes':'Confirm'}</button>
+            onClick={()=>void review('confirmed')}>{current?.decision==='confirmed'?'Save changes':selected?.best.identity?.accepted && label!==selected.best.identity.label?'Save correction':'Confirm'}</button>
           {!manual && <button className="subtle compact-action" disabled={saving || current?.decision==='dismissed'}
-            onClick={()=>void review('dismissed')}>Dismiss</button>}
+            onClick={()=>void review('dismissed')}>Reject</button>}
         </div>
         {current?.decision==='confirmed' && <a className="inline-jump" href={root+'/instrument-annotations'} download="instrument-annotations.json">Download instrument annotations</a>}
         </>}

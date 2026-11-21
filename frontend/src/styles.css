@@ -366,3 +366,7 @@ main { min-width: 0; width: 100%; max-width: 1670px; margin-inline: auto; paddin
 .playback-image { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .playback-image > div { position: absolute; border: 2px solid #79d4f7; }
 .playback-boxes span { position: absolute; bottom: 100%; left: -2px; white-space: nowrap; padding: .15rem .3rem; background: #101b25; color: #bcecff; font-size: .73rem; font-weight: 600; }
+
+.instrument-row { display: grid; grid-template-columns: 3.5rem minmax(0,1fr) auto; gap: .65rem; }
+.instrument-row img { width: 3.5rem; height: 2.5rem; object-fit: contain; background: #10161d; border-radius: .25rem; }
+.instrument-row span small { display: block; }

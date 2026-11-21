@@ -397,7 +397,7 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
       <ExaminationStoryboard id={exam.id} duration={report.video.duration}/> : tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
       <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview} initial={chartTooth}
         openAnatomy={openAnatomy}/> : tab==='instruments' ?
-      <Instruments examId={exam.id} duration={report.video.duration} currentTime={time} jump={seconds=>{setPlayerMode('source');openReview(seconds)}} refresh={refresh}/> : tab==='anatomy' ?
+      <Instruments examId={exam.id} duration={report.video.duration} currentTime={time} jump={seconds=>{setShowInstruments(true);setInstrumentTime(seconds);setPlayerMode('source');openReview(seconds)}} refresh={refresh}/> : tab==='anatomy' ?
       <Suspense fallback={<p role="status">Loading anatomy…</p>}><Anatomy examId={exam.id} initial={anatomyTooth} jump={openReview}
         openChart={code=>{setChartTooth(code);setTab('teeth')}}/></Suspense> : tab==='intelligence' ?
       <ExamIntelligence exam={exam} jump={openReview}/> : tab==='patient' ?

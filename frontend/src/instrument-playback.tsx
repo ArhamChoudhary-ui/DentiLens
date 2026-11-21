@@ -1,6 +1,6 @@
 import type { Box } from './api'
 
-type Observation = {detection_id:string; time:number; box:Box}
+type Observation = {detection_id:string; time:number; box:Box; identity?:{label:string;accepted:boolean} | null}
 type Decision = {detection_id:string; decision:string; label:string; box?:Box | null}
 export type InstrumentScan = {observations:Observation[]; reviews:Decision[]; experimental_samples?:number | null}
 
@@ -13,7 +13,7 @@ function overlap(a:Box,b:Box) {
 
 export function instrumentPlayback(scan:InstrumentScan) {
   const decisions=new Map(scan.reviews.map(row=>[row.detection_id,row]))
-  const groups=new Map<number, {box:Box; label:string; track:number}[]>()
+  const groups=new Map<number, {box:Box; label:string; suggestion:string; track:number}[]>()
   let nextTrack=0
   const names=new Map<number,Set<string>>()
   for(const row of scan.observations) {
@@ -21,7 +21,7 @@ export function instrumentPlayback(scan:InstrumentScan) {
     const decision=decisions.get(row.detection_id)
     if(decision?.decision==='dismissed') continue
     const group=groups.get(row.time) ?? []
-    group.push({box:decision?.box ?? row.box,label:decision?.decision==='confirmed'?decision.label:'',track:-1})
+    group.push({box:decision?.box ?? row.box,label:decision?.decision==='confirmed'?decision.label:'',suggestion:row.identity?.accepted?row.identity.label:'',track:-1})
     groups.set(row.time,group)
   }
   const frames=[...groups].sort(([a],[b])=>a-b)
@@ -54,7 +54,7 @@ export function instrumentPlayback(scan:InstrumentScan) {
       const labels=names.get(row.track)
       const trackedName=labels?.size===1?[...labels][0]:''
       const reviewed=!!row.label && Math.abs(time-closest[0])<.025
-      return {box,track:row.track,label:reviewed?row.label:trackedName || 'Instrument',reviewed,named:!!trackedName}
+      return {box,track:row.track,label:reviewed?row.label:trackedName || (row.suggestion ? row.suggestion+' · AI' : 'Instrument'),reviewed,named:!!trackedName}
     })
   }
 }

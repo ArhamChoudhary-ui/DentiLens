@@ -29,6 +29,7 @@ from full_video import process_exam, stamp, video_info
 from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
 from audio_intelligence import audio_ready, transcribe
 from storyboard import collect_events, csv_summary, generate, with_events
+from instrument_identity import associate, classify_observations, crop, identity_model
 from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
@@ -396,9 +397,21 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         with closing(connect()) as con:
             reviews = [json.loads(row[0]) for row in con.execute(
                 'SELECT payload FROM instrument_reviews WHERE exam_id=?', (key,))]
+        identities = read_sidecar(key, 'instrument-identities.json')
         if experimental is not None:
+            reviewed_ids = {review['detection_id'] for review in reviews}
+            for row in experimental['observations']:
+                row['identity'] = (identities or {}).get('predictions',{}).get(row['detection_id'])
             report['observations'].extend(experimental['observations'])
-            report['appearances'].extend(experimental['appearances'])
+            for track in associate(experimental['observations']):
+                start, end = track[0]['time'], track[-1]['time']
+                anchors = [row for row in track if row['detection_id'] in reviewed_ids]
+                best = max(track, key=lambda row: (bool((row['identity'] or {}).get('accepted')),
+                                                   (row['identity'] or {}).get('confidence',0),row['confidence']))
+                for row in anchors or [best]:
+                    report['appearances'].append(dict(id=row['detection_id'], time=start, end=end,
+                        samples=len(track), best=row, track_id=row['track_id']))
+
         if not scanned and experimental is None and not reviews:
             return None
         for review in reviews:
@@ -411,12 +424,17 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             report['appearances'].append(dict(id=row['detection_id'], label=row['class'], track_id=None,
                 time=row['time'], end=row['time'], last_frame=row['frame'], samples=1, best=row))
         report['appearances'].sort(key=lambda item:item['time'])
-        return {**report, 'scanned': scanned, 'experimental_samples': experimental['samples'] if experimental is not None else None, 'reviews': reviews}
+        return {**report, 'scanned': scanned, 'identity_model': (identities or {}).get('model'), 'experimental_samples': experimental['samples'] if experimental is not None else None, 'reviews': reviews}
 
     @app.get('/api/exams/{exam_id}/instruments')
     def instruments(exam_id: UUID):
         report_for(exam_id.hex)
-        return {'model_ready': instrument_model_ready(ROOT / 'models'),
+        try:
+            _, info = identity_model(ROOT/'models')
+            identity = {key: info[key] for key in ('model','classes','thresholds','scores')}
+        except (OSError,ValueError,RuntimeError) as exc:
+            identity = {'error':str(exc)}
+        return {'identity':identity, 'model_ready': instrument_model_ready(ROOT / 'models'),
                 'experimental_ready': (ROOT / 'models/video-instruments.pt').is_file(),
                 'report': instrument_records(exam_id.hex)}
 
@@ -443,19 +461,53 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         finally:
             instrument_scan_lock.release()
 
+    @app.post('/api/exams/{exam_id}/instrument-identities')
+    def identify_instruments(exam_id: UUID):
+        key = exam_id.hex
+        report_for(key)
+        scan = read_sidecar(key,'instruments-video.json')
+        if scan is None:
+            raise HTTPException(422,'Run the experimental video scan first.')
+        if not instrument_scan_lock.acquire(blocking=False):
+            raise HTTPException(409,'An instrument analysis is running.')
+        try:
+            model, info = identity_model(ROOT/'models')
+            previous = read_sidecar(key,'instrument-identities.json')
+            if (not previous or previous.get('checksum') != info['weights_sha256']
+                    or previous.get('thresholds') != info['thresholds']):
+                result = classify_observations(storage/key/'source.mp4',scan['observations'],model,info)
+                write_sidecar(key,'instrument-identities.json', {
+                    'model':info['model'], 'checksum':info['weights_sha256'], 'thresholds':info['thresholds'], 'predictions':result})
+            return instrument_records(key)
+        except (OSError,ValueError,RuntimeError,cv2.error) as exc:
+            raise HTTPException(422,str(exc)) from exc
+        finally:
+            instrument_scan_lock.release()
+
     @app.post('/api/exams/{exam_id}/instrument-reviews')
     def review_instrument(exam_id: UUID, body: InstrumentReview):
         key = exam_id.hex
         video = report_for(key)['video']
         data = body.model_dump()
         data['label'] = body.label.strip()
+        original = None
         if body.detection_id:
             instruments = instrument_records(key)
             record = next((row for row in instruments['observations'] if row['detection_id'] == body.detection_id), None) if instruments else None
             if record is None:
                 raise HTTPException(404, 'This instrument observation is unavailable.')
             original = next((review for review in instruments['reviews'] if review['detection_id'] == body.detection_id), None)
-            origin = original['original_label'] if original else record['class']
+            prediction = record.get('identity')
+            origin = (prediction or {}).get('label',record['class'])
+            if original:
+                origin = original['original_label']
+            data['original_prediction'] = (original or {}).get('original_prediction',prediction)
+            action = ('rejected' if body.decision=='dismissed' else
+                      'confirmed' if data['label']==(prediction or {}).get('label',record['class']) else 'corrected')
+            data['review_action'] = action
+            data['history'] = [*(original or {}).get('history',[]),
+                               dict(action=action,label=data['label'],time=utcnow(),
+                                    original_prediction=prediction)]
             prior_box = original.get('box') if original else None
             data.update(original_label=origin, time=record['time'], frame=record['frame'], box=body.box or prior_box)
             if original:
@@ -473,6 +525,11 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                         original_label=None, time=frame / video['fps'], frame=frame)
         data['updated'] = utcnow()
         with closing(connect()) as con, con:
+            con.execute('BEGIN IMMEDIATE')
+            current = con.execute('SELECT payload FROM instrument_reviews WHERE exam_id=? AND id=?',
+                                  (key,data['detection_id'])).fetchone()
+            if current and json.loads(current[0]).get('updated') != (original or {}).get('updated'):
+                raise HTTPException(409,'This instrument was reviewed in another window. Reload its review and try again.')
             con.execute('INSERT OR REPLACE INTO instrument_reviews VALUES (?,?,?)',
                         (key, data['detection_id'], json.dumps(data, allow_nan=False)))
         return data
@@ -707,7 +764,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
 
     @app.get('/api/exams/{exam_id}/still.jpg')
     def still(exam_id: UUID, time: Annotated[float, Query(ge=0, allow_inf_nan=False)] = 0,
-              bookmark: str | None = None):
+              bookmark: str | None = None, instrument: str | None = None):
         report = report_for(exam_id.hex)
         info = report['video']
         review = None
@@ -717,6 +774,13 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             if not review:
                 raise HTTPException(404, 'Confirmed bookmark not found.')
             time = review['time']
+        region = None
+        if instrument:
+            entry = next((row for row in (instrument_records(exam_id.hex) or {}).get('observations',[])
+                          if row['detection_id']==instrument),None)
+            if entry is None:
+                raise HTTPException(404,'Instrument observation not found.')
+            time,region = entry['time'],entry['box']
         if time >= info['duration']:
             raise HTTPException(422, 'Choose a time within the video.')
         frame_index = min(info['frames'] - 1, round(time * info['fps']))
@@ -734,6 +798,13 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                 row = confirmed_row(finding or {'category': 'tooth_identity', 'confidence': 0}, review,
                                     finding, frame_index, info['width'], info['height'])
                 frame = stamp(frame, time, [row], {'version': 'confirmed', 'fdi': True})
+        if region:
+            frame = crop(frame,region)
+            if not frame.size:
+                raise HTTPException(422,'This instrument region is empty.')
+            height,width = frame.shape[:2]
+            scale = min(1,180/max(height,width))
+            frame = cv2.resize(frame,(max(1,round(width*scale)),max(1,round(height*scale))))
         encoded, payload = cv2.imencode('.jpg', frame)
         if not encoded:
             raise HTTPException(422, 'Could not save this frame.')
