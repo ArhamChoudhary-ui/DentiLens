@@ -65,6 +65,8 @@ def main():
     for name in ('dataset','archive','output'):
         parser.add_argument(name,type=Path)
     parser.add_argument('--max-per-recording',type=int)
+    parser.add_argument('--model',choices=('video','still-obb'),default='video')
+    parser.add_argument('--errors',type=Path)
     args = parser.parse_args()
     metadata,frames,crops = load_dataset(args.dataset)
     issues = validate(metadata,frames,crops)
@@ -72,32 +74,72 @@ def main():
         raise ValueError('Resolve split leakage flags before benchmarking.')
     if checksum(args.archive) != metadata['archive_sha256']:
         raise ValueError('Archive checksum differs from the manifest.')
-    release = read_json(ROOT/'reference/instrument-video-v3-results.json')
-    weight = ROOT/'models/video-instruments.pt'
-    if checksum(weight) != release['checkpoint_sha256']:
+    if args.model=='video':
+        release = read_json(ROOT/'reference/instrument-video-v3-results.json')
+        weight = ROOT/'models/video-instruments.pt'
+        expected = release['checkpoint_sha256']
+        cutoff = release['comparison']['pilot']['score_threshold']
+        task = 'detect'
+    else:
+        weight = ROOT/'models/dental-instruments-obb.pt'
+        release = read_json(weight.with_suffix('.json'))
+        expected = release['weights_sha256']
+        cutoff = .40
+        task = 'obb'
+    if checksum(weight) != expected:
         raise ValueError('Unexpected detector checkpoint.')
-    model = YOLO(str(weight),task='detect')
+    model = YOLO(str(weight),task=task)
+    if task=='obb' and model.names != {int(key):value for key,value in release['classes'].items()}:
+        raise ValueError('Unexpected OBB class ordering.')
     torch.set_num_threads(4)
     per_source = Counter()
     samples = []
-    cutoff = release['comparison']['pilot']['score_threshold']
+    errors = []
     with ZipFile(args.archive) as archive:
         for row in frames:
             recording = row['recording']
             if row['split']!='test' or (args.max_per_recording and per_source[recording]>=args.max_per_recording):
                 continue
             _,image = image_from_archive(archive,row['member'])
-            boxes = model.predict(image,imgsz=release['image_size'],conf=.001,max_det=300,
-                                  device='cpu',verbose=False)[0].boxes
+            prediction = model.predict(image,imgsz=release['image_size'],conf=.001,max_det=300,
+                                       device='cpu',verbose=False)[0]
+            boxes = prediction.obb if task=='obb' else prediction.boxes
+            if task=='obb':
+                corners = boxes.xyxyxyxyn.numpy()
+                coordinates = np.concatenate((corners.min(axis=1),corners.max(axis=1)),axis=1).tolist()
+            else:
+                coordinates = boxes.xyxyn.tolist()
             positives = [a for a in row['annotations'] if a['label']!='non_instrument']
             negatives = [a for a in row['annotations'] if a['label']=='non_instrument']
-            samples.append((positives,list(zip(boxes.conf.tolist(),boxes.xyxyn.tolist())),negatives))
+            predictions = list(zip(boxes.conf.tolist(),coordinates))
+            samples.append((positives,predictions,negatives))
+            if args.errors:
+                unmatched = list(positives)
+                provenance = {key:row[key] for key in ('id','recording','frame','member')}
+                for confidence,box in sorted(predictions,key=lambda item:-item[0]):
+                    if confidence<cutoff:
+                        continue
+                    match = max(unmatched,key=lambda item:iou(box,item['box']),default=None)
+                    if match and iou(box,match['box'])>=.5:
+                        unmatched.remove(match)
+                    else:
+                        reference_iou = max((iou(box,item['box']) for item in positives),default=0.)
+                        errors.append(dict(**provenance,kind='duplicate_or_unmatched' if reference_iou>=.5 else 'unmatched',
+                                           confidence=confidence,box=box,best_annotated_iou=reference_iou))
+                for missed in unmatched:
+                    proposals = [(iou(missed['box'],box),confidence) for confidence,box in predictions]
+                    overlap,best_score = max(proposals,default=(0.,None))
+                    errors.append(dict(**provenance,kind='missed',label=missed['label'],box=missed['box'],
+                                       best_proposal_iou=overlap,best_proposal_confidence=best_score))
             per_source[recording] += 1
     result = dict(dataset=metadata['version'],archive_sha256=metadata['archive_sha256'],
-                  checkpoint_sha256=release['checkpoint_sha256'],score_cutoff=cutoff,
+                  checkpoint_sha256=expected,score_cutoff=cutoff,
+                  **({'detector':'still-obb'} if task=='obb' else {}),
                   ranking_score_floor=.001, max_per_recording=args.max_per_recording,
                   frames_by_recording=dict(per_source), **detection_metrics(samples,cutoff))
     write_json(args.output,result)
+    if args.errors:
+        write_json(args.errors,errors)
     print(result)
 
 

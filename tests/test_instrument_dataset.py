@@ -88,3 +88,15 @@ def test_detection_rank_and_negative_classification():
     assert metrics['raw_accuracy']==.5
     assert metrics['negative_false_acceptance']==1
     assert metrics['accepted_accuracy']==.5
+
+
+def test_recovery_approval_cannot_include_holdout_examples():
+    from train_instrument_recovery import reviewed_rows
+
+    train = {'id':'a','split':'train','label':'dental_mirror'}
+    validation = dict(train,id='b',split='valid')
+    test = dict(train,id='c',split='test')
+    assert reviewed_rows([train,validation,test],['a']) == [train]
+    for approvals in (['b'],['c'],['invented'],['a','a']):
+        with pytest.raises(ValueError):
+            reviewed_rows([train,validation,test],approvals)
