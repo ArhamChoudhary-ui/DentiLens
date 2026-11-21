@@ -16,9 +16,17 @@ LABELS = {
     'dental_handpiece': 'Dental handpiece', 'orthodontic_pliers': 'Orthodontic pliers',
     'ligature_applicator': 'Ligature applicator', 'wire_cutter': 'Wire cutter',
     'bracket_holder': 'Bracket holder', 'other_instrument': 'Other instrument',
+    'band_pusher': 'Band pusher', 'bayonet_forceps': 'Bayonet forceps',
+    'hemostat': 'Artery forceps', 'blade_holder': 'Blade holder',
+    'bracket_positioner': 'Bracket positioner', 'burnisher': 'Burnisher',
+    'cord_packer': 'Cord packer', 'distal_end_cutter': 'Distal end cutter',
+    'dycal_carrier': 'Dycal carrier', 'rubber_dam_forceps': 'Rubber dam forceps',
+    'suture_scissors': 'Suture scissors', 'tissue_forceps': 'Toothed tissue forceps',
+    'spoon_excavator': 'Spoon excavator', 'three_way_syringe': 'Three-way syringe',
     'unknown': 'Uncertain instrument',
 }
 SIZE = 96
+ASSOCIATION_VERSION = 2
 
 
 def crop(image, box, padding=.10):
@@ -30,12 +38,12 @@ def crop(image, box, padding=.10):
     return image[y0:y1, x0:x1]
 
 
-def encode(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    h, w = gray.shape
+def encode(image, color=False):
+    pixels = cv2.cvtColor(image, cv2.COLOR_BGR2RGB if color else cv2.COLOR_BGR2GRAY)
+    h, w = pixels.shape[:2]
     scale = SIZE/max(h, w)
-    scaled = cv2.resize(gray, (max(1,round(w*scale)),max(1,round(h*scale))), interpolation=cv2.INTER_AREA)
-    background = np.full((SIZE,SIZE), 127, dtype=np.uint8)
+    scaled = cv2.resize(pixels, (max(1,round(w*scale)),max(1,round(h*scale))), interpolation=cv2.INTER_AREA)
+    background = np.full((SIZE,SIZE,3) if color else (SIZE,SIZE),127,dtype=np.uint8)
     y, x = (SIZE-scaled.shape[0])//2, (SIZE-scaled.shape[1])//2
     background[y:y+scaled.shape[0], x:x+scaled.shape[1]] = scaled
     return background
@@ -57,9 +65,9 @@ def network(classes, backbone='cnn'):
 
 
 @lru_cache(maxsize=2)
-def load_identity(root, changed):
+def load_identity(root, stem, changed):
     del changed
-    weights = root / 'instrument-identity.pt'
+    weights = root / (stem+'.pt')
     info = json.loads(weights.with_suffix('.json').read_text())
     with weights.open('rb') as stream:
         if file_digest(stream,'sha256').hexdigest() != info['weights_sha256']:
@@ -75,12 +83,49 @@ def load_identity(root, changed):
     return model.eval(), info
 
 
-def identity_model(root):
-    weights = root / 'instrument-identity.pt'
+def identity_model(root, stem='instrument-identity'):
+    weights = root / (stem+'.pt')
     metadata = weights.with_suffix('.json')
     if not weights.is_file() or not metadata.is_file():
         raise ValueError('Instrument classifier weights are missing.')
-    return load_identity(root,(weights.stat().st_mtime_ns,metadata.stat().st_mtime_ns))
+    return load_identity(root,stem,(weights.stat().st_mtime_ns,metadata.stat().st_mtime_ns))
+
+
+def identity_pipeline(root):
+    primary = identity_model(root)
+    specialist_weights = root/'instrument-detail.pt'
+    if specialist_weights.exists() or specialist_weights.with_suffix('.json').exists():
+        return [primary,identity_model(root,'instrument-detail')]
+    return [primary]
+
+
+def pipeline_version(models):
+    return [{'model':info['model'],'checksum':info['weights_sha256'],'thresholds':info['thresholds']}
+            for _,info in models]
+
+
+def classify_pipeline(source, observations, models):
+    model, info = models[0]
+    predictions = classify_observations(source,observations,model,info)
+    if len(models)==1:
+        return predictions
+    specialist, detail = models[1]
+    specialized = classify_observations(source,observations,specialist,detail)
+    for key, prediction in specialized.items():
+        if not prediction or not prediction['accepted']:
+            continue
+        earlier = predictions[key]
+        if earlier and earlier['accepted'] and earlier['class_id']!=prediction['class_id']:
+            predictions[key] = {**earlier,'accepted':False,'reason':'classifier_disagreement',
+                                'specialist_prediction':prediction}
+        else:
+            predictions[key] = {**prediction,'primary_prediction':earlier}
+    return predictions
+
+
+def crop_tensor(images):
+    stack = torch.from_numpy(np.stack(images))
+    return stack.permute(0,3,1,2) if stack.ndim==4 else stack[:,None]
 
 
 def model_pixels(data, backbone):
@@ -93,13 +138,19 @@ def model_pixels(data, backbone):
     return pixels
 
 
-def classify(model, info, image, boxes):
-    crops = [crop(image,box) for box in boxes]
-    valid = [(i,encode(region)) for i,region in enumerate(crops) if region.size and min(region.shape[:2]) >= 5]
-    output = [None] * len(boxes)
+def encoded_crop(image, box, info):
+    region = crop(image,box)
+    if region.size and min(region.shape[:2]) >= 5:
+        return encode(region,info.get('color',False))
+    return None
+
+
+def score_crops(model, info, crops):
+    valid = [(index,pixels) for index,pixels in enumerate(crops) if pixels is not None]
+    output = [None] * len(crops)
     if not valid:
         return output
-    data = model_pixels(torch.from_numpy(np.stack([region for _,region in valid]))[:,None],info.get('backbone','cnn'))
+    data = model_pixels(crop_tensor([pixels for _,pixels in valid]),info.get('backbone','cnn'))
     with torch.inference_mode():
         probabilities = model(data).softmax(1).numpy()
     for (index,_), scores in zip(valid,probabilities):
@@ -112,11 +163,22 @@ def classify(model, info, image, boxes):
     return output
 
 
+def classify(model, info, image, boxes):
+    return score_crops(model,info,[encoded_crop(image,box,info) for box in boxes])
+
+
 def classify_observations(source, observations, model, info):
     by_frame = defaultdict(list)
     for item in observations:
         by_frame[item['frame']].append(item)
     output = {}
+    pending = []
+
+    def flush():
+        result = score_crops(model,info,[pixels for _,pixels in pending])
+        output.update((key,identity) for (key,_),identity in zip(pending,result))
+        pending.clear()
+
     capture = cv2.VideoCapture(str(source))
     try:
         position = 0
@@ -128,8 +190,12 @@ def classify_observations(source, observations, model, info):
             position = index + 1
             if not ok:
                 raise ValueError(f'Could not classify frame {index}.')
-            for row, identity in zip(rows,classify(model,info,image,[row['box'] for row in rows])):
-                output[row['detection_id']] = identity
+            for row in rows:
+                pending.append((row['detection_id'],encoded_crop(image,row['box'],info)))
+                if len(pending)==32:
+                    flush()
+        if pending:
+            flush()
     finally:
         capture.release()
     # Keep predictions frame-by-frame for audit. A visible name also needs
@@ -157,8 +223,20 @@ def associate(rows):
     def matches(a,b):
         x,y,r,d = a['box']
         u,v,s,t = b['box']
+        width, height, prev_width, prev_height = r-x, d-y, s-u, t-v
+        if min(width,height,prev_width,prev_height) <= 0:
+            return False
         intersection = max(0,min(r,s)-max(x,u)) * max(0,min(d,t)-max(y,v))
-        return intersection / max(1e-9,(r-x)*(d-y)+(s-u)*(t-v)-intersection) >= .45
+        overlap = intersection / (width*height+prev_width*prev_height-intersection)
+        if overlap >= .45:
+            return True
+        # Keep a moving box associated when size and shape agree. Still
+        # require overlap and a unique match in both directions.
+        if overlap < .17 or not (.64 <= width/prev_width <= 1.56 and .64 <= height/prev_height <= 1.56):
+            return False
+        dx = (x+r-u-s)/(width+prev_width)
+        dy = (y+d-v-t)/(height+prev_height)
+        return dx*dx + dy*dy <= .66**2
 
     for time, current in sorted(by_time.items()):
         if last_time is None or time-last_time>.24:

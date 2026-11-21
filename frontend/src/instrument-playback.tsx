@@ -1,6 +1,6 @@
 import type { Box } from './api'
 
-type Observation = {detection_id:string; time:number; box:Box; identity?:{label:string;accepted:boolean} | null}
+type Observation = {detection_id:string; time:number; box:Box; identity?:{label:string;accepted:boolean} | null;track_id?:string | null}
 type Decision = {detection_id:string; decision:string; label:string; box?:Box | null}
 export type InstrumentScan = {observations:Observation[]; reviews:Decision[]; experimental_samples?:number | null}
 
@@ -13,15 +13,15 @@ function overlap(a:Box,b:Box) {
 
 export function instrumentPlayback(scan:InstrumentScan) {
   const decisions=new Map(scan.reviews.map(row=>[row.detection_id,row]))
-  const groups=new Map<number, {box:Box; label:string; suggestion:string; track:number}[]>()
+  const groups=new Map<number, {box:Box; label:string; suggestion:string; track:string}[]>()
   let nextTrack=0
-  const names=new Map<number,Set<string>>()
+  const names=new Map<string,Set<string>>()
   for(const row of scan.observations) {
     if(!row.detection_id.startsWith('instrument-video-')) continue
     const decision=decisions.get(row.detection_id)
     if(decision?.decision==='dismissed') continue
     const group=groups.get(row.time) ?? []
-    group.push({box:decision?.box ?? row.box,label:decision?.decision==='confirmed'?decision.label:'',suggestion:row.identity?.accepted?row.identity.label:'',track:-1})
+    group.push({box:decision?.box ?? row.box,label:decision?.decision==='confirmed'?decision.label:'',suggestion:row.identity?.accepted?row.identity.label:'',track:row.track_id ?? ''})
     groups.set(row.time,group)
   }
   const frames=[...groups].sort(([a],[b])=>a-b)
@@ -31,8 +31,10 @@ export function instrumentPlayback(scan:InstrumentScan) {
     for(const row of rows) {
       const matches=prior.filter(other=>overlap(other.box,row.box)>=.45)
       const [match]=matches
-      row.track=matches.length===1 && rows.filter(other=>overlap(other.box,match.box)>=.45).length===1
-        ?match.track:nextTrack++
+      if(!row.track) {
+        row.track=matches.length===1 && rows.filter(other=>overlap(other.box,match.box)>=.45).length===1
+          ?match.track:'local-'+nextTrack++
+      }
       if(row.label) {
         const labels=names.get(row.track) ?? new Set<string>()
         labels.add(row.label)

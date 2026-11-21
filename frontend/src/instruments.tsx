@@ -4,7 +4,7 @@ import type { Box } from './api'
 import { RegionEditor } from './review-tools'
 
 type Prediction = {label:string;confidence:number;accepted:boolean;model:string;alternatives:{label:string;confidence:number}[]}
-type IdentityInfo = {model?:string;thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
+type IdentityInfo = {model?:string;specialists?:IdentityInfo[];thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
 type Observation = {identity?:Prediction | null;
   detection_id:string; class:string; time:number; confidence:number | null; polygon:number[][] | null; box:Box
 }
@@ -144,6 +144,9 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
       <summary>Instrument model</summary>
       <p className="quiet">{identity?.error ?? identity?.model ?? 'Checking classifier…'}</p>
       {!!identity?.model && <p className="quiet">Local weights · models/instrument-identity.pt · V3 photos and reviewed video crops</p>}
+      {identity?.specialists?.map(detail=><p key={detail.model} className="quiet">
+        {detail.model} · {Object.keys(detail.thresholds ?? {}).map(key=>key.replaceAll('_',' ')).join(', ') || 'No enabled identities'}
+      </p>)}
       {identity?.thresholds && <p className="quiet">{Object.entries(identity.thresholds).map(([key,value])=>key.replaceAll('_',' ')+' '+Math.round(value*100)+'%').join(' · ') || 'No enabled identities'}</p>}
       {identity?.scores?.video_test && <p className="quiet">Held-out video · {identity.scores.video_test.crops} checked crops · {Math.round(identity.scores.video_test.abstention*100)}% uncertain</p>}
     </details>

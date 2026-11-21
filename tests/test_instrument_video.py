@@ -97,3 +97,32 @@ def test_identity_association_and_confidence():
     tracks = list(associate([{'box':box,'time':0}, {'box':[.12,.1,.4,.4],'time':.2},
                              {'box':[.6,.6,.9,.9],'time':.2}, {'box':box,'time':.8}]))
     assert [len(track) for track in tracks]==[2,1,1]
+
+
+def test_moving_instrument_association_checks_both_directions():
+    from instrument_identity import associate
+
+    mirror = [
+        {'box':[.16,.14,.36,.25],'time':1.0},
+        {'box':[.25,.18,.48,.28],'time':1.2},
+        {'box':[.35,.21,.58,.30],'time':1.4},
+    ]
+    explorer = {'box':[.66,.23,1,.29],'time':1.6}
+    assert [len(track) for track in associate([*mirror,explorer])]==[3,1]
+    ambiguous = {'box':[.26,.18,.47,.29],'time':1.2}
+    assert [len(track) for track in associate([mirror[0],mirror[1],ambiguous])]==[1,1,1]
+
+
+def test_identity_pipeline_keeps_evidence_and_abstains_on_disagreement(monkeypatch):
+    import instrument_identity as identity
+
+    base = {'same':{'class_id':'dental_mirror','accepted':True},
+            'conflict':{'class_id':'dental_explorer','accepted':True},
+            'other':{'class_id':'wire_cutter','accepted':True}}
+    detail = {'same':{'class_id':'dental_mirror','accepted':True},
+              'conflict':{'class_id':'dental_mirror','accepted':True},'other':None}
+    monkeypatch.setattr(identity,'classify_observations',lambda source,rows,model,info:dict(model))
+    result = identity.classify_pipeline(None,[],[(base,{}),(detail,{})])
+    assert result['same']['primary_prediction']==base['same']
+    assert result['conflict']['reason']=='classifier_disagreement' and not result['conflict']['accepted']
+    assert result['other']==base['other']

@@ -36,6 +36,7 @@ def check(source, model, info):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('videos',type=Path,nargs='+')
+    parser.add_argument('--classifier',type=Path,default=ROOT/'models')
     options=parser.parse_args()
-    model, info = identity_model(ROOT/'models')
+    model, info = identity_model(options.classifier.resolve())
     print(json.dumps([check(source,model,info) for source in options.videos],indent=2))

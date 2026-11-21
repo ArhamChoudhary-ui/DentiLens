@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timezone
+from hashlib import sha256
 from io import BytesIO
 import json
 import logging
@@ -29,7 +30,7 @@ from full_video import process_exam, stamp, video_info
 from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
 from audio_intelligence import audio_ready, transcribe
 from storyboard import collect_events, csv_summary, generate, with_events
-from instrument_identity import associate, classify_observations, crop, identity_model
+from instrument_identity import ASSOCIATION_VERSION, associate, classify_pipeline, crop, identity_pipeline, pipeline_version
 from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
@@ -430,8 +431,13 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
     def instruments(exam_id: UUID):
         report_for(exam_id.hex)
         try:
-            _, info = identity_model(ROOT/'models')
+            models = identity_pipeline(ROOT/'models')
+            _, info = models[0]
             identity = {key: info[key] for key in ('model','classes','thresholds','scores')}
+            identity['specialists'] = [
+                {key: detail[key] for key in ('model','classes','thresholds','scores')}
+                for _,detail in models[1:]
+            ]
         except (OSError,ValueError,RuntimeError) as exc:
             identity = {'error':str(exc)}
         return {'identity':identity, 'model_ready': instrument_model_ready(ROOT / 'models'),
@@ -471,13 +477,18 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         if not instrument_scan_lock.acquire(blocking=False):
             raise HTTPException(409,'An instrument analysis is running.')
         try:
-            model, info = identity_model(ROOT/'models')
+            models = identity_pipeline(ROOT/'models')
+            versions = pipeline_version(models)
             previous = read_sidecar(key,'instrument-identities.json')
-            if (not previous or previous.get('checksum') != info['weights_sha256']
-                    or previous.get('thresholds') != info['thresholds']):
-                result = classify_observations(storage/key/'source.mp4',scan['observations'],model,info)
+            if (not previous or previous.get('models') != versions
+                    or previous.get('association_version') != ASSOCIATION_VERSION):
+                result = classify_pipeline(storage/key/'source.mp4',scan['observations'],models)
+                if previous:
+                    digest = sha256(json.dumps(previous,sort_keys=True).encode()).hexdigest()[:16]
+                    write_sidecar(key,f'instrument-identities-{digest}.json',previous)
                 write_sidecar(key,'instrument-identities.json', {
-                    'model':info['model'], 'checksum':info['weights_sha256'], 'thresholds':info['thresholds'], 'predictions':result})
+                    'model':' + '.join(item['model'] for item in versions),'models':versions,
+                    'association_version':ASSOCIATION_VERSION, 'predictions':result})
             return instrument_records(key)
         except (OSError,ValueError,RuntimeError,cv2.error) as exc:
             raise HTTPException(422,str(exc)) from exc
