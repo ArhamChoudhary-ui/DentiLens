@@ -12,6 +12,8 @@ import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
 import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
 import { ExamIntelligence } from './intelligence'
 import { Instruments } from './instruments'
+import { instrumentPlayback } from './instrument-playback'
+import type { InstrumentScan } from './instrument-playback'
 import { AudioIntelligence, ExaminationStoryboard } from './video-events'
 import './styles.css'
 
@@ -286,6 +288,30 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
   const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence' | 'anatomy' | 'instruments' | 'audio' | 'storyboard'>('review')
+  const [instrumentScan,setInstrumentScan]=useState<InstrumentScan>()
+  const [showInstruments,setShowInstruments]=useState(false)
+  const [instrumentTime,setInstrumentTime]=useState(0)
+  const [videoRatio,setVideoRatio]=useState(16/9)
+  const instrumentFrames=useMemo(()=>instrumentScan?instrumentPlayback(instrumentScan):undefined,[instrumentScan])
+  useEffect(()=>{
+    if(tab!=='review') return
+    const controller=new AbortController()
+    api<{report:InstrumentScan | null}>(path(exam.id,'/instruments'),{signal:controller.signal})
+      .then(result=>setInstrumentScan(result.report ?? undefined)).catch(()=>{})
+    return ()=>controller.abort()
+  },[exam.id,tab])
+  useEffect(()=>{
+    const video=player.current
+    if(!showInstruments || tab!=='review' || !video || !video.requestVideoFrameCallback) return
+    let callback:number
+    const update=(_:number,frame:VideoFrameCallbackMetadata)=>{
+      setInstrumentTime(frame.mediaTime)
+      callback=video.requestVideoFrameCallback(update)
+    }
+    callback=video.requestVideoFrameCallback(update)
+    return ()=>video.cancelVideoFrameCallback(callback)
+  },[showInstruments,playerMode,tab])
+  const instrumentBoxes=showInstruments?instrumentFrames?.(player.current?.paused?time:instrumentTime) ?? []:[]
   const [anatomyTooth,setAnatomyTooth]=useState('')
   const [chartTooth,setChartTooth]=useState('')
   const reviews=exam.reviews ?? []
@@ -387,13 +413,27 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
               <a className="subtle" href={media(exam.id,'annotated.mp4')+'?download=1'}><ArrowDownToLine size={15}/> Download annotated MP4</a>
             </div>
           </div>
+          {instrumentScan?.experimental_samples != null && <label className="toggle playback-toggle">
+            <input type="checkbox" checked={showInstruments} onChange={e=>{setInstrumentTime(time);setShowInstruments(e.target.checked)}}/> Show instrument suggestions
+          </label>}
+          <div className="instrument-playback">
           <video ref={player} key={playerMode} src={media(exam.id,`${playerMode}.mp4`)} controls playsInline preload="metadata" aria-label="Examination playback"
             onLoadedMetadata={e=>{
+              const {videoWidth,videoHeight}=e.currentTarget
+              if(videoWidth && videoHeight)setVideoRatio(videoWidth/videoHeight)
               const position=pending.current ?? time
               if (position>0) e.currentTarget.currentTime=position
               pending.current=null
             }}
-            onTimeUpdate={e=>setTime(e.currentTarget.currentTime)}/>
+            onSeeked={e=>setTime(e.currentTarget.currentTime)}
+            onTimeUpdate={e=>{setTime(e.currentTarget.currentTime);if(!e.currentTarget.requestVideoFrameCallback)setInstrumentTime(e.currentTarget.currentTime)}}/>
+          <div className="playback-boxes" aria-hidden="true">
+            <div className="playback-image" style={{width:`min(100cqw, calc(100cqh * ${videoRatio}))`,height:`min(100cqh, calc(100cqw / ${videoRatio}))`}}>
+            {instrumentBoxes.map(({box,label,track,reviewed,named})=><div key={track}
+              style={{left:box[0]*100+'%',top:box[1]*100+'%',width:(box[2]-box[0])*100+'%',height:(box[3]-box[1])*100+'%'}}>
+              <span>{label}{reviewed?' · Reviewed':named?' · Tracked':''}</span>
+            </div>)}
+          </div></div></div>
           <div className="timeline">
             <div className="time-labels"><strong>Timeline</strong><span>{clock(time, true)} / {clock(report.video.duration, true)}</span></div>
             <div className="timeline-pins" aria-label="Bookmark timeline">

@@ -82,7 +82,7 @@ main { min-width: 0; width: 100%; max-width: 1670px; margin-inline: auto; paddin
 .review-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(285px, 1fr); gap: 17px; align-items: start; }
 .review-main, .review-side { display: grid; min-width: 0; gap: 14px; }
 .player-panel { overflow: hidden; }
-.player-panel > video { max-height: 60vh; aspect-ratio: 16/9; object-fit: contain; }
+.player-panel .instrument-playback > video { max-height: 60vh; aspect-ratio: 16/9; object-fit: contain; }
 .player-heading, .time-labels, .progress-label, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .player-heading { min-height: 54px; padding: 8px 12px; font-size: .83rem; }
 .player-controls { display: flex; align-items: center; gap: 8px; }
@@ -359,3 +359,10 @@ main { min-width: 0; width: 100%; max-width: 1670px; margin-inline: auto; paddin
 .story-thumb strong { font-variant-numeric:tabular-nums; color:var(--accent); font-size:.79rem; }
 .event-link { display:block; text-align:left; margin:3px 0; overflow-wrap:anywhere; }
 @media(max-width:680px) { .event-workspace { grid-template-columns:1fr; } }
+
+.playback-toggle { margin: 0 1rem .75rem; }
+.instrument-playback { position: relative; }
+.playback-boxes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; container-type: size; }
+.playback-image { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.playback-image > div { position: absolute; border: 2px solid #79d4f7; }
+.playback-boxes span { position: absolute; bottom: 100%; left: -2px; white-space: nowrap; padding: .15rem .3rem; background: #101b25; color: #bcecff; font-size: .73rem; font-weight: 600; }
