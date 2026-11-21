@@ -30,7 +30,8 @@ from full_video import process_exam, stamp, video_info
 from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
 from audio_intelligence import audio_ready, transcribe
 from storyboard import collect_events, csv_summary, generate, with_events
-from instrument_identity import ASSOCIATION_VERSION, associate, classify_pipeline, crop, identity_pipeline, pipeline_version
+from instrument_identity import (ASSOCIATION_VERSION, MAX_TRACK_GAP, classify_pipeline, context_model,
+                                 crop, describe_tracks, identity_pipeline, pipeline_version)
 from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
@@ -76,6 +77,7 @@ class VideoExport(BaseModel):
 class InstrumentReview(BaseModel):
     detection_id: str | None = Field(default=None, pattern=r'^instrument-(?:(?:video-)?\d+-\d+|manual-[a-f0-9]{32})$')
     decision: Literal['confirmed', 'dismissed']
+    non_instrument: bool = False
     label: str = Field(default='', max_length=100)
     note: str = Field(default='', max_length=500)
     time: float | None = Field(default=None, ge=0, allow_inf_nan=False)
@@ -86,6 +88,8 @@ class InstrumentReview(BaseModel):
 
     @model_validator(mode='after')
     def check_review(self):
+        if self.non_instrument and self.decision != 'dismissed':
+            raise ValueError('A non-instrument region must be rejected.')
         if self.decision == 'confirmed' and not self.label.strip():
             raise ValueError('Enter the reviewed instrument label.')
         if self.box and (self.box[0] >= self.box[2] or self.box[1] >= self.box[3]):
@@ -401,17 +405,21 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         identities = read_sidecar(key, 'instrument-identities.json')
         if experimental is not None:
             reviewed_ids = {review['detection_id'] for review in reviews}
-            for row in experimental['observations']:
-                row['identity'] = (identities or {}).get('predictions',{}).get(row['detection_id'])
-            report['observations'].extend(experimental['observations'])
-            for track in associate(experimental['observations']):
-                start, end = track[0]['time'], track[-1]['time']
-                anchors = [row for row in track if row['detection_id'] in reviewed_ids]
-                best = max(track, key=lambda row: (bool((row['identity'] or {}).get('accepted')),
-                                                   (row['identity'] or {}).get('confidence',0),row['confidence']))
+            rows = experimental['observations']
+            predictions = (identities or {}).get('predictions',{})
+            for row in rows:
+                row['identity'] = predictions.get(row['detection_id'])
+            tracks, diagnostics = describe_tracks(rows,report_for(key)['video'],reviews)
+            report.update(tracks=tracks,diagnostics=diagnostics,maximum_track_gap=MAX_TRACK_GAP)
+            report['observations'].extend(rows)
+            by_id = {row['detection_id']:row for row in rows}
+            for track in tracks:
+                canonical = [by_id[item] for item in track['canonical_detection_ids']]
+                anchors = [by_id[item] for item in track['raw_detection_ids'] if item in reviewed_ids]
+                best = max(canonical, key=lambda row: (bool(row.get('track_identity')),
+                           (row.get('identity') or {}).get('confidence',0),row['confidence']))
                 for row in anchors or [best]:
-                    report['appearances'].append(dict(id=row['detection_id'], time=start, end=end,
-                        samples=len(track), best=row, track_id=row['track_id']))
+                    report['appearances'].append(dict(id=row['detection_id'], time=track['start'], best=row, **track))
 
         if not scanned and experimental is None and not reviews:
             return None
@@ -434,6 +442,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             models = identity_pipeline(ROOT/'models')
             _, info = models[0]
             identity = {key: info[key] for key in ('model','classes','thresholds','scores')}
+            context = context_model(ROOT/'models')
+            identity['context'] = context[1]['thresholds'] if context else None
             identity['specialists'] = [
                 {key: detail[key] for key in ('model','classes','thresholds','scores')}
                 for _,detail in models[1:]
@@ -478,11 +488,12 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             raise HTTPException(409,'An instrument analysis is running.')
         try:
             models = identity_pipeline(ROOT/'models')
-            versions = pipeline_version(models)
+            context = context_model(ROOT/'models')
+            versions = pipeline_version(models+([context] if context else []))
             previous = read_sidecar(key,'instrument-identities.json')
             if (not previous or previous.get('models') != versions
                     or previous.get('association_version') != ASSOCIATION_VERSION):
-                result = classify_pipeline(storage/key/'source.mp4',scan['observations'],models)
+                result = classify_pipeline(storage/key/'source.mp4',scan['observations'],models,context)
                 if previous:
                     digest = sha256(json.dumps(previous,sort_keys=True).encode()).hexdigest()[:16]
                     write_sidecar(key,f'instrument-identities-{digest}.json',previous)
@@ -509,16 +520,17 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                 raise HTTPException(404, 'This instrument observation is unavailable.')
             original = next((review for review in instruments['reviews'] if review['detection_id'] == body.detection_id), None)
             prediction = record.get('identity')
+            proposed = record.get('track_identity') or prediction
             origin = (prediction or {}).get('label',record['class'])
             if original:
                 origin = original['original_label']
             data['original_prediction'] = (original or {}).get('original_prediction',prediction)
-            action = ('rejected' if body.decision=='dismissed' else
-                      'confirmed' if data['label']==(prediction or {}).get('label',record['class']) else 'corrected')
+            action = ('non_instrument' if body.non_instrument else 'rejected' if body.decision=='dismissed' else
+                      'confirmed' if data['label']==(proposed or {}).get('label',record['class']) else 'corrected')
             data['review_action'] = action
             data['history'] = [*(original or {}).get('history',[]),
                                dict(action=action,label=data['label'],time=utcnow(),
-                                    original_prediction=prediction)]
+                                    original_prediction=prediction, track_prediction=record.get('track_identity'))]
             prior_box = original.get('box') if original else None
             data.update(original_label=origin, time=record['time'], frame=record['frame'], box=body.box or prior_box)
             if original:

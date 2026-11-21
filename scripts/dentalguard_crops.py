@@ -12,7 +12,7 @@ import yaml
 from instrument_identity import crop, encode
 
 
-def dentalguard(path):
+def dentalguard(path, context=False):
     groups = defaultdict(lambda: defaultdict(list))
     targets = {'Explorer No.5':'dental_explorer','Mouth mirror':'dental_mirror'}
     negatives = {'hand_gloved','hand_ungloved','mouth_open'}
@@ -41,9 +41,9 @@ def dentalguard(path):
             tools = [box for label,box in boxes if label not in negatives]
             for label,box in boxes:
                 if label in targets:
-                    name = targets[label]
+                    name = 'unknown' if context else targets[label]
                 elif label in negatives and not any(overlap(box,tool) for tool in tools):
-                    name = 'unknown'
+                    name = label if context else 'unknown'
                 else:
                     continue
                 groups[source[1]][name].append((image_path,box))

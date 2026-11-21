@@ -1,0 +1,425 @@
+{
+  "context_model": {
+    "model": "instrument-context-dentalguard-v1",
+    "video_group_splits": {
+      "102022": "guard_test",
+      "102003": "guard_test",
+      "102104": "guard_test",
+      "102117": "guard_test",
+      "102073": "guard_valid",
+      "102072": "guard_valid",
+      "101994": "guard_valid",
+      "101972": "guard_valid",
+      "102030": "train",
+      "102125": "train",
+      "102015": "train",
+      "101966": "train",
+      "102086": "train",
+      "101846": "train",
+      "101990": "train",
+      "101996": "train",
+      "102050": "train",
+      "101992": "train",
+      "101986": "train",
+      "102081": "train",
+      "102074": "train",
+      "102070": "train"
+    },
+    "threshold_validation_split": "guard_valid",
+    "backbone": "mobilenet_v3_small",
+    "color": true,
+    "classes": [
+      "hand_gloved",
+      "hand_ungloved",
+      "mouth_open",
+      "unknown"
+    ],
+    "thresholds": {
+      "hand_gloved": 0.75,
+      "hand_ungloved": 0.9,
+      "mouth_open": 0.75
+    },
+    "aliases": {
+      "Dental Mirrors": "dental_mirror",
+      "Mouth mirror": "dental_mirror",
+      "Explorer No.5": "dental_explorer"
+    },
+    "weights_sha256": "40525efe134808a26c2efc41bc942a5b37762b434084de7036a8b20fb2a25621",
+    "epochs": 22,
+    "scores": {
+      "guard_valid": {
+        "crops": 393,
+        "raw_accuracy": 0.8854961832061069,
+        "abstention": 0.37404580152671757,
+        "report": {
+          "hand_gloved": {
+            "precision": 0.9292929292929293,
+            "recall": 0.7863247863247863,
+            "f1-score": 0.8518518518518519,
+            "support": 117.0
+          },
+          "hand_ungloved": {
+            "precision": 0.9148936170212766,
+            "recall": 0.7049180327868853,
+            "f1-score": 0.7962962962962963,
+            "support": 61.0
+          },
+          "mouth_open": {
+            "precision": 0.92,
+            "recall": 0.8932038834951457,
+            "f1-score": 0.9064039408866995,
+            "support": 103.0
+          },
+          "unknown": {
+            "precision": 0.6870748299319728,
+            "recall": 0.9017857142857143,
+            "f1-score": 0.7799227799227799,
+            "support": 112.0
+          },
+          "accuracy": 0.8346055979643766,
+          "macro avg": {
+            "precision": 0.8628153440615447,
+            "recall": 0.8215581042231329,
+            "f1-score": 0.833618717239407,
+            "support": 393.0
+          },
+          "weighted avg": {
+            "precision": 0.8555932934299021,
+            "recall": 0.8346055979643766,
+            "f1-score": 0.8370272213827537,
+            "support": 393.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            92,
+            1,
+            3,
+            21
+          ],
+          [
+            1,
+            43,
+            1,
+            16
+          ],
+          [
+            0,
+            2,
+            92,
+            9
+          ],
+          [
+            6,
+            1,
+            4,
+            101
+          ]
+        ]
+      },
+      "guard_test": {
+        "crops": 419,
+        "raw_accuracy": 0.8281622911694511,
+        "abstention": 0.35083532219570407,
+        "report": {
+          "hand_gloved": {
+            "precision": 0.8787878787878788,
+            "recall": 0.725,
+            "f1-score": 0.7945205479452054,
+            "support": 120.0
+          },
+          "hand_ungloved": {
+            "precision": 0.9411764705882353,
+            "recall": 0.7032967032967034,
+            "f1-score": 0.8050314465408805,
+            "support": 91.0
+          },
+          "mouth_open": {
+            "precision": 0.8666666666666667,
+            "recall": 0.875,
+            "f1-score": 0.8708133971291866,
+            "support": 104.0
+          },
+          "unknown": {
+            "precision": 0.6666666666666666,
+            "recall": 0.9423076923076923,
+            "f1-score": 0.7808764940239044,
+            "support": 104.0
+          },
+          "accuracy": 0.8114558472553699,
+          "macro avg": {
+            "precision": 0.8383244206773618,
+            "recall": 0.8114010989010989,
+            "f1-score": 0.8128104714097941,
+            "support": 419.0
+          },
+          "weighted avg": {
+            "precision": 0.8366784509421039,
+            "recall": 0.8114558472553699,
+            "f1-score": 0.8123534035049313,
+            "support": 419.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            87,
+            3,
+            7,
+            23
+          ],
+          [
+            7,
+            64,
+            5,
+            15
+          ],
+          [
+            1,
+            1,
+            91,
+            11
+          ],
+          [
+            4,
+            0,
+            2,
+            98
+          ]
+        ]
+      }
+    }
+  },
+  "live_replay": {
+    "6502638": {
+      "diagnostics": {
+        "raw_proposals": 320,
+        "canonical_proposals": 313,
+        "duplicate_proposals": 7,
+        "proposal_statuses": {
+          "ai_predicted": 159,
+          "type_uncertain": 152,
+          "unclassified_candidate": 2,
+          "duplicate": 7
+        },
+        "reason_codes": {
+          "consistent_identity": 159,
+          "class_unknown": 150,
+          "duplicate_proposal": 7,
+          "class_not_enabled": 1,
+          "below_class_threshold": 3
+        },
+        "tracks": 7,
+        "one_frame_tracks": 2,
+        "track_statuses": {
+          "ai_predicted": 3,
+          "type_uncertain": 2,
+          "unclassified_candidate": 2
+        },
+        "interrupted_tracks": 4,
+        "reviews": {
+          "corrected": 1
+        }
+      },
+      "raw_sha256": "a18ccfd4d0f5602c8d1036cf4f5fe43da1ec9e1cb7ff71aa6519e2ea3dae92b2",
+      "context_tracks": [],
+      "replay": [
+        {
+          "time": 2.0,
+          "raw_id": "instrument-video-50-0",
+          "canonical_id": "instrument-video-50-0",
+          "track_id": "V-5",
+          "state": "unclassified_candidate",
+          "identity": null
+        },
+        {
+          "time": 2.0,
+          "raw_id": "instrument-video-50-1",
+          "canonical_id": "instrument-video-50-2",
+          "track_id": null,
+          "state": "duplicate",
+          "identity": null
+        },
+        {
+          "time": 2.0,
+          "raw_id": "instrument-video-50-2",
+          "canonical_id": "instrument-video-50-2",
+          "track_id": "V-4",
+          "state": "ai_predicted",
+          "identity": "Dental mirror"
+        },
+        {
+          "time": 2.0,
+          "raw_id": "instrument-video-50-3",
+          "canonical_id": "instrument-video-50-3",
+          "track_id": "V-6",
+          "state": "unclassified_candidate",
+          "identity": null
+        },
+        {
+          "time": 2.2,
+          "raw_id": "instrument-video-55-0",
+          "canonical_id": "instrument-video-55-0",
+          "track_id": "V-7",
+          "state": "type_uncertain",
+          "identity": null
+        },
+        {
+          "time": 2.2,
+          "raw_id": "instrument-video-55-1",
+          "canonical_id": "instrument-video-55-2",
+          "track_id": null,
+          "state": "duplicate",
+          "identity": null
+        },
+        {
+          "time": 2.2,
+          "raw_id": "instrument-video-55-2",
+          "canonical_id": "instrument-video-55-2",
+          "track_id": "V-4",
+          "state": "ai_predicted",
+          "identity": "Dental mirror"
+        },
+        {
+          "time": 2.4,
+          "raw_id": "instrument-video-60-0",
+          "canonical_id": "instrument-video-60-0",
+          "track_id": "V-4",
+          "state": "ai_predicted",
+          "identity": "Dental mirror"
+        },
+        {
+          "time": 2.4,
+          "raw_id": "instrument-video-60-1",
+          "canonical_id": "instrument-video-60-0",
+          "track_id": null,
+          "state": "duplicate",
+          "identity": null
+        },
+        {
+          "time": 2.4,
+          "raw_id": "instrument-video-60-2",
+          "canonical_id": "instrument-video-60-2",
+          "track_id": "V-7",
+          "state": "type_uncertain",
+          "identity": null
+        },
+        {
+          "time": 2.6,
+          "raw_id": "instrument-video-65-0",
+          "canonical_id": "instrument-video-65-0",
+          "track_id": "V-4",
+          "state": "ai_predicted",
+          "identity": "Dental mirror"
+        },
+        {
+          "time": 2.6,
+          "raw_id": "instrument-video-65-1",
+          "canonical_id": "instrument-video-65-1",
+          "track_id": "V-7",
+          "state": "type_uncertain",
+          "identity": null
+        },
+        {
+          "time": 2.6,
+          "raw_id": "instrument-video-65-2",
+          "canonical_id": "instrument-video-65-1",
+          "track_id": null,
+          "state": "duplicate",
+          "identity": null
+        },
+        {
+          "time": 2.6,
+          "raw_id": "instrument-video-65-3",
+          "canonical_id": "instrument-video-65-0",
+          "track_id": null,
+          "state": "duplicate",
+          "identity": null
+        },
+        {
+          "time": 2.8,
+          "raw_id": "instrument-video-70-0",
+          "canonical_id": "instrument-video-70-0",
+          "track_id": "V-4",
+          "state": "ai_predicted",
+          "identity": "Dental mirror"
+        },
+        {
+          "time": 2.8,
+          "raw_id": "instrument-video-70-1",
+          "canonical_id": "instrument-video-70-1",
+          "track_id": "V-7",
+          "state": "type_uncertain",
+          "identity": null
+        }
+      ]
+    },
+    "5892118": {
+      "diagnostics": {
+        "raw_proposals": 101,
+        "canonical_proposals": 100,
+        "duplicate_proposals": 1,
+        "proposal_statuses": {
+          "type_uncertain": 89,
+          "unclassified_candidate": 3,
+          "context_detected": 8,
+          "duplicate": 1
+        },
+        "reason_codes": {
+          "class_unknown": 91,
+          "below_class_threshold": 1,
+          "context_model_agreement": 8,
+          "duplicate_proposal": 1
+        },
+        "tracks": 12,
+        "one_frame_tracks": 3,
+        "track_statuses": {
+          "type_uncertain": 8,
+          "unclassified_candidate": 3,
+          "context_detected": 1
+        },
+        "interrupted_tracks": 3,
+        "reviews": {
+          "confirmed": 2
+        }
+      },
+      "raw_sha256": "8451acf344607fae61e8ba870af6267763a662a6bbaaeca3bf6b2605b5593372",
+      "context_tracks": [
+        {
+          "track_id": "V-10",
+          "label": "Gloved hand",
+          "start": 9.008999990990999,
+          "end": 10.4103999895896,
+          "samples": 8
+        }
+      ]
+    },
+    "braces": {
+      "diagnostics": {
+        "raw_proposals": 81,
+        "canonical_proposals": 81,
+        "duplicate_proposals": 0,
+        "proposal_statuses": {
+          "unclassified_candidate": 10,
+          "type_uncertain": 71
+        },
+        "reason_codes": {
+          "class_unknown": 52,
+          "below_class_threshold": 28,
+          "class_not_enabled": 1
+        },
+        "tracks": 18,
+        "one_frame_tracks": 10,
+        "track_statuses": {
+          "unclassified_candidate": 10,
+          "type_uncertain": 8
+        },
+        "interrupted_tracks": 5,
+        "reviews": {
+          "dismissed": 1
+        }
+      },
+      "raw_sha256": "31c7c522c8197abcd1574ae19c0700994381c249c1dc185d1ee820a171405ffa",
+      "context_tracks": []
+    }
+  }
+}

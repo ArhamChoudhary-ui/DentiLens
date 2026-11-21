@@ -3,14 +3,20 @@ import { api, clock, send } from './api'
 import type { Box } from './api'
 import { RegionEditor } from './review-tools'
 
-type Prediction = {label:string;confidence:number;accepted:boolean;model:string;alternatives:{label:string;confidence:number}[]}
-type IdentityInfo = {model?:string;specialists?:IdentityInfo[];thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
+type Prediction = {label:string;confidence:number;accepted:boolean;model:string;supporting_frames?:number;reason?:string | null;alternatives:{label:string;confidence:number}[]}
+type IdentityInfo = {model?:string;specialists?:IdentityInfo[];context?:Record<string,number>|null;thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
 type Observation = {identity?:Prediction | null;
-  detection_id:string; class:string; time:number; confidence:number | null; polygon:number[][] | null; box:Box
+  detection_id:string; class:string; time:number; reason_code?:string; track_identity?:Prediction | null; confidence:number | null; polygon:number[][] | null; box:Box
 }
-type Appearance = { samples?:number; id:string; time:number; end:number; best:Observation }
+type TrackEvidence = { detection_id:string;time:number;status:string;reason:string;predicted_class?:string;score?:number }
+type Appearance = {
+  samples?:number; id:string; time?:number; start?:number; end:number; best:Observation; track_id?:string | null
+  duration?:number; status?:string; termination_status?:string; identity?:Prediction | null
+  context_identity?:Prediction | null; evidence?:TrackEvidence[]; gaps?:{start:number;end:number}[]
+}
+type Diagnostics = {raw_proposals:number;duplicate_proposals:number;tracks:number;proposal_statuses:Record<string,number>}
 type Review = { review_action?:string; detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
-type InstrumentReport = {identity_model?:string | null; device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
+type InstrumentReport = {observations?:Observation[];diagnostics?:Diagnostics;identity_model?:string | null; device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
 type TrackedFrame = {frame:number; time:number; box:Box}
 type InstrumentResponse = {identity?:IdentityInfo;model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
 
@@ -34,6 +40,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState('')
   const [candidates,setCandidates]=useState(false)
+  const [showContext,setShowContext]=useState(true)
   const [experimentalReady,setExperimentalReady]=useState(false)
   const [identity,setIdentity]=useState<IdentityInfo>()
   const [identifying,setIdentifying]=useState(false)
@@ -51,7 +58,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const reviews=new Map(report?.reviews.map(item=>[item.detection_id,item]))
   const current=selected && reviews.get(selected.best.detection_id)
   const visible=report?.appearances.filter(item=>reviews.get(item.best.detection_id)?.decision==='confirmed' ||
-    (candidates && item.best.confidence!==null)) ?? []
+    (candidates && item.best.confidence!==null && (showContext || !['non_instrument','context_detected'].includes(item.status ?? '')))) ?? []
   const sourceTime=trackedFrame?.time ?? selected?.best.time ?? time
   const previewBox=trackedFrame?.box ?? box
   const still=root+'/still.jpg?time='+sourceTime
@@ -64,7 +71,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     clearTrack()
     const record=reviews.get(item.best.detection_id)
     setSelected(item);setManual(false);setRedraw(false);setBox(record?.box ?? null);setError('')
-    setLabel(record?.label ?? (item.best.identity?.accepted ? item.best.identity.label : ''));setNote(record?.note ?? '')
+    setLabel(record?.label ?? (item.identity?.label ?? item.best.track_identity?.label ?? (item.best.identity?.accepted ? item.best.identity.label : '')));setNote(record?.note ?? '')
     setFdi(record?.fdi_number ?? '');setVisibility(record?.visibility ?? '');setAnchor(undefined)
   }
   function addManual() {
@@ -109,13 +116,13 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     setTime(trackedFrame.time);setBox(trackedFrame.box);setAnchor(selected.best.detection_id)
     setSelected(undefined);setManual(true);setRedraw(true);setNote('');clearTrack()
   }
-  async function review(decision:Review['decision']) {
+  async function review(decision:Review['decision'],nonInstrument=false) {
     if(!selected && !manual) return
     setSaving(true);setError('')
     try {
       const record=await send<Review>(root+'/instrument-reviews',{
         detection_id:selected?.best.detection_id ?? null,time:manual?time:null,label,note,decision,box,
-        fdi_number:fdi || null,visibility:visibility || null,tracked_from:anchor ?? null,
+        fdi_number:fdi || null,visibility:visibility || null,tracked_from:anchor ?? null,non_instrument:nonInstrument,
       })
       const data=await api<InstrumentResponse>(root+'/instruments')
       setReport(data.report)
@@ -147,6 +154,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
       {identity?.specialists?.map(detail=><p key={detail.model} className="quiet">
         {detail.model} · {Object.keys(detail.thresholds ?? {}).map(key=>key.replaceAll('_',' ')).join(', ') || 'No enabled identities'}
       </p>)}
+      {identity?.context && <p className="quiet">Context model · {Object.keys(identity.context).map(label=>label.replaceAll('_',' ')).join(', ')}</p>}
       {identity?.thresholds && <p className="quiet">{Object.entries(identity.thresholds).map(([key,value])=>key.replaceAll('_',' ')+' '+Math.round(value*100)+'%').join(' · ') || 'No enabled identities'}</p>}
       {identity?.scores?.video_test && <p className="quiet">Held-out video · {identity.scores.video_test.crops} checked crops · {Math.round(identity.scores.video_test.abstention*100)}% uncertain</p>}
     </details>
@@ -155,31 +163,42 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     {(report?.scanned || report?.experimental_samples != null) && <label className="toggle"><input type="checkbox" checked={candidates} disabled={saving}
       onChange={e=>{setCandidates(e.target.checked);if(!e.target.checked && current?.decision!=='confirmed')setSelected(undefined)}}/>
       <span>Show model candidates<small>{report?.experimental_samples != null ? `Experimental video model sampled ${report.experimental_samples} frames. Review each box and supply the tool name.` : `Still-photo model sampled ${report?.samples} frames.`}</small></span></label>}
+    {report?.diagnostics && <p className="quiet">
+      {report.diagnostics.raw_proposals} video proposals · {report.diagnostics.duplicate_proposals} duplicates · {report.diagnostics.tracks} tracks
+      {(report.diagnostics.proposal_statuses.context_detected ?? 0)>0 && <> · {report.diagnostics.proposal_statuses.context_detected} proposals with visible hand or mouth context</>}
+    </p>}
+    {report?.appearances.some(item=>['non_instrument','context_detected'].includes(item.status ?? '')) && <label className="toggle">
+      <input type="checkbox" checked={showContext} onChange={e=>setShowContext(e.target.checked)}/> Show hand and mouth context
+    </label>}
     <div className="instrument-layout">
       {visible.length>0 ? <div>
         <div className="instrument-timeline" aria-label={candidates?'Instrument candidates and reviews':'Confirmed instruments'}>
           {visible.map(item=>{
             const saved=reviews.get(item.best.detection_id)
             const confirmed=saved?.decision==='confirmed'
-            const at=confirmed?item.best.time:item.time
+            const at=confirmed?item.best.time:item.start ?? item.time ?? item.best.time
             return <button key={item.id} type="button" aria-label={`Open ${confirmed?'review':'candidate'} at ${clock(at,true)}`}
               onClick={()=>choose(item)} disabled={saving || tracking} aria-pressed={selected?.id===item.id}
-              style={{left:at/duration*100+'%',width:Math.max(.7,confirmed?0:(item.end-item.time)/duration*100)+'%'}}/>
+              style={{left:at/duration*100+'%',width:Math.max(.7,confirmed?0:(item.end-at)/duration*100)+'%'}}/>
           })}
         </div>
         <div className="instrument-list">
           {visible.map(item=>{
             const saved=reviews.get(item.best.detection_id)
-            const classification=item.best.identity
-            const heading=saved?.decision==='confirmed'?saved.label:classification?.accepted?classification.label:
-              classification?'Uncertain instrument':item.best.detection_id.startsWith('instrument-video-')?'Unclassified candidate':item.best.class
-            const status=saved?.decision==='dismissed'?'Rejected':saved?.decision==='confirmed'?
-              (saved.review_action==='corrected'?'Corrected':'Confirmed'):'Needs review'
+            const classification=item.identity ?? item.best.identity
+            const start=item.start ?? item.time ?? item.best.time
+            const heading=saved?.decision==='confirmed'?saved.label:item.context_identity ? item.context_identity.label+' in crop' :
+              (classification?.accepted?classification.label:
+               item.status==='track_interrupted'?'Track interrupted':item.status==='type_uncertain'?'Type uncertain':
+               item.best.detection_id.startsWith('instrument-video-')?'Unclassified candidate':item.best.class)
+            const status=saved?.decision==='dismissed'?(saved.review_action==='non_instrument'?'Non-instrument':'Rejected'):saved?.decision==='confirmed'?
+              (saved.review_action==='corrected'?'Corrected':'Confirmed'):
+              item.status==='non_instrument'?'Non-instrument':item.status==='context_detected'?'Context · Needs review':classification?.accepted?'AI predicted · Needs review':'Needs review'
             return <button className="history-row instrument-row" key={item.id} disabled={saving || tracking || identifying}
               onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
               <img loading="lazy" alt="" src={root+'/still.jpg?instrument='+encodeURIComponent(item.best.detection_id)}/>
-              <span><strong>{heading}</strong><small>{clock(item.time,true)}{item.end>item.time && `–${clock(item.end,true)} · ${item.samples} frames`}</small></span>
-              <small>{classification?.accepted ? `${Math.round(classification.confidence*100)}% · ` : ''}{status}</small>
+              <span><strong>{heading}</strong><small>{clock(start,true)}{item.end>start && `–${clock(item.end,true)} · ${item.samples} frames`}{item.track_id && ` · ${item.track_id}`}</small></span>
+              <small>{(item.context_identity ?? classification)?.accepted ? `${Math.round((item.context_identity ?? classification)!.confidence*100)}% · ` : ''}{status}</small>
             </button>
           })}
         </div>
@@ -201,6 +220,29 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
           {selected.best.identity.accepted ? selected.best.identity.label : 'Uncertain instrument'} · {selected.best.identity.model}
           {' · '}{selected.best.identity.alternatives.map(value=>`${value.label} ${Math.round(value.confidence*100)}%`).join(' · ')}
         </p>}
+        {selected?.context_identity && <p className="quiet">
+          {selected.context_identity.label} visible in this crop · {Math.round(selected.context_identity.confidence*100)}% model score
+        </p>}
+        {selected?.evidence && <details>
+          <summary>Track evidence</summary>
+          <p className="quiet">{selected.track_id} · {(selected.duration ?? 0).toFixed(2)} s · {selected.samples} detections
+            {selected.identity && ` · ${selected.identity.supporting_frames} supporting frames`}
+            {selected.termination_status==='track_lost'?' · Track lost':selected.termination_status==='track_interrupted'?' · Track interrupted':''}
+          </p>
+          {!!selected.gaps?.length && <p className="quiet">{selected.gaps.length} short tracking gaps</p>}
+          <label className="field">Evidence frame<select value={selected.best.detection_id}
+            onChange={e=>{
+              const row=report?.observations?.find(item=>item.detection_id===e.target.value)
+              if(row) choose({...selected,best:row})
+            }}>
+            {!selected.evidence.some(row=>row.detection_id===selected.best.detection_id) &&
+              <option value={selected.best.detection_id}>{clock(selected.best.time,true)} · Reviewed proposal</option>}
+            {selected.evidence.map(row=><option key={row.detection_id} value={row.detection_id}>
+              {clock(row.time,true)} · {row.status.replaceAll('_',' ')}{row.score!=null?` · ${Math.round(row.score*100)}%`:''}
+            </option>)}
+          </select></label>
+          {selected.best.reason_code && <p className="quiet">{selected.best.reason_code.replaceAll('_',' ')}</p>}
+        </details>}
         <div className="actions">
           <button className="subtle compact-action" onClick={()=>jump(sourceTime)}>Open source video</button>
           {!manual && !redraw && !trackedFrame && <button className="subtle compact-action" disabled={tracking} onClick={()=>{clearTrack();setRedraw(true)}}>Redraw box</button>}
@@ -236,6 +278,8 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
             onClick={()=>void review('confirmed')}>{current?.decision==='confirmed'?'Save changes':selected?.best.identity?.accepted && label!==selected.best.identity.label?'Save correction':'Confirm'}</button>
           {!manual && <button className="subtle compact-action" disabled={saving || current?.decision==='dismissed'}
             onClick={()=>void review('dismissed')}>Reject</button>}
+          {!manual && <button className="subtle compact-action" disabled={saving || current?.review_action==='non_instrument'}
+            onClick={()=>void review('dismissed',true)}>Mark non-instrument</button>}
         </div>
         {current?.decision==='confirmed' && <a className="inline-jump" href={root+'/instrument-annotations'} download="instrument-annotations.json">Download instrument annotations</a>}
         </>}

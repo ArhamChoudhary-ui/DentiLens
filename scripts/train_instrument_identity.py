@@ -123,6 +123,7 @@ def main():
     parser.add_argument('--adapt-video',action='store_true')
     parser.add_argument('--mirror-explorer',action='store_true')
     parser.add_argument('--dentalguard',type=Path)
+    parser.add_argument('--context',action='store_true')
     opt=parser.parse_args()
     torch.set_num_threads(6)
     torch.manual_seed(44)
@@ -131,6 +132,8 @@ def main():
         parser.error('--adapt-video requires pretrained MobileNet weights.')
     if opt.mirror_explorer and not opt.adapt_video:
         parser.error('--mirror-explorer requires --adapt-video.')
+    if opt.context and not opt.dentalguard:
+        parser.error('--context requires --dentalguard.')
     if opt.dentalguard and not opt.mirror_explorer:
         parser.error('--dentalguard requires --mirror-explorer.')
     aliases=VIDEO_ALIASES if opt.adapt_video else ALIASES
@@ -151,9 +154,11 @@ def main():
         data.setdefault(source['split'],[]).extend(examples)
     sources={}
     primary_validation='valid'
+    if opt.context:
+        data={split:[(pixels,'unknown') for pixels,_ in rows] for split,rows in data.items() if split=='train'}
     if opt.dentalguard:
         from dentalguard_crops import dentalguard
-        extra,sources=dentalguard(opt.dentalguard)
+        extra,sources=dentalguard(opt.dentalguard,context=opt.context)
         for split,rows in extra.items():
             data.setdefault(split,[]).extend(rows)
         primary_validation='guard_valid'
@@ -236,7 +241,7 @@ def main():
          'instrument-crop-mobilenet-v2' if opt.adapt_video else
          'instrument-crop-mobilenet-v1' if opt.foundation else 'instrument-crop-cnn-v1')
     if opt.dentalguard:
-        name='instrument-crop-dentalguard-v1'
+        name='instrument-context-dentalguard-v1' if opt.context else 'instrument-crop-dentalguard-v1'
     info=dict(model=name,video_group_splits=sources,threshold_validation_split=primary_validation,backbone=backbone,color=opt.adapt_video,classes=classes,thresholds=thresholds,aliases=aliases,
               weights_sha256=checksum,epochs=opt.epochs,scores=scores)
     path.with_suffix('.json').write_text(json.dumps(info,indent=2)+'\n')
