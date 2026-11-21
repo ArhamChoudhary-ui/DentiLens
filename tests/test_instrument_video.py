@@ -226,3 +226,29 @@ def test_overlap_cannot_merge_different_instrument_classes_or_erase_boxes():
     assert b['track_id']!=a['track_id']
     assert (a['box'],b['box'],c['box'])==original
     assert any(item['raw_detection_ids']==['mirror','duplicate'] for item in tracks)
+
+
+def test_instrument_audit_exposes_raw_logits_and_gate_without_changing_decision():
+    import numpy as np
+    import pytest
+    import torch
+    from instrument_identity import score_crops
+
+    class FixedHead(torch.nn.Module):
+        def forward(self, images):
+            return torch.tensor([[2., 1., 0.]]).expand(len(images), -1)
+
+    model = FixedHead()
+    info = {'model': 'fixture', 'classes': ['dental_mirror', 'dental_explorer', 'unknown'],
+            'thresholds': {'dental_mirror': .9}}
+    images = [None, np.zeros((96, 96), dtype=np.uint8)]
+    missing, traced = score_crops(model, info, images, diagnostics=True)
+    assert missing is None
+    assert traced['logits'] == [2., 1., 0.]
+    assert traced['margin'] == pytest.approx(traced['probabilities']['dental_mirror'] -
+                                             traced['probabilities']['dental_explorer'])
+    assert traced['threshold'] == .9
+    assert traced['reason'] == 'below_class_threshold'
+    assert not traced['accepted']
+    regular = score_crops(model, info, images)[1]
+    assert regular == {key: value for key, value in traced.items() if key not in {'logits', 'threshold', 'margin'}}

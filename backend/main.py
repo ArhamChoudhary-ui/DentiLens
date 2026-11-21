@@ -452,6 +452,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                 for _,detail in models[1:]
             ]
         except (OSError,ValueError,RuntimeError) as exc:
+            LOG.exception('Could not load instrument identity models')
             identity = {'error':str(exc)}
         return {'identity':identity, 'model_ready': instrument_model_ready(ROOT / 'models'),
                 'experimental_ready': (ROOT / 'models/video-instruments.pt').is_file(),
@@ -505,6 +506,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                     'association_version':ASSOCIATION_VERSION, 'predictions':result})
             return instrument_records(key)
         except (OSError,ValueError,RuntimeError,cv2.error) as exc:
+            LOG.exception('Instrument identity inference failed for examination %s', key)
             raise HTTPException(422,str(exc)) from exc
         finally:
             instrument_scan_lock.release()

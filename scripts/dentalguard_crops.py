@@ -12,7 +12,7 @@ import yaml
 from instrument_identity import crop, encode
 
 
-def dentalguard(path, context=False):
+def dentalguard(path, context=False, *, color=True):
     groups = defaultdict(lambda: defaultdict(list))
     targets = {'Explorer No.5':'dental_explorer','Mouth mirror':'dental_mirror'}
     negatives = {'hand_gloved','hand_ungloved','mouth_open'}
@@ -64,7 +64,7 @@ def dentalguard(path, context=False):
                         image=cv2.imdecode(np.frombuffer(archive.read(image_path),np.uint8),cv2.IMREAD_COLOR)
                         region=crop(image,box)
                         if region.size and min(region.shape[:2])>=5:
-                            data[split].append((encode(region,color=True),label))
+                            data[split].append((encode(region,color=color),label))
     return data, origins
 
 

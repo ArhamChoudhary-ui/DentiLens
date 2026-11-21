@@ -185,15 +185,16 @@ def encoded_crop(image, box, info):
     return None
 
 
-def score_crops(model, info, crops):
+def score_crops(model, info, crops, *, diagnostics=False):
     valid = [(index,pixels) for index,pixels in enumerate(crops) if pixels is not None]
     output = [None] * len(crops)
     if not valid:
         return output
     data = model_pixels(crop_tensor([pixels for _,pixels in valid]),info.get('backbone','cnn'))
     with torch.inference_mode():
-        probabilities = model(data).softmax(1).numpy()
-    for (index,_), scores in zip(valid,probabilities):
+        logits = model(data)
+        probabilities = logits.softmax(1).numpy()
+    for (index,_), scores, raw in zip(valid,probabilities,logits.tolist() if diagnostics else [None]*len(valid)):
         order = np.argsort(-scores)[:3]
         top = [{'class_id':info['classes'][i], 'label':LABELS[info['classes'][i]], 'confidence':float(scores[i])}
                for i in order]
@@ -204,6 +205,9 @@ def score_crops(model, info, crops):
         output[index] = {**result,'accepted':accepted,'frame_accepted':accepted,'model':info['model'],
                          'reason':reason,'alternatives':top,
                          'probabilities':dict(zip(info['classes'],map(float,scores)))}
+        if diagnostics:
+            output[index].update(logits=raw, threshold=info['thresholds'].get(result['class_id']),
+                                 margin=top[0]['confidence']-top[1]['confidence'] if len(top)>1 else None)
     return output
 
 
