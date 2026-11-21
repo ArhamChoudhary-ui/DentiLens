@@ -53,10 +53,13 @@ if __name__=='__main__':
     parser.add_argument('dataset',type=Path)
     parser.add_argument('runs',type=Path,help='Directory containing <size>.json and <size>-errors.json.')
     parser.add_argument('output',type=Path)
+    parser.add_argument('--runs',nargs='+',default=('512','640','768'),dest='run_names')
     args=parser.parse_args()
     _,frames,_=load_dataset(args.dataset)
     runs={}
-    for size in (512,640,768):
+    for size in args.run_names:
+        if Path(size).name!=size:
+            parser.error('Run names must be simple filenames.')
         file=args.runs/f'{size}.json'
         result=read_json(file)
         if result.get('split')!='valid' or result.get('max_per_recording') is not None:

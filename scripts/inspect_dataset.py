@@ -64,17 +64,27 @@ render();
 if(data.videos.length){
  $('video-inventory').hidden=false;
  const videoKeys={category:'Source type',group:'Source group',permission:'Permission',coverage:'Annotation review',
-   split:'Video split',class_filter:'Video instrument',visibility_filter:'Visibility'};
+   split:'Video split',status:'Clearance status',consent:'Consent',class_filter:'Video instrument',visibility_filter:'Visibility'};
  const options={};
  function renderVideos(){
   const table=$('videos');table.replaceChildren();
   const rows=data.videos.filter(row=>Object.keys(videoKeys).every(key=>!options[key].value||
     (Array.isArray(row[key])?row[key].includes(options[key].value):row[key]===options[key].value)));
   const labels=['Recording','Group','Source type','Permission','Split','Duration','Resolution','Review',
-    'Tracks','Instrument instances','Occlusion','Reviewed empty frames','Classes'];
+    'Tracks','Instrument instances','Occlusion','Reviewed empty frames','Classes','Clearance details'];
   for(const cells of [labels,...rows.map(row=>[row.id,row.group,row.category,row.permission,row.split,row.duration,
-    row.resolution,row.coverage,row.tracks,row.instances,row.occlusion,row.empty,row.class_filter.join(', ')])]){
-    const tr=table.insertRow();cells.forEach(value=>tr.insertCell().textContent=value);
+    row.resolution,row.coverage,row.tracks,row.instances,row.occlusion,row.empty,row.class_filter.join(', '),row])]){
+    const tr=table.insertRow();
+    cells.forEach(value=>{
+      const td=tr.insertCell();
+      if(typeof value==='string'||typeof value==='number'){td.textContent=value;return;}
+      const details=document.createElement('details');details.append(el('summary','View clearance'));
+      details.append(el('p',value.status+' · '+value.consent+' · '+value.expiry));
+      details.append(el('p','Checksum '+value.checksum+' · '+value.reviewed_frames+' reviewed frames'));
+      details.append(el('p',value.actions.join(' · ')));
+      details.append(el('p',value.missing.join(' · ')||'Recorded permissions complete'));
+      td.append(details);
+    });
   }
   $('video-summary').textContent=rows.length+' of '+data.videos.length+' recordings · '+
     new Set(rows.map(row=>row.group)).size+' source groups';
@@ -114,6 +124,7 @@ def preview(image, box, kind, label):
 
 def video_inventory(registry,annotations):
     from video_benchmark_data import check_isolation, require
+    from audit_source_clearance import assess
     verified={}
     if annotations:
         for path in sorted(annotations.glob('*.json')):
@@ -127,7 +138,7 @@ def video_inventory(registry,annotations):
     for record in records:
         permission='Quarantined'
         try:
-            require(record,'view','store','extract','annotate')
+            require(record,'view','store','extract','annotate','retain')
             if record['split']!='quarantine' and record.get('cfr_verified') is True:
                 permission='Annotation authorized'
                 purpose='train' if record['split']=='train' else 'evaluate'
@@ -136,11 +147,17 @@ def video_inventory(registry,annotations):
         except ValueError:
             pass
         video=record.get('video')
+        assessment=assess(record)
         candidate=verified.get(record['id'])
         annotation=candidate if (candidate and permission!='Quarantined'
                                  and candidate['review']['source_sha256']==record.get('sha256')) else None
         objects=[row for row in annotation['objects'] if row['box'] is not None] if annotation else []
         result.append(dict(id=record['id'],group=record['recording_group'],category=record['category'],
+            status=record['status'],consent='Consent documented' if assessment['consent_documented'] else 'Consent unverified',
+            expiry=assessment['expires'] or 'Expiry unverified',checksum=record.get('sha256','Unverified'),
+            actions=[key+' '+state for key,state in assessment['permissions'].items()],
+            missing=[key+' '+reason for key,reason in assessment['missing'].items()],
+            reviewed_frames=len(annotation['frames']) if annotation else 0,
             split=record['split'],permission=permission,coverage='Verified' if annotation else 'Pending',
             duration=f"{video['duration']:.1f} s" if video else '—',
             resolution=f"{video['width']} × {video['height']}" if video else '—',

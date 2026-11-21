@@ -126,7 +126,7 @@ def iter_frames(path,video):
 
 
 def extract(record,output):
-    path=source_path(record,'extract','annotate')
+    path=source_path(record,'extract','annotate','retain')
     output.mkdir(parents=True,exist_ok=False)
     frames=[]
     for frame,image in iter_frames(path,record['video']):
@@ -188,7 +188,7 @@ def read_cvat(path,video):
 
 
 def reviewed_annotations(record,xml,review):
-    source_path(record,'extract','annotate')
+    source_path(record,'extract','annotate','retain')
     video=record['video']
     if (review.get('review_state')!='verified' or not review.get('reviewer')
             or review.get('source_sha256')!=record['sha256']

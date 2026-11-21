@@ -17,7 +17,7 @@ def sample_record(path):
                 category='training_demo',recording_group='fixture',split='valid',status='authorized',
                 identifiable=False,license='Locally generated test fixture',rights_reference='Test fixture generator',
                 rights_reviewer='Fixture owner',permissions=dict(view=True,store=True,extract=True,annotate=True,
-                                                               evaluate=True),cfr_verified=True,path=str(path))
+                                                               evaluate=True,retain=True),cfr_verified=True,path=str(path))
 
 
 def test_permissions_quarantine_and_split_isolation(examination_video):
@@ -85,7 +85,7 @@ def test_cvat_round_trip_and_tracking_metrics(examination_video,tmp_path):
 def test_annotation_comparison_separates_label_disagreement_from_missing_box():
     from video_benchmark_metrics import annotation_disagreements
 
-    base=dict(frame=2,box=[.1,.1,.3,.3],label='dental_mirror',visibility='visible')
+    base=dict(track_id='t',frame=2,box=[.1,.1,.3,.3],label='dental_mirror',visibility='visible')
     first=dict(recording='source',frames=[0,2],objects=[base],review={'reviewer':'first'})
     second=dict(first,review={'reviewer':'second'},
                 objects=[dict(base,label='dental_explorer'),dict(base,box=[.5,.5,.7,.7])])
@@ -93,3 +93,42 @@ def test_annotation_comparison_separates_label_disagreement_from_missing_box():
     assert [row['reason'] for row in report['disagreements']]==['class_or_visibility','unmatched_box']
     with pytest.raises(ValueError,match='different reviewer'):
         annotation_disagreements(first,first)
+
+
+def test_tile_coordinates_and_multiscale_merging():
+    from detector_tiles import merge, remap, windows
+
+    footprints=windows(640,480,'tiles')
+    assert len(footprints)==4
+    assert remap([0,0,1,1],footprints[-1],640,480)==pytest.approx([.35,.35,1,1])
+    assert windows(640,480,'roi')[0]==(0,0,640,480)
+    nearby=[(.8,[.1,.1,.2,.2]),(.9,[.101,.1,.201,.2]),(.3,[.4,.4,.5,.5])]
+    assert merge(nearby)==[nearby[1],nearby[2]]
+    assert merge([])==[]
+
+
+def test_clearance_packet_keeps_all_existing_leads_unverified(tmp_path):
+    from audit_source_clearance import ACTIONS, package
+    from instrument_dataset import ROOT, read_json
+
+    registry=ROOT/'datasets/video_sources'
+    output=tmp_path/'requests'
+    package(registry,output,[])
+    rows=read_json(output/'worksheet.json')
+    assert len(rows)==10
+    assert all(row['status']=='pending' and len(row['missing'])==8 for row in rows)
+    assert all(set(row['permissions'])==set(ACTIONS) for row in rows)
+    assert len(list(output.glob('draft-local-*.md')))==10
+    assert 'subject consent' in (output/'request-template.md').read_text()
+
+
+def test_source_hash_and_derived_retention_gates(examination_video):
+    approved=register(sample_record(examination_video))
+    with pytest.raises(ValueError,match='authorization is inactive'):
+        source_path(dict(approved,status='revoked'),'evaluate')
+    with pytest.raises(ValueError,match='retain'):
+        require(dict(approved,permissions={k:v for k,v in approved['permissions'].items() if k!='retain'}),'retain')
+    with pytest.raises(ValueError,match='changed'):
+        source_path(dict(approved,sha256='0'*64),'evaluate')
+    with pytest.raises(ValueError,match='Duplicate video'):
+        check_isolation([approved,dict(approved,id='copy')])

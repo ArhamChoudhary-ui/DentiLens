@@ -1,5 +1,6 @@
 """Register, annotate and evaluate locally authorized DentiLens videos."""
 import argparse
+import json
 from collections import defaultdict
 from pathlib import Path
 import resource
@@ -12,16 +13,17 @@ from video_benchmark_data import (check_isolation, digest, extract, iter_frames,
 from video_benchmark_metrics import annotation_disagreements, matched_objects, stratified_detection, track_metrics
 
 
-def evaluate(record, annotation, output, sizes, shadow_path):
+def evaluate(record, annotation, output, sizes, shadow_path, methods):
     import torch
     from ultralytics import YOLO
+    from detector_tiles import predict_windows
     from evaluate_classifier import classification_metrics, COMMON
     from instrument_identity import (classify_pipeline, context_model, describe_tracks,
-                                     identity_model, identity_pipeline, predict_video)
+                                     crop_geometry, identity_model, identity_pipeline, predict_video)
 
-    path=source_path(record,'evaluate','extract','annotate')
+    path=source_path(record,'evaluate','extract','annotate','retain')
     video=record['video']
-    if sizes!=[512] and record['split']!='valid':
+    if (sizes!=[512] or methods!=['full']) and record['split']!='valid':
         raise ValueError('Resolution comparisons require the validation split.')
     if record['split'] not in {'valid','test'}:
         raise ValueError('Benchmark scoring needs a validation or test recording.')
@@ -46,23 +48,26 @@ def evaluate(record, annotation, output, sizes, shadow_path):
             truth[row['frame']].append(row)
     reports={}
     geometries={}
-    for size in sizes:
+    for size,method in [(size,method) for size in sizes for method in methods]:
+        key=str(size) if method=='full' else f'{size}-{method}'
         observations=[]
         samples=[]
         start=perf_counter()
-        for index,image in iter_frames(path,video):
-            boxes=detector.predict(image,imgsz=size,conf=.001,max_det=300,device='cpu',verbose=False)[0].boxes
-            predictions=list(zip(boxes.conf.tolist(),boxes.xyxyn.tolist()))
-            samples.append((truth[index],predictions,[]))
-            for number,(score,box) in enumerate(predictions):
-                if score>=cutoff:
-                    observations.append(dict(detection_id=f'instrument-video-{index}-{number}',frame=index,
-                        time=index/video['fps'],confidence=score,box=box))
+        with (output/f'{key}-detector.jsonl').open('w') as ledger:
+            for index,image in iter_frames(path,video):
+                predictions,raw=predict_windows(detector,image,method,size)
+                time=index/video['fps']
+                ledger.write(json.dumps(dict(frame=index,time=time,ranked=predictions,pre_merge=raw))+'\n')
+                samples.append((truth[index],predictions,[]))
+                for number,(score,box) in enumerate(predictions):
+                    if score>=cutoff:
+                        observations.append(dict(detection_id=f'instrument-video-{index}-{number}',frame=index,
+                            time=time,confidence=score,box=box,crop_geometry=crop_geometry(box,video['width'],video['height'])))
         detection_seconds=perf_counter()-start
         grouped=defaultdict(list)
         for row in observations:
             grouped[row['frame']].append(row)
-        geometries[size]=grouped
+        geometries[key]=grouped
         metrics=stratified_detection(samples,cutoff,video['width'],video['height'])
         metrics['unmatched_proposals_per_minute']=metrics['fp']*60/video['duration']
         start=perf_counter()
@@ -84,8 +89,8 @@ def evaluate(record, annotation, output, sizes, shadow_path):
             rows=[dict(row,identity=predictions[row['detection_id']]) for row in observations]
             tracks,_=describe_tracks(rows,video,[])
             run[name]=dict(seconds=seconds, tracking=track_metrics(annotation,rows,video))
-            write_json(output/f'{size}-{name}-predictions.json',dict(observations=rows,tracks=tracks))
-        reports[str(size)]=dict(detector=metrics, detector_seconds=detection_seconds, comparison=run, shadow_top_class_disagreements=disagreement)
+            write_json(output/f'{key}-{name}-predictions.json',dict(observations=rows,tracks=tracks))
+        reports[key]=dict(detector=metrics, detector_seconds=detection_seconds, comparison=run, shadow_top_class_disagreements=disagreement)
     verified=[dict(row,detection_id=f"{row['track_id']}:{row['frame']}")
               for rows in truth.values() for row in rows
               if row['label'] in COMMON[:2] and row['visibility']!='ambiguous']
@@ -100,10 +105,10 @@ def evaluate(record, annotation, output, sizes, shadow_path):
                 classification[meta['model']]=classification_metrics([row['label'] for row,_ in ordered],
                                                                     [value for _,value in ordered])
     differences={}
-    if 512 in geometries:
-        baseline=geometries[512]
+    if '512' in geometries:
+        baseline=geometries['512']
         for size,current in geometries.items():
-            if size==512:
+            if size=='512':
                 continue
             common=sum(len(matched_objects(baseline[frame],current[frame])) for frame in annotation['frames'])
             differences[str(size)]=dict(matched_against_512=common,
@@ -141,6 +146,7 @@ def main():
         if name=='evaluate':
             command.add_argument('--sizes',type=int,nargs='+',choices=(512,640,768),default=[512])
             command.add_argument('--shadow',type=Path)
+            command.add_argument('--methods',nargs='+',choices=('full','tiles','roi'),default=['full'])
             command.add_argument('--registry',type=Path,required=True)
     args=parser.parse_args()
     if args.command=='register':
@@ -154,7 +160,7 @@ def main():
         excluded={}
         for row in registry:
             try:
-                actions=('extract','annotate',args.purpose) if args.purpose in {'train','evaluate'} else ('extract',args.purpose)
+                actions=('extract','annotate','retain',args.purpose) if args.purpose in {'train','evaluate'} else ('extract','retain',args.purpose)
                 source_path(row,*actions)
                 if args.purpose=='train' and row['split']!='train':
                     raise ValueError('Only the training split can enter a training export.')
@@ -181,7 +187,7 @@ def main():
             check_isolation(registry)
             if record not in registry:
                 raise ValueError('Benchmark source does not belong to the checked registry.')
-            evaluate(record,annotation,args.output,args.sizes,args.shadow)
+            evaluate(record,annotation,args.output,args.sizes,args.shadow,args.methods)
 
 
 if __name__=='__main__':

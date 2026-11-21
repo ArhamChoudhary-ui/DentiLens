@@ -1,6 +1,9 @@
 """Evaluate the installed class-agnostic video detector against labelled full frames."""
 import argparse
 from collections import Counter
+from time import perf_counter
+import resource
+import sys
 from zipfile import ZipFile
 
 import numpy as np
@@ -69,9 +72,14 @@ def main():
     parser.add_argument('--errors',type=Path)
     parser.add_argument('--split',choices=('valid','test'),default='test')
     parser.add_argument('--image-size',type=int)
+    parser.add_argument('--method',choices=('full','tiles','roi'),default='full')
+    parser.add_argument('--predictions',type=Path)
+    parser.add_argument('--timing',action='store_true')
     args = parser.parse_args()
     if args.image_size and args.split!='valid':
         parser.error('Resolution experiments use validation only.')
+    if args.method!='full' and (args.split!='valid' or args.model!='video'):
+        parser.error('Window experiments require the video detector and validation split.')
     metadata,frames,crops = load_dataset(args.dataset)
     issues = validate(metadata,frames,crops)
     if any(value for value in issues.values() if isinstance(value,list)):
@@ -99,23 +107,34 @@ def main():
     per_source = Counter()
     samples = []
     errors = []
+    ledger = {}
+    inference_seconds = 0.
+    raw_proposals = 0
+    merged_proposals = 0
     with ZipFile(args.archive) as archive:
         for row in frames:
             recording = row['recording']
             if row['split']!=args.split or (args.max_per_recording and per_source[recording]>=args.max_per_recording):
                 continue
             _,image = image_from_archive(archive,row['member'])
-            prediction = model.predict(image,imgsz=args.image_size or release['image_size'],conf=.001,max_det=300,
-                                       device='cpu',verbose=False)[0]
-            boxes = prediction.obb if task=='obb' else prediction.boxes
-            if task=='obb':
-                corners = boxes.xyxyxyxyn.numpy()
-                coordinates = np.concatenate((corners.min(axis=1),corners.max(axis=1)),axis=1).tolist()
+            size=args.image_size or release['image_size']
+            started=perf_counter()
+            if task=='detect':
+                from detector_tiles import predict_windows
+                predictions,raw=predict_windows(model,image,args.method,size)
             else:
-                coordinates = boxes.xyxyn.tolist()
+                boxes=model.predict(image,imgsz=size,conf=.001,max_det=300,
+                                    device='cpu',verbose=False)[0].obb
+                corners=boxes.xyxyxyxyn.numpy()
+                coordinates=np.concatenate((corners.min(axis=1),corners.max(axis=1)),axis=1).tolist()
+                predictions=raw=list(zip(boxes.conf.tolist(),coordinates))
+            inference_seconds+=perf_counter()-started
+            raw_proposals+=len(raw)
+            merged_proposals+=len(predictions)
+            if args.predictions:
+                ledger[row['id']]=dict(merged=predictions,pre_merge=raw)
             positives = [a for a in row['annotations'] if a['label']!='non_instrument']
             negatives = [a for a in row['annotations'] if a['label']=='non_instrument']
-            predictions = list(zip(boxes.conf.tolist(),coordinates))
             samples.append((positives,predictions,negatives))
             if args.errors:
                 unmatched = list(positives)
@@ -143,6 +162,13 @@ def main():
                   frames_by_recording=dict(per_source), **detection_metrics(samples,cutoff))
     if args.split=='valid':
         result.update(split=args.split,image_size=args.image_size or release['image_size'])
+    if args.method!='full':
+        result.update(method=args.method,ranked_pre_merge=raw_proposals,ranked_post_merge=merged_proposals)
+    if args.timing:
+        peak=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        result.update(inference_seconds=inference_seconds,peak_rss_bytes=peak if sys.platform=='darwin' else peak*1024)
+    if args.predictions:
+        write_json(args.predictions,ledger)
     write_json(args.output,result)
     if args.errors:
         write_json(args.errors,errors)

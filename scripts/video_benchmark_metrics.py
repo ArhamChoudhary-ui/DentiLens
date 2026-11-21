@@ -36,7 +36,7 @@ def track_metrics(annotation,predictions,video):
     matched_truth=set()
     details={}
     switches=fragmentation=0
-    detect_seconds=correct_seconds=visible_seconds=0.
+    detect_seconds=correct_seconds=incorrect_seconds=visible_seconds=0.
     for index,frame in enumerate(annotation['frames']):
         boundary=(annotation['frames'][index+1] if index+1<len(annotation['frames']) else video['frames'])
         time=frame/video['fps']
@@ -50,7 +50,7 @@ def track_metrics(annotation,predictions,video):
         for i,row in enumerate(truth):
             key=row['track_id']
             detail=details.setdefault(key,dict(first=time,first_detection=None,first_correct=None,
-                                              visible=0.,detected=0.,correct=0.,prediction_ids=set()))
+                                              visible=0.,detected=0.,correct=0.,incorrect=0.,named_seconds=Counter(),prediction_ids=set()))
             visible_seconds+=duration
             detail['visible']+=duration
             if i not in assignments:
@@ -74,11 +74,16 @@ def track_metrics(annotation,predictions,video):
                     fragmentation+=int(not was_matched)
                 previous[key]=(track,True)
             name=detection.get('track_identity')
-            if row['visibility']!='ambiguous' and row['label']!='unknown' and name and name.get('accepted') and name['class_id']==row['label']:
-                correct_seconds+=duration
-                detail['correct']+=duration
-                if detail['first_correct'] is None:
-                    detail['first_correct']=time
+            if row['visibility']!='ambiguous' and row['label']!='unknown' and name and name.get('accepted'):
+                detail['named_seconds'][name['class_id']]+=duration
+                if name['class_id']==row['label']:
+                    correct_seconds+=duration
+                    detail['correct']+=duration
+                    if detail['first_correct'] is None:
+                        detail['first_correct']=time
+                else:
+                    incorrect_seconds+=duration
+                    detail['incorrect']+=duration
         unmatched_track_ids.update(predictions[j]['track_id'] for j in range(len(predictions))
                                    if j not in hit_predictions and predictions[j].get('track_id'))
     g_ids=sorted({key for key,_ in pairs})
@@ -92,6 +97,8 @@ def track_metrics(annotation,predictions,video):
     n_preds=sum(len(values) for values in observations.values())
     for detail in details.values():
         detail['prediction_ids']=sorted(detail['prediction_ids'])
+        named=detail['named_seconds']
+        detail['name_consistency']=max(named.values())/sum(named.values()) if named else None
         for field in ('first_detection','first_correct'):
             detail[field+'_delay']=detail[field]-detail['first'] if detail[field] is not None else None
     return dict(idf1=2*idtp/(n_truth+n_preds) if n_truth+n_preds else None,
@@ -100,7 +107,7 @@ def track_metrics(annotation,predictions,video):
                 false_tracks=len(unmatched_track_ids-matched_track_ids),
                 ground_truth_tracks_with_multiple_prediction_ids=sum(len(r['prediction_ids'])>1 for r in details.values()),
                 visible_seconds=visible_seconds,missed_visible_seconds=visible_seconds-detect_seconds,
-                correctly_named_visible_seconds=correct_seconds,matched_truth_tracks=len(matched_truth),
+                correctly_named_visible_seconds=correct_seconds,incorrectly_named_visible_seconds=incorrect_seconds,matched_truth_tracks=len(matched_truth),
                 details=details)
 
 
@@ -138,16 +145,30 @@ def annotation_disagreements(primary, second):
                 samples[row['frame']].append(row)
         grouped.append(samples)
     cases=[]
+    correspondences=Counter()
     for frame in primary['frames']:
         left,right=(group[frame] for group in grouped)
         matches=matched_objects(left,right)
         for index,other in matches:
             a,b=left[index],right[other]
-            if (a['label'],a['visibility'])!=(b['label'],b['visibility']):
-                cases.append(dict(frame=frame,reason='class_or_visibility',primary=a,second=b))
+            correspondences[a['track_id'],b['track_id']]+=1
+            fields=[field for field in ('label','visibility','occluded') if a.get(field)!=b.get(field)]
+            if fields:
+                cases.append(dict(frame=frame,reason='class_or_visibility',fields=fields,primary=a,second=b))
+            overlap=iou(a['box'],b['box'])
+            if overlap<.75:
+                cases.append(dict(frame=frame,reason='box_geometry',iou=overlap,primary=a,second=b))
         for side,values,matched in (('primary',left,{i for i,_ in matches}),('second',right,{j for _,j in matches})):
             for i,item in enumerate(values):
                 if i not in matched:
                     cases.append(dict(frame=frame,reason='unmatched_box',**{side:item}))
+    left_events={row['track_id']:row for row in primary.get('events',[])}
+    right_events={row['track_id']:row for row in second.get('events',[])}
+    for (a,b),count in sorted(correspondences.items()):
+        if sum(key[0]==a for key in correspondences)>1 or sum(key[1]==b for key in correspondences)>1:
+            cases.append(dict(reason='track_split_or_merge',primary_track=a,second_track=b,matched_samples=count))
+        left,right=left_events.get(a),right_events.get(b)
+        if left and right and any(left[field]!=right[field] for field in ('entry','exit','last_seen')):
+            cases.append(dict(reason='track_timing',primary=left,second=right))
     return dict(recording=primary['recording'],reviewers=[primary['review']['reviewer'],second['review']['reviewer']],
                 reviewed_samples=len(primary['frames']),disagreements=cases)
