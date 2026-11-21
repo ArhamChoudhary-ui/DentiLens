@@ -66,3 +66,11 @@ The live scanner continues to use the prior detector.
 
 See the [recorded results](instrument-video-v3-results.json) for the model
 checksum, thresholds, and per-source counts.
+
+## Review the experimental model in the app
+
+Copy the evaluated checkpoint to `models/video-instruments.pt` and choose
+**Scan with experimental video model** in **Instruments**. The app verifies
+the checkpoint against the recorded checksum. The resulting boxes are
+unreviewed and use a generic instrument label. The scan has its own
+saved results, so existing instrument reviews stay attached to their evidence.

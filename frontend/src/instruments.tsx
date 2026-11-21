@@ -8,9 +8,9 @@ type Observation = {
 }
 type Appearance = { id:string; time:number; end:number; best:Observation }
 type Review = { detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
-type InstrumentReport = { device:string | null; samples:number; seconds:number; scanned:boolean; appearances:Appearance[]; reviews:Review[] }
+type InstrumentReport = { device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
 type TrackedFrame = {frame:number; time:number; box:Box}
-type InstrumentResponse = {model_ready:boolean; report:InstrumentReport | null}
+type InstrumentResponse = {model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
 
 export function Instruments({examId, duration, currentTime, jump, refresh}: {
   examId:string; duration:number; currentTime:number; jump:(time:number)=>void; refresh:()=>Promise<void>
@@ -32,13 +32,14 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState('')
   const [candidates,setCandidates]=useState(false)
+  const [experimentalReady,setExperimentalReady]=useState(false)
   const [tracking,setTracking]=useState(false)
   const [tracked,setTracked]=useState<TrackedFrame[] | null>(null)
   const [trackedFrame,setTrackedFrame]=useState<TrackedFrame>()
   useEffect(()=>{
     const controller=new AbortController()
     api<InstrumentResponse>(root+'/instruments',{signal:controller.signal})
-      .then(data=>{setAvailable(data.model_ready);setReport(data.report)})
+      .then(data=>{setAvailable(data.model_ready);setExperimentalReady(!!data.experimental_ready);setReport(data.report);setCandidates(data.report?.experimental_samples != null)})
       .catch(e=>{if(!controller.signal.aborted)setError(e.message)})
     return ()=>controller.abort()
   },[root])
@@ -67,9 +68,9 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     setSelected(undefined);setManual(true);setRedraw(true);setBox(null);setError('')
     setTime(Math.min(currentTime,Math.max(0,duration-.01)));setLabel('');setNote('');setFdi('');setVisibility('');setAnchor(undefined)
   }
-  async function scan() {
+  async function scan(experimental = false) {
     setBusy(true);setError('')
-    try {setReport(await send<InstrumentReport>(root+'/instruments',{}));await refresh()}
+    try {setReport(await send<InstrumentReport>(root+'/instruments'+(experimental?'?experimental=true':''),{}));setCandidates(true);await refresh()}
     catch(e) {setError(e instanceof Error?e.message:'Instrument scan failed.')}
     finally {setBusy(false)}
   }
@@ -109,14 +110,16 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
       <div className="actions">
         <button className="subtle compact-action" disabled={saving || tracking} onClick={addManual}>Mark instrument</button>
         <button className="subtle compact-action" disabled={!available || busy || !!report?.scanned} onClick={()=>void scan()}>
-          {busy?'Scanning…':report?.scanned?'Scan complete':'Scan for candidates'}</button>
+          {busy?'Scanning…':report?.scanned?'Still-photo scan complete':'Scan with still-photo model'}</button>
+        {experimentalReady && <button className="subtle compact-action" disabled={busy || report?.experimental_samples != null}
+          onClick={()=>void scan(true)}>{report?.experimental_samples != null?'Video scan complete':'Scan with experimental video model'}</button>}
       </div>
     </div>
     {busy && <p role="status" className="quiet">Checking video frames for possible instrument regions…</p>}
     {error && <p className="error" role="alert">{error}</p>}
-    {report?.scanned && <label className="toggle"><input type="checkbox" checked={candidates} disabled={saving}
+    {(report?.scanned || report?.experimental_samples != null) && <label className="toggle"><input type="checkbox" checked={candidates} disabled={saving}
       onChange={e=>{setCandidates(e.target.checked);if(!e.target.checked && current?.decision!=='confirmed')setSelected(undefined)}}/>
-      <span>Show model candidates<small>{report.samples} frames sampled. Still-photo model. Video tests found missed tools and incorrect boxes.</small></span></label>}
+      <span>Show model candidates<small>{report?.experimental_samples != null ? `Experimental video model sampled ${report.experimental_samples} frames. Review each box and supply the tool name.` : `Still-photo model sampled ${report?.samples} frames.`}</small></span></label>}
     <div className="instrument-layout">
       {visible.length>0 ? <div>
         <div className="instrument-timeline" aria-label={candidates?'Instrument candidates and reviews':'Confirmed instruments'}>
@@ -134,7 +137,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
             const saved=reviews.get(item.best.detection_id)
             return <button className="history-row" key={item.id} disabled={saving || tracking} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
               <time>{clock(item.best.time,true)}</time>
-              <span>{saved?.decision==='confirmed'?saved.label || 'Reviewed instrument':'Model candidate'}</span>
+              <span>{saved?.decision==='confirmed'?saved.label || 'Reviewed instrument':item.best.detection_id.startsWith('instrument-video-')?'Experimental candidate':'Model candidate'}</span>
               <small>{saved?.decision ?? 'Unreviewed'}</small>
             </button>
           })}

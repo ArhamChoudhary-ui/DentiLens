@@ -38,14 +38,14 @@ def group_instruments(observations, stride):
     return sorted((span for spans in tracks.values() for span in spans), key=lambda span: span['time'])
 
 
-def measure_instruments(source, video, models, detector=None):
+def measure_instruments(source, video, models, detector=None, *, experimental=False):
     started = perf_counter()
     device = 'cpu'
     with tempfile.TemporaryDirectory(prefix='tracker-', dir=source.parent) as temporary:
         config = Path(temporary) / 'instrument-bytetrack.yaml'
         config.write_text('tracker_type: bytetrack\ntrack_high_thresh: 0.40\ntrack_low_thresh: 0.25\n'
                           'new_track_thresh: 0.42\ntrack_buffer: 3\nmatch_thresh: 0.70\nfuse_score: true\n')
-        if detector is None:
+        if detector is None and not experimental:
             import torch
             from ultralytics import YOLO
 
@@ -70,6 +70,25 @@ def measure_instruments(source, video, models, detector=None):
                 return [(display_name(model.names[label]), score, points, key)
                         for label,score,points,key in zip(obb.cls.int().cpu().tolist(), obb.conf.cpu().tolist(),
                                                         obb.xyxyxyxyn.cpu().tolist(), ids)]
+        if experimental:
+            import torch
+            from ultralytics import YOLO
+
+            weight = models / 'video-instruments.pt'
+            report = json.loads((models.parent / 'reference/instrument-video-v3-results.json').read_text())
+            with weight.open('rb') as stream:
+                if file_digest(stream, 'sha256').hexdigest() != report['checkpoint_sha256']:
+                    raise ValueError('Experimental checkpoint does not match its evaluation record.')
+            torch.set_num_threads(min(4, torch.get_num_threads()))
+            model = YOLO(str(weight), task='detect')
+            threshold = report['comparison']['pilot']['score_threshold']
+
+            def detector(frame):
+                boxes = model.predict(frame, imgsz=report['image_size'], conf=threshold,
+                                      device=device, verbose=False)[0].boxes
+                return [('Dental instrument · type uncertain', score, [[x,y],[r,y],[r,b],[x,b]], None)
+                        for (x,y,r,b), score in zip(boxes.xyxyn.tolist(), boxes.conf.tolist())]
+
         stride = max(1, round(video['fps'] / 5))
         capture = cv2.VideoCapture(str(source))
         observations = []
@@ -94,7 +113,7 @@ def measure_instruments(source, video, models, detector=None):
                     top, bottom = sorted((min(p[1] for p in points), max(p[1] for p in points)))
                     if right <= left or bottom <= top:
                         continue
-                    observations.append({'detection_id': f'instrument-{index}-{i}', 'track_id': f'I-{track}' if track is not None else None,
+                    observations.append({'detection_id': f'instrument-{"video-" if experimental else ""}{index}-{i}', 'track_id': f'I-{track}' if track is not None else None,
                                          'class': label, 'confidence': confidence, 'polygon': points,
                                          'box': [left, top, right, bottom], 'frame': index,
                                          'time': index / video['fps'], 'review_status': 'suggested'})

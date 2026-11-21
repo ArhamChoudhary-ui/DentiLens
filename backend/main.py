@@ -72,7 +72,7 @@ class VideoExport(BaseModel):
 
 
 class InstrumentReview(BaseModel):
-    detection_id: str | None = Field(default=None, pattern=r'^instrument-(?:\d+-\d+|manual-[a-f0-9]{32})$')
+    detection_id: str | None = Field(default=None, pattern=r'^instrument-(?:(?:video-)?\d+-\d+|manual-[a-f0-9]{32})$')
     decision: Literal['confirmed', 'dismissed']
     label: str = Field(default='', max_length=100)
     note: str = Field(default='', max_length=500)
@@ -80,7 +80,7 @@ class InstrumentReview(BaseModel):
     box: Region | None = None
     fdi_number: str | None = Field(default=None, pattern=r'^[1-4][1-8]$')
     visibility: Literal['visible', 'partial'] | None = None
-    tracked_from: str | None = Field(default=None, pattern=r'^instrument-(?:\d+-\d+|manual-[a-f0-9]{32})$')
+    tracked_from: str | None = Field(default=None, pattern=r'^instrument-(?:(?:video-)?\d+-\d+|manual-[a-f0-9]{32})$')
 
     @model_validator(mode='after')
     def check_review(self):
@@ -389,13 +389,17 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
 
     def instrument_records(key):
         file = storage / key / 'instruments.json'
+        experimental = read_sidecar(key, 'instruments-video.json')
         scanned = file.is_file()
         report = json.loads(file.read_text()) if scanned else {
             'device': None, 'samples': 0, 'seconds': 0, 'observations': [], 'appearances': []}
         with closing(connect()) as con:
             reviews = [json.loads(row[0]) for row in con.execute(
                 'SELECT payload FROM instrument_reviews WHERE exam_id=?', (key,))]
-        if not scanned and not reviews:
+        if experimental is not None:
+            report['observations'].extend(experimental['observations'])
+            report['appearances'].extend(experimental['appearances'])
+        if not scanned and experimental is None and not reviews:
             return None
         for review in reviews:
             if review.get('original_label') is not None:
@@ -407,32 +411,32 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             report['appearances'].append(dict(id=row['detection_id'], label=row['class'], track_id=None,
                 time=row['time'], end=row['time'], last_frame=row['frame'], samples=1, best=row))
         report['appearances'].sort(key=lambda item:item['time'])
-        return {**report, 'scanned': scanned, 'reviews': reviews}
+        return {**report, 'scanned': scanned, 'experimental_samples': experimental['samples'] if experimental is not None else None, 'reviews': reviews}
 
     @app.get('/api/exams/{exam_id}/instruments')
     def instruments(exam_id: UUID):
         report_for(exam_id.hex)
         return {'model_ready': instrument_model_ready(ROOT / 'models'),
+                'experimental_ready': (ROOT / 'models/video-instruments.pt').is_file(),
                 'report': instrument_records(exam_id.hex)}
 
     @app.post('/api/exams/{exam_id}/instruments')
-    def scan_instruments(exam_id: UUID):
+    def scan_instruments(exam_id: UUID, experimental: bool = False):
         key = exam_id.hex
         report = report_for(key)
         models = ROOT / 'models'
-        if not instrument_model_ready(models):
+        ready = (models / 'video-instruments.pt').is_file() if experimental else instrument_model_ready(models)
+        if not ready:
             raise HTTPException(503, 'Install the evaluated instrument checkpoint before scanning.')
         if not instrument_scan_lock.acquire(blocking=False):
             raise HTTPException(409, 'An instrument scan is running. Try again when it finishes.')
         try:
-            existing = instrument_records(key)
-            if existing and existing['scanned']:
-                return existing
+            filename = 'instruments-video.json' if experimental else 'instruments.json'
             work = storage / key
-            measured = measure_instruments(work / 'source.mp4', report['video'], models)
-            with NamedTemporaryFile(mode='w', dir=work, delete=False) as temporary:
-                json.dump(measured, temporary, allow_nan=False)
-            Path(temporary.name).replace(work / 'instruments.json')
+            if not (work / filename).is_file():
+                measured = (measure_instruments(work / 'source.mp4', report['video'], models, experimental=True)
+                            if experimental else measure_instruments(work / 'source.mp4', report['video'], models))
+                write_sidecar(key, filename, measured)
             return instrument_records(key)
         except (OSError, ValueError, RuntimeError) as exc:
             raise HTTPException(422, str(exc)) from exc
