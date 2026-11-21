@@ -61,7 +61,7 @@ export function instrumentPlayback(scan:InstrumentScan) {
     const suggestion=row.track_identity ?? row.identity
     samples.push({time:row.time,box:decision?.box ?? row.box,
       label:decision?.decision==='confirmed'?decision.label:'',
-      suggestion:suggestion?.accepted?suggestion.label:'',context:row.context_identity?.label ?? ''})
+      suggestion:decision?.decision!=='unknown' && suggestion?.accepted?suggestion.label:'',context:row.context_identity?.label ?? ''})
     tracks.set(track,samples)
   }
   const entries=[...tracks].map(([id,samples])=>{

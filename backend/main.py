@@ -31,7 +31,7 @@ from exam_intelligence import evidence_index, quality_report, search_exam, tooth
 from audio_intelligence import audio_ready, transcribe
 from storyboard import collect_events, csv_summary, generate, with_events
 from instrument_identity import (ASSOCIATION_VERSION, MAX_TRACK_GAP, classify_pipeline, context_model,
-                                 crop, describe_tracks, identity_pipeline, pipeline_version)
+                                 crop, crop_geometry, describe_tracks, identity_pipeline, pipeline_version)
 from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
@@ -76,7 +76,7 @@ class VideoExport(BaseModel):
 
 class InstrumentReview(BaseModel):
     detection_id: str | None = Field(default=None, pattern=r'^instrument-(?:(?:video-)?\d+-\d+|manual-[a-f0-9]{32})$')
-    decision: Literal['confirmed', 'dismissed']
+    decision: Literal['confirmed', 'dismissed', 'unknown']
     non_instrument: bool = False
     label: str = Field(default='', max_length=100)
     note: str = Field(default='', max_length=500)
@@ -409,7 +409,10 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             predictions = (identities or {}).get('predictions',{})
             for row in rows:
                 row['identity'] = predictions.get(row['detection_id'])
-            tracks, diagnostics = describe_tracks(rows,report_for(key)['video'],reviews)
+            video = report_for(key)['video']
+            tracks, diagnostics = describe_tracks(rows,video,reviews)
+            for row in rows:
+                row['crop_geometry'] = crop_geometry(row['box'],video['width'],video['height'])
             report.update(tracks=tracks,diagnostics=diagnostics,maximum_track_gap=MAX_TRACK_GAP)
             report['observations'].extend(rows)
             by_id = {row['detection_id']:row for row in rows}
@@ -525,7 +528,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             if original:
                 origin = original['original_label']
             data['original_prediction'] = (original or {}).get('original_prediction',prediction)
-            action = ('non_instrument' if body.non_instrument else 'rejected' if body.decision=='dismissed' else
+            action = ('left_unknown' if body.decision=='unknown' else
+                      'non_instrument' if body.non_instrument else 'rejected' if body.decision=='dismissed' else
                       'confirmed' if data['label']==(proposed or {}).get('label',record['class']) else 'corrected')
             data['review_action'] = action
             data['history'] = [*(original or {}).get('history',[]),
@@ -787,7 +791,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
 
     @app.get('/api/exams/{exam_id}/still.jpg')
     def still(exam_id: UUID, time: Annotated[float, Query(ge=0, allow_inf_nan=False)] = 0,
-              bookmark: str | None = None, instrument: str | None = None):
+              bookmark: str | None = None, instrument: str | None = None, detail: bool = False):
         report = report_for(exam_id.hex)
         info = report['video']
         review = None
@@ -826,7 +830,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             if not frame.size:
                 raise HTTPException(422,'This instrument region is empty.')
             height,width = frame.shape[:2]
-            scale = min(1,180/max(height,width))
+            scale = min(1,(640 if detail else 180)/max(height,width))
             frame = cv2.resize(frame,(max(1,round(width*scale)),max(1,round(height*scale))))
         encoded, payload = cv2.imencode('.jpg', frame)
         if not encoded:

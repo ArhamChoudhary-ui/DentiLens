@@ -32,13 +32,28 @@ MAX_TRACK_GAP = .43
 CONTEXT_CLASSES = {'hand_gloved','hand_ungloved','mouth_open'}
 
 
-def crop(image, box, padding=.10):
-    height, width = image.shape[:2]
+DEFAULT_CROP_PADDING = .10
+
+
+def crop_bounds(box, width, height, padding=DEFAULT_CROP_PADDING):
     left, top, right, bottom = box
     dx, dy = (right-left)*padding, (bottom-top)*padding
-    x0, y0 = max(0, int((left-dx)*width)), max(0, int((top-dy)*height))
-    x1, y1 = min(width, int(np.ceil((right+dx)*width))), min(height, int(np.ceil((bottom+dy)*height)))
-    return image[y0:y1, x0:x1]
+    return (max(0,int((left-dx)*width)), max(0,int((top-dy)*height)),
+            min(width,int(np.ceil((right+dx)*width))), min(height,int(np.ceil((bottom+dy)*height))))
+
+
+def crop_geometry(box,width,height,padding=DEFAULT_CROP_PADDING):
+    x0,y0,x1,y1 = crop_bounds(box,width,height,padding)
+    w,h = max(0,x1-x0),max(0,y1-y0)
+    scale = SIZE/max(1,w,h)
+    return {'width':w,'height':h,'encoded_width':max(1,round(w*scale)) if w else 0,
+            'encoded_height':max(1,round(h*scale)) if h else 0,'padding':padding}
+
+
+def crop(image, box, padding=DEFAULT_CROP_PADDING):
+    height,width = image.shape[:2]
+    x0,y0,x1,y1 = crop_bounds(box,width,height,padding)
+    return image[y0:y1,x0:x1]
 
 
 def encode(image, color=False):
@@ -78,6 +93,9 @@ def load_identity(root, stem, changed):
     classes = info['classes']
     if len(classes) != len(set(classes)) or 'unknown' not in classes or any(key not in LABELS for key in classes):
         raise ValueError('Instrument classifier class mapping is incompatible.')
+    padding = info.get('crop_padding',DEFAULT_CROP_PADDING)
+    if not isinstance(padding,(int,float)) or not 0<=padding<=.35:
+        raise ValueError('Instrument crop padding must be between 0 and 0.35.')
     thresholds = info['thresholds']
     if any(key not in classes or key=='unknown' or not 0 < value <= 1 for key,value in thresholds.items()):
         raise ValueError('Instrument classifier thresholds are incompatible.')
@@ -103,7 +121,8 @@ def identity_pipeline(root):
 
 
 def pipeline_version(models):
-    return [{'model':info['model'],'checksum':info['weights_sha256'],'thresholds':info['thresholds']}
+    return [{'model':info['model'],'checksum':info['weights_sha256'],'thresholds':info['thresholds'],
+             'crop_padding':info.get('crop_padding',DEFAULT_CROP_PADDING)}
             for _,info in models]
 
 
@@ -160,7 +179,7 @@ def model_pixels(data, backbone):
 
 
 def encoded_crop(image, box, info):
-    region = crop(image,box)
+    region = crop(image,box,info.get('crop_padding',DEFAULT_CROP_PADDING))
     if region.size and min(region.shape[:2]) >= 5:
         return encode(region,info.get('color',False))
     return None
@@ -202,12 +221,12 @@ def predict_video(source, observations, models):
     def flush():
         keys = [key for key,_ in pending]
         for index,(model,info) in enumerate(models):
-            color = info.get('color',False)
-            result = score_crops(model,info,[pixels[color] for _,pixels in pending])
+            key = (info.get('color',False),info.get('crop_padding',DEFAULT_CROP_PADDING))
+            result = score_crops(model,info,[pixels[key] for _,pixels in pending])
             output[index].update(zip(keys,result))
         pending.clear()
 
-    colors = {info.get('color',False) for _,info in models}
+    variants = {(info.get('color',False),info.get('crop_padding',DEFAULT_CROP_PADDING)) for _,info in models}
     capture = cv2.VideoCapture(str(source))
     try:
         position = 0
@@ -220,9 +239,12 @@ def predict_video(source, observations, models):
             if not ok:
                 raise ValueError(f'Could not classify frame {index}.')
             for row in rows:
-                region = crop(image,row['box'])
-                valid = region.size and min(region.shape[:2])>=5
-                pending.append((row['detection_id'],{color:encode(region,color) if valid else None for color in colors}))
+                views = {}
+                for color,padding in variants:
+                    region = crop(image,row['box'],padding)
+                    valid = region.size and min(region.shape[:2])>=5
+                    views[color,padding] = encode(region,color) if valid else None
+                pending.append((row['detection_id'],views))
                 if len(pending)==32:
                     flush()
         if pending:

@@ -79,6 +79,13 @@ def test_instrument_scan_api_and_full_video_export(monkeypatch, examination_vide
                   'decision':'dismissed','non_instrument':True}).json()
         assert non_tool['review_action']=='non_instrument'
         assert non_tool['original_label']=='Dental mirror'
+        unknown = client.post(path+'/instrument-reviews',json={'detection_id':first['detection_id'],
+                  'decision':'unknown'}).json()
+        assert unknown['review_action']=='left_unknown'
+        assert unknown['original_label']=='Dental mirror'
+        assert [step['action'] for step in unknown['history']] == ['corrected','rejected','non_instrument','left_unknown']
+        marks = instrument_marks(client.get(path+'/instruments').json()['report'])
+        assert {row['label'] for entries in marks.values() for row in entries} == {'Wire cutter'}
         # Existing experimental sessions can load the canonical track timeline
         # without changing the raw detector sidecar or legacy appearance shape.
         import json
