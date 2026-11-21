@@ -11,14 +11,19 @@ import os
 from pathlib import Path
 
 
-PACKAGE = Path(__file__).resolve().parents[2] / 'reference' / 'student_package'
+ROOT = Path(__file__).resolve().parents[2]
+PACKAGE = ROOT / 'reference' / 'student_package'
+if not PACKAGE.is_dir():
+    PACKAGE = ROOT / 'code' / 'reference' / 'student_package'
 
 
 def configured_team_id():
     value = os.environ.get('DENTILENS_TEAM_ID', '').strip()
     if value:
         return value
-    path = Path(__file__).resolve().parents[2] / 'team_id.txt'
+    path = ROOT / 'team_id.txt'
+    if not path.is_file():
+        path = ROOT / 'code' / 'team_id.txt'
     return path.read_text().strip() if path.is_file() else None
 
 

@@ -400,7 +400,9 @@ manifest runner and validation commands.
 
 See the [final release report](reference/dentilens-track4-final-release.md),
 [manifest audit](results/final_manifest_audit.json) and
-[submission checklist](submission/FINAL_SUBMISSION_CHECKLIST.md).
+[submission checklist](submission/FINAL_SUBMISSION_CHECKLIST.md),
+[package audit](submission/PACKAGE_AUDIT.md) and
+[AI disclosure](AI_DISCLOSURE.md).
 Team Rajasthani verified eight outputs locally. See the
 [public walkthrough](reference/submission/DentiLens-Track4-Walkthrough.mp4),
 [PowerPoint](reference/submission/DentiLens-Track4-Presentation.pptx) and
