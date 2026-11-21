@@ -89,3 +89,14 @@ A larger external volume or staged download process is needed.
 [Implementation audit](track4-implementation-audit.md) ·
 [Submission checklist](../submission/FINAL_SUBMISSION_CHECKLIST.md) ·
 [Demo script](../submission/DEMO_SCRIPT.md)
+
+## Final-night update
+
+The batch runner now resumes locally, preserves valid output files and
+records missing inputs without writing placeholders. The current run
+covers eight of 187 manifest videos. The
+[submission readiness report](track4-final-submission-report.md)
+supersedes the original three-video status above and gives the expanded
+metrics, FPV investigation and artifact verification. The
+[per-video audit](../results/final_manifest_audit.json) lists all remaining
+inputs.

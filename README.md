@@ -394,18 +394,17 @@ still required. No per-clip threshold tuning was applied to these four tests.
 
 ## Samsung Track 4
 
-The separate student-guide contract requires six-field JSON outputs for 187
-manifest videos. This dental review CLI currently writes a research review
-report into an analysis directory. Track 4 benchmark inference, organizer
-validation and complete submission outputs remain separate pending work.
-The supplied guide, manifest, vocabulary and two examples are preserved under
-`reference/student_package/`. The received package lacks `validate.py`.
+The Action Intelligence Engine runs offline through
+[`track4/run.sh`](track4/run.sh). It produces timed verb–noun actions and
+selects highlights from the original first-person video. The
+[Track 4 README](track4/README.md) describes the separate setup,
+manifest runner and validation commands.
 
-The supplied nine-slide presentation template is preserved unchanged at
-`reference/submission/Submission_Final_forGithub.pptx`. Its cover has placeholders
-for the track, team, college and member details. The content sections cover the
-problem, solution, architecture, track output, differentiation and demo/setup,
-followed by a "Brownie Slides" section and closing slide. The template is blank.
+See the [submission readiness report](reference/track4-final-submission-report.md),
+[manifest audit](results/final_manifest_audit.json) and
+[submission checklist](submission/FINAL_SUBMISSION_CHECKLIST.md).
+The organizer's [presentation template](reference/submission/Submission_Final_forGithub.pptx)
+is preserved with the original layout.
 
 ## Model attribution
 

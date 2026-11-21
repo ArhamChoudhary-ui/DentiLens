@@ -61,12 +61,22 @@ The illustrative `skiing` label conflicts with the supported `ski` label.
 Runtime category mapping uses `ski` and preserves the actual video ID.
 
 ```bash
-python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" --check-only
-python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID"
+python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" \
+  --report /path/to/audit.json --check-only
+python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" \
+  --report /path/to/audit.json
 python scripts/check_submission.py --dir /path/to/outputs
 python scripts/package.py /path/to/outputs /path/to/final.zip --team-id "$DENTILENS_TEAM_ID" \
   --organizer-validator /path/to/official/validate.py
 ```
+
+The batch runner searches recursively for manifest-named MP4s and uses one
+CPU inference process at a time. It reuses valid JSON, keeps invalid output
+files for inspection, and continues after individual video failures. Missing
+sources and stale or duplicate output files appear in the separate audit.
+Re-run the same command to resume after adding more media. A nonzero exit
+status signals an incomplete or inconsistent set. Use a fresh output folder
+when the registered team ID replaces the development ID.
 
 Final packaging requires every output and runs the supplied validator.
 `--development` produces a separately marked local archive for smoke
