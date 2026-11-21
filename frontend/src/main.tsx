@@ -10,11 +10,9 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api, clock, send } from './api'
 import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
 import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
-import { ExamIntelligence } from './intelligence'
 import { Instruments } from './instruments'
 import { instrumentPlayback } from './instrument-playback'
 import type { InstrumentScan } from './instrument-playback'
-import { AudioIntelligence, ExaminationStoryboard } from './video-events'
 import './styles.css'
 
 const Anatomy = lazy(() => import('./anatomy'))
@@ -287,7 +285,7 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   const [building,setBuilding]=useState(false)
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
-  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence' | 'anatomy' | 'instruments' | 'audio' | 'storyboard'>('review')
+  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'anatomy' | 'instruments'>('review')
   const [instrumentScan,setInstrumentScan]=useState<InstrumentScan>()
   const [showInstruments,setShowInstruments]=useState(false)
   const [instrumentTime,setInstrumentTime]=useState(0)
@@ -385,22 +383,17 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
     <div className="workspace-tabs" aria-label="Examination views">
       <button className={tab==='review'?'active':''} aria-pressed={tab==='review'} onClick={()=>setTab('review')}><ScanLine size={16}/> Review video</button>
       <button className={tab==='teeth'?'active':''} aria-pressed={tab==='teeth'} onClick={()=>setTab('teeth')}>Tooth chart</button>
-      <button className={tab==='intelligence'?'active':''} aria-pressed={tab==='intelligence'} onClick={()=>setTab('intelligence')}>Search & quality</button>
       <button className={tab==='instruments'?'active':''} aria-pressed={tab==='instruments'} onClick={()=>setTab('instruments')}>Instruments</button>
-      <button className={tab==='storyboard'?'active':''} aria-pressed={tab==='storyboard'} onClick={()=>setTab('storyboard')}>Storyboard</button>
-      <button className={tab==='audio'?'active':''} aria-pressed={tab==='audio'} onClick={()=>setTab('audio')}>Audio</button>
       <button className={tab==='anatomy'?'active':''} aria-pressed={tab==='anatomy'} onClick={()=>{setAnatomyTooth('');setTab('anatomy')}}>3D anatomy</button>
       <button className={tab==='patient'?'active':''} aria-pressed={tab==='patient'} onClick={()=>setTab('patient')}><Play size={16}/> Patient view</button>
       <button className={tab==='xr'?'active':''} aria-pressed={tab==='xr'} onClick={()=>setTab('xr')}><Glasses size={17}/> XR preview</button>
     </div>
-    {tab==='audio' ? <AudioIntelligence id={exam.id} duration={report.video.duration}/> : tab==='storyboard' ?
-      <ExaminationStoryboard id={exam.id} duration={report.video.duration}/> : tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
+    {tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
       <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview} initial={chartTooth}
         openAnatomy={openAnatomy}/> : tab==='instruments' ?
       <Instruments examId={exam.id} duration={report.video.duration} currentTime={time} jump={seconds=>{setShowInstruments(true);setInstrumentTime(seconds);setPlayerMode('source');openReview(seconds)}} refresh={refresh}/> : tab==='anatomy' ?
       <Suspense fallback={<p role="status">Loading anatomy…</p>}><Anatomy examId={exam.id} initial={anatomyTooth} jump={openReview}
-        openChart={code=>{setChartTooth(code);setTab('teeth')}}/></Suspense> : tab==='intelligence' ?
-      <ExamIntelligence exam={exam} jump={openReview}/> : tab==='patient' ?
+        openChart={code=>{setChartTooth(code);setTab('teeth')}}/></Suspense> : tab==='patient' ?
       <PatientView exam={exam} moments={confirmed} reel={reel} openAnatomy={openAnatomy}/> : <div className="review-grid">
       <div className="review-main">
         <section className="panel player-panel">
