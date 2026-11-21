@@ -122,6 +122,7 @@ def main():
     parser.add_argument('--foundation',type=Path)
     parser.add_argument('--adapt-video',action='store_true')
     parser.add_argument('--mirror-explorer',action='store_true')
+    parser.add_argument('--dentalguard',type=Path)
     opt=parser.parse_args()
     torch.set_num_threads(6)
     torch.manual_seed(44)
@@ -130,6 +131,8 @@ def main():
         parser.error('--adapt-video requires pretrained MobileNet weights.')
     if opt.mirror_explorer and not opt.adapt_video:
         parser.error('--mirror-explorer requires --adapt-video.')
+    if opt.dentalguard and not opt.mirror_explorer:
+        parser.error('--dentalguard requires --mirror-explorer.')
     aliases=VIDEO_ALIASES if opt.adapt_video else ALIASES
     target={'dental_mirror','dental_explorer'}
     if opt.mirror_explorer:
@@ -146,6 +149,14 @@ def main():
         if opt.mirror_explorer:
             examples=[(pixels,label if label in target else 'unknown') for pixels,label in examples]
         data.setdefault(source['split'],[]).extend(examples)
+    sources={}
+    primary_validation='valid'
+    if opt.dentalguard:
+        from dentalguard_crops import dentalguard
+        extra,sources=dentalguard(opt.dentalguard)
+        for split,rows in extra.items():
+            data.setdefault(split,[]).extend(rows)
+        primary_validation='guard_valid'
     classes=sorted({label for rows in data.values() for _,label in rows} | {'unknown'})
     print({k:Counter(label for _,label in rows) for k,rows in data.items()},flush=True)
     backbone='mobilenet_v3_small' if opt.foundation else 'cnn'
@@ -188,7 +199,7 @@ def main():
             loss=torch.nn.functional.cross_entropy(head(pixels),labels)
             loss.backward()
             optimizer.step()
-        truth,pred,_=measure(head.eval(),tensors_by_split['valid'],input_mode)
+        truth,pred,_=measure(head.eval(),tensors_by_split[primary_validation],input_mode)
         summary=classification_report(truth,pred,labels=list(range(len(classes))),output_dict=True,zero_division=0)
         supported=[item['f1-score'] for key,item in summary.items() if key.isdigit() and item['support']]
         f1=sum(supported)/len(supported)
@@ -197,7 +208,7 @@ def main():
             torch.save(model.state_dict(),path)
             best=f1
     model.load_state_dict(torch.load(path,weights_only=True))
-    truth,pred,confidence=measure(head.eval(),tensors_by_split['valid'],input_mode)
+    truth,pred,confidence=measure(head.eval(),tensors_by_split[primary_validation],input_mode)
     thresholds={}
     for i,label in enumerate(classes):
         if label=='unknown':
@@ -208,7 +219,7 @@ def main():
                 thresholds[label]=cutoff
                 break
     scores={}
-    for split in ('valid','test','video_test'):
+    for split in ('valid','test','video_test','guard_valid','guard_test'):
         if not data.get(split):
             continue
         truth,pred,confidence=measure(head.eval(),tensors_by_split[split],input_mode)
@@ -224,7 +235,9 @@ def main():
     name='instrument-crop-mobilenet-v3-mirror-explorer' if opt.mirror_explorer else (
          'instrument-crop-mobilenet-v2' if opt.adapt_video else
          'instrument-crop-mobilenet-v1' if opt.foundation else 'instrument-crop-cnn-v1')
-    info=dict(model=name,backbone=backbone,color=opt.adapt_video,classes=classes,thresholds=thresholds,aliases=aliases,
+    if opt.dentalguard:
+        name='instrument-crop-dentalguard-v1'
+    info=dict(model=name,video_group_splits=sources,threshold_validation_split=primary_validation,backbone=backbone,color=opt.adapt_video,classes=classes,thresholds=thresholds,aliases=aliases,
               weights_sha256=checksum,epochs=opt.epochs,scores=scores)
     path.with_suffix('.json').write_text(json.dumps(info,indent=2)+'\n')
     print('Thresholds',thresholds,flush=True)

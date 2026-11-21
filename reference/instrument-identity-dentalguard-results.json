@@ -1,0 +1,322 @@
+{
+  "model": "instrument-crop-dentalguard-v1",
+  "video_group_splits": {
+    "102022": "guard_test",
+    "102003": "guard_test",
+    "102104": "guard_test",
+    "102117": "guard_test",
+    "102073": "guard_valid",
+    "102072": "guard_valid",
+    "101994": "guard_valid",
+    "101972": "guard_valid",
+    "102030": "train",
+    "102125": "train",
+    "102015": "train",
+    "101966": "train",
+    "102086": "train",
+    "101846": "train",
+    "101990": "train",
+    "101996": "train",
+    "102050": "train",
+    "101992": "train",
+    "101986": "train",
+    "102081": "train",
+    "102074": "train",
+    "102070": "train"
+  },
+  "threshold_validation_split": "guard_valid",
+  "backbone": "mobilenet_v3_small",
+  "color": true,
+  "classes": [
+    "dental_explorer",
+    "dental_mirror",
+    "unknown"
+  ],
+  "thresholds": {},
+  "aliases": {
+    "Dental Mirrors": "dental_mirror",
+    "Mouth mirror": "dental_mirror",
+    "Explorer No.5": "dental_explorer"
+  },
+  "weights_sha256": "559f60e07bf220c03323fda37b28a03c73890dda7b2d7a337c581e15820c7c0f",
+  "epochs": 22,
+  "scores": {
+    "valid": {
+      "crops": 1356,
+      "raw_accuracy": 0.6482300884955752,
+      "abstention": 1.0,
+      "report": {
+        "dental_explorer": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 87.0
+        },
+        "dental_mirror": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 102.0
+        },
+        "unknown": {
+          "precision": 0.8606194690265486,
+          "recall": 1.0,
+          "f1-score": 0.925089179548157,
+          "support": 1167.0
+        },
+        "accuracy": 0.8606194690265486,
+        "macro avg": {
+          "precision": 0.28687315634218286,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.30836305984938567,
+          "support": 1356.0
+        },
+        "weighted avg": {
+          "precision": 0.7406658704675385,
+          "recall": 0.8606194690265486,
+          "f1-score": 0.7961497585049404,
+          "support": 1356.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          87
+        ],
+        [
+          0,
+          0,
+          102
+        ],
+        [
+          0,
+          0,
+          1167
+        ]
+      ]
+    },
+    "test": {
+      "crops": 700,
+      "raw_accuracy": 0.69,
+      "abstention": 1.0,
+      "report": {
+        "dental_explorer": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 28.0
+        },
+        "dental_mirror": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 42.0
+        },
+        "unknown": {
+          "precision": 0.9,
+          "recall": 1.0,
+          "f1-score": 0.9473684210526315,
+          "support": 630.0
+        },
+        "accuracy": 0.9,
+        "macro avg": {
+          "precision": 0.3,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.3157894736842105,
+          "support": 700.0
+        },
+        "weighted avg": {
+          "precision": 0.81,
+          "recall": 0.9,
+          "f1-score": 0.8526315789473683,
+          "support": 700.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          28
+        ],
+        [
+          0,
+          0,
+          42
+        ],
+        [
+          0,
+          0,
+          630
+        ]
+      ]
+    },
+    "video_test": {
+      "crops": 9,
+      "raw_accuracy": 0.3333333333333333,
+      "abstention": 1.0,
+      "report": {
+        "dental_explorer": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 3.0
+        },
+        "dental_mirror": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 3.0
+        },
+        "unknown": {
+          "precision": 0.3333333333333333,
+          "recall": 1.0,
+          "f1-score": 0.5,
+          "support": 3.0
+        },
+        "accuracy": 0.3333333333333333,
+        "macro avg": {
+          "precision": 0.1111111111111111,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.16666666666666666,
+          "support": 9.0
+        },
+        "weighted avg": {
+          "precision": 0.1111111111111111,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.16666666666666666,
+          "support": 9.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    "guard_valid": {
+      "crops": 293,
+      "raw_accuracy": 0.6723549488054608,
+      "abstention": 1.0,
+      "report": {
+        "dental_explorer": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 75.0
+        },
+        "dental_mirror": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 106.0
+        },
+        "unknown": {
+          "precision": 0.3822525597269625,
+          "recall": 1.0,
+          "f1-score": 0.5530864197530864,
+          "support": 112.0
+        },
+        "accuracy": 0.3822525597269625,
+        "macro avg": {
+          "precision": 0.1274175199089875,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.18436213991769546,
+          "support": 293.0
+        },
+        "weighted avg": {
+          "precision": 0.14611701941781502,
+          "recall": 0.3822525597269625,
+          "f1-score": 0.21141869970083846,
+          "support": 293.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          75
+        ],
+        [
+          0,
+          0,
+          106
+        ],
+        [
+          0,
+          0,
+          112
+        ]
+      ]
+    },
+    "guard_test": {
+      "crops": 253,
+      "raw_accuracy": 0.691699604743083,
+      "abstention": 1.0,
+      "report": {
+        "dental_explorer": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 59.0
+        },
+        "dental_mirror": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 82.0
+        },
+        "unknown": {
+          "precision": 0.4426877470355731,
+          "recall": 1.0,
+          "f1-score": 0.6136986301369863,
+          "support": 112.0
+        },
+        "accuracy": 0.4426877470355731,
+        "macro avg": {
+          "precision": 0.14756258234519104,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.2045662100456621,
+          "support": 253.0
+        },
+        "weighted avg": {
+          "precision": 0.19597244137543157,
+          "recall": 0.4426877470355731,
+          "f1-score": 0.27167686393415996,
+          "support": 253.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          59
+        ],
+        [
+          0,
+          0,
+          82
+        ],
+        [
+          0,
+          0,
+          112
+        ]
+      ]
+    }
+  },
+  "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+  "raw_frames_shared_across_numbered_groups": 0
+}
