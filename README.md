@@ -6,9 +6,7 @@ Team name: Rajasthani
 
 College: Vellore Institute of Technology, Vellore
 
-| Member | Registration number |
-| --- | --- |
-| Arham Choudhary | 25BIT0208 |
+Members are Arham Choudhary and Aadeesh Sanghi.
 
 DentiLens XR turns a dental examination video into a full-length annotated
 recording with searchable tooth tracks, evidence frames and reviewer-controlled
@@ -400,9 +398,13 @@ selects highlights from the original first-person video. The
 [Track 4 README](track4/README.md) describes the separate setup,
 manifest runner and validation commands.
 
-See the [submission readiness report](reference/track4-final-submission-report.md),
+See the [final release report](reference/dentilens-track4-final-release.md),
 [manifest audit](results/final_manifest_audit.json) and
 [submission checklist](submission/FINAL_SUBMISSION_CHECKLIST.md).
+Team Rajasthani verified eight outputs locally. See the
+[public walkthrough](reference/submission/DentiLens-Track4-Walkthrough.mp4),
+[PowerPoint](reference/submission/DentiLens-Track4-Presentation.pptx) and
+[PDF](reference/submission/DentiLens-Track4-Presentation.pdf).
 The organizer's [presentation template](reference/submission/Submission_Final_forGithub.pptx)
 is preserved with the original layout.
 

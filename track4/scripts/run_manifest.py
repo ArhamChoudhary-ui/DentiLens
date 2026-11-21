@@ -26,14 +26,15 @@ def inspect_outputs(outputs, kit, team_id):
             if path.parent != outputs:
                 raise ValueError('Output must be directly inside the output directory')
             warnings = validate_submission(result, kit, filename=path, team_id=team_id)
+            selected_seconds = sum(end - start for start, end in
+                                   (item['segment'] for item in result['highlights']))
             valid[path.stem] = {
                 'duration_sec': result['duration_sec'],
                 'label': result['label'],
                 'actions': len(result['actions']),
                 'highlights': len(result['highlights']),
-                'highlight_percent': round(100 * sum(
-                    end - start for start, end in (h['segment'] for h in result['highlights'])
-                ) / result['duration_sec'], 2),
+                'highlight_duration_sec': round(selected_seconds, 2),
+                'highlight_percent': round(100 * selected_seconds / result['duration_sec'], 2),
                 'warnings': warnings,
             }
         except RESULT_ERRORS as exc:

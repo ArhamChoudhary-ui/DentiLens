@@ -11,8 +11,7 @@
   "valid_outputs": 8,
   "status_counts": {
     "missing_input": 179,
-    "reused": 7,
-    "processed": 1
+    "reused": 8
   },
   "missing_input_ids": [
     "P01_11",
@@ -451,7 +450,9 @@
         "archive-test/out/P02_13.json",
         "development-outputs/P02_13.json",
         "final-night/demo/P02_13.json",
+        "final-night/extracted/DEVELOPMENT-development/outputs/P02_13.json",
         "final-night/outputs/P02_13.json",
+        "final-night/reproduced/P02_13.json",
         "smoke/P02_13.json"
       ],
       "expected_output_filename": "P02_13.json",
@@ -464,6 +465,7 @@
       },
       "actions": 43,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 13.55,
       "warnings": [],
       "status": "reused"
@@ -547,6 +549,7 @@
       "other_extensions": [
         "archive-test/DEVELOPMENT-development/outputs/P03_26.json",
         "development-outputs/P03_26.json",
+        "final-night/extracted/DEVELOPMENT-development/outputs/P03_26.json",
         "final-night/outputs/P03_26.json",
         "smoke/P03_26.json"
       ],
@@ -560,6 +563,7 @@
       },
       "actions": 15,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 35.94,
       "warnings": [
         "Highlights exceed the 15% target and incur a scoring penalty"
@@ -1373,6 +1377,7 @@
         "epic/P26_30.mp4"
       ],
       "other_extensions": [
+        "final-night/extracted/DEVELOPMENT-development/outputs/P26_30.json",
         "final-night/outputs/P26_30.json"
       ],
       "expected_output_filename": "P26_30.json",
@@ -1385,6 +1390,7 @@
       },
       "actions": 22,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 26.18,
       "warnings": [
         "Highlights exceed the 15% target and incur a scoring penalty"
@@ -1597,11 +1603,13 @@
       "input_paths": [
         "epic/P28_23.mp4"
       ],
-      "other_extensions": [],
+      "other_extensions": [
+        "final-night/extracted/DEVELOPMENT-development/outputs/P28_23.json",
+        "final-night/outputs/P28_23.json"
+      ],
       "expected_output_filename": "P28_23.json",
       "manifest_duration_sec": 25.16,
       "inference_seconds": 5.284,
-      "status": "processed",
       "duration_sec": 25.16,
       "label": {
         "name": "cooking",
@@ -1609,10 +1617,12 @@
       },
       "actions": 37,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 15.9,
       "warnings": [
         "Highlights exceed the 15% target and incur a scoring penalty"
-      ]
+      ],
+      "status": "reused"
     },
     "P28_24": {
       "dataset": "epic_kitchens_100",
@@ -1791,6 +1801,7 @@
         "epic/P32_07.mp4"
       ],
       "other_extensions": [
+        "final-night/extracted/DEVELOPMENT-development/outputs/P32_07.json",
         "final-night/outputs/P32_07.json"
       ],
       "expected_output_filename": "P32_07.json",
@@ -1803,6 +1814,7 @@
       },
       "actions": 40,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 13.8,
       "warnings": [],
       "status": "reused"
@@ -2194,6 +2206,7 @@
         "fpv/RockClimbing_oVnAVcbMoSM.mp4"
       ],
       "other_extensions": [
+        "final-night/extracted/DEVELOPMENT-development/outputs/RockClimbing_oVnAVcbMoSM.json",
         "final-night/outputs/RockClimbing_oVnAVcbMoSM.json"
       ],
       "expected_output_filename": "RockClimbing_oVnAVcbMoSM.json",
@@ -2206,6 +2219,7 @@
       },
       "actions": 0,
       "highlights": 3,
+      "highlight_duration_sec": 12.0,
       "highlight_percent": 14.37,
       "warnings": [],
       "status": "reused"
@@ -2259,7 +2273,9 @@
       "other_extensions": [
         "archive-test/DEVELOPMENT-development/outputs/Skate_el49s-RlIa4.json",
         "development-outputs/Skate_el49s-RlIa4.json",
+        "final-night/extracted/DEVELOPMENT-development/outputs/Skate_el49s-RlIa4.json",
         "final-night/outputs/Skate_el49s-RlIa4.json",
+        "final-release/evidence/Skate_el49s-RlIa4.json",
         "smoke/Skate_el49s-RlIa4.json"
       ],
       "expected_output_filename": "Skate_el49s-RlIa4.json",
@@ -2272,6 +2288,7 @@
       },
       "actions": 0,
       "highlights": 1,
+      "highlight_duration_sec": 4.0,
       "highlight_percent": 10.74,
       "warnings": [],
       "status": "reused"
@@ -2323,7 +2340,9 @@
         "fpv/retry/Surfing_7bzMGVKaiCQ.mp4"
       ],
       "other_extensions": [
-        "final-night/outputs/Surfing_7bzMGVKaiCQ.json"
+        "final-night/extracted/DEVELOPMENT-development/outputs/Surfing_7bzMGVKaiCQ.json",
+        "final-night/outputs/Surfing_7bzMGVKaiCQ.json",
+        "final-release/evidence/Surfing_7bzMGVKaiCQ.json"
       ],
       "expected_output_filename": "Surfing_7bzMGVKaiCQ.json",
       "manifest_duration_sec": 68.94,
@@ -2335,6 +2354,7 @@
       },
       "actions": 0,
       "highlights": 2,
+      "highlight_duration_sec": 8.0,
       "highlight_percent": 11.62,
       "warnings": [],
       "status": "reused"

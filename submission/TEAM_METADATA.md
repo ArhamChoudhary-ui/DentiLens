@@ -1,10 +1,15 @@
 # Track 4 team metadata
 
-- Project · DentiLens XR
-- Track 4 · Action Intelligence Engine
-- Institution · Vellore Institute of Technology, Vellore
-- Registered team name and ID · Pending confirmation against the registration record
+| Field | Verified value |
+| --- | --- |
+| Team name | Rajasthani, confirmed by the team |
+| College | Vellore Institute of Technology, Vellore |
+| Project | DentiLens XR |
+| Competition | Samsung R&D Institute India XR Hackathon 2026 |
+| Track | Track 4 · Action-Aware Egocentric Video Understanding and Intelligent Summarization |
+| Samsung team ID | No issued ID was found in the supplied materials |
+| Team members | Arham Choudhary and Aadeesh Sanghi |
 
-The team has already supplied its member details. Enter the registered name
-and any issued ID exactly as they appear in the registration confirmation.
-The local staging deck uses the working team name supplied in chat.
+The organizer guide names the official archive and its root folder after
+`TEAM_ID`. Keep `Rajasthani` as the confirmed team name. Ask the organizers
+which identifier belongs in the archive name and the JSON `team_id` field.

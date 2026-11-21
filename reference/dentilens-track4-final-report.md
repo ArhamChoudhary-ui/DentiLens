@@ -100,3 +100,7 @@ supersedes the original three-video status above and gives the expanded
 metrics, FPV investigation and artifact verification. The
 [per-video audit](../results/final_manifest_audit.json) lists all remaining
 inputs.
+
+The [final release](dentilens-track4-final-release.md) adds the confirmed
+team name, a raw-logit inspection of both FPV category misses, the public
+walkthrough and the final artifact checks.

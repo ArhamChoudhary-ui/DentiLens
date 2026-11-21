@@ -1,34 +1,32 @@
-# Track 4 submission checklist
+# Samsung Track 4 submission checklist
 
 The organizer update supplied by the team gives **22 November 2026** as
-the deadline. It gives no cutoff time. It lists the Top 12 announcement
-on 29 November, the final demonstration on 9 December and results on
-12 December 2026.
+the submission date and gives no cutoff time.
 
-## Form details
-
-| Field | Entry |
+| Form field | Value |
 | --- | --- |
+| Team | Rajasthani |
+| College | Vellore Institute of Technology, Vellore |
 | Project | DentiLens XR |
-| Track | Track 4 · Action Intelligence Engine |
-| Institution | Vellore Institute of Technology, Vellore |
-| Public project URL | [DentiLens repository](https://github.com/ArhamChoudhary-ui/DentiLens) |
-| Implementation | [Track 4 branch](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence) |
-| Project description | Offline first-person video analysis that scores timed verb–noun actions, selects brief segments from the original footage and exports the documented Track 4 JSON. |
-| Registered team details | Copy the exact team name and issued ID from the registration confirmation. |
-| Presentation | Use the staged PPTX or PDF after verifying the cover against registration. |
-| Demo | Use the staged MP4 once its source-footage sharing terms are confirmed. |
-| Output ZIP | Build with the registered ID after complete output generation and official validation. |
+| Track | Track 4 · Action-Aware Egocentric Video Understanding and Intelligent Summarization |
+| Team members | Arham Choudhary and Aadeesh Sanghi |
+| Public GitHub URL | [DentiLens](https://github.com/ArhamChoudhary-ui/DentiLens) |
+| Implementation | [Track 4 branch](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence) and [release commit history](https://github.com/ArhamChoudhary-ui/DentiLens/commits/xr-4-video-intelligence/) |
+| Demo | [48-second public MP4](https://raw.githubusercontent.com/ArhamChoudhary-ui/DentiLens/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Walkthrough.mp4) |
+| Presentation | Use the organizer-named `VelloreInstituteofTechnology_Rajasthani.pdf` or `.pptx`. [Public PDF](../reference/submission/DentiLens-Track4-Presentation.pdf) |
+| ZIP | Local `VelloreInstituteofTechnology_Rajasthani_TRACK4_STAGING.zip`. Eight outputs pass the local checker. See organizer confirmation items below. |
+| Description | Offline first-person video analysis with timed verb–noun actions and short highlights cut from the original footage. |
+| Samsung team ID and contact details | Enter the registration values if issued and required. |
 
-- [x] Stage the tested offline implementation, reproducible README, PPTX,
-  PDF and demo.
-- [x] Run real inference and locally validate the JSON for all runnable inputs.
-- [ ] Retrieve the remaining source clips and generate all 187 outputs.
-- [ ] Verify team registration and obtain the organizer validator.
-- [ ] Run the organizer validator and build the final archive.
-- [ ] Confirm demo sharing permission and add the presentation/demo links to
-  the [Samsung submission form](https://forms.gle/86xENrtqhx988hBt8).
-- [ ] Submit the form and save its confirmation.
+- [x] Verify the team name, offline code, eight outputs, staging ZIP,
+  presentation and public walkthrough.
+- [ ] Ask the organizers whether eight disclosed outputs can be accepted,
+  obtain the official validator and confirm the `TEAM_ID` archive convention.
+- [ ] Run the official validator and prepare the accepted archive or obtain
+  the remaining source media if the organizer requires the full output set.
+- [ ] If the [submission form](https://forms.gle/86xENrtqhx988hBt8)
+  requires a YouTube or Drive URL, upload the public walkthrough there.
+- [ ] Review and submit the form once, then retain its confirmation.
 
-The [organizer email draft](ORGANIZER_EMAIL_DRAFT.md) requests missing
-materials. The team submits the form.
+Use the [organizer email draft](ORGANIZER_EMAIL_DRAFT.md) for the open
+questions. The Google Form remains pending.

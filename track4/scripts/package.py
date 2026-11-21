@@ -26,10 +26,17 @@ def main():
     parser.add_argument('zipfile',type=Path)
     parser.add_argument('--team-id',required=True)
     parser.add_argument('--development',action='store_true')
+    parser.add_argument('--staging-name',help='Use a confirmed team name for the development folder')
+    parser.add_argument('--external-checkpoints',action='store_true',
+                        help='Leave upstream checkpoints out of a shareable development archive')
     parser.add_argument('--organizer-validator',type=Path)
     args=parser.parse_args()
     if not re.fullmatch('[A-Za-z0-9_-]+',args.team_id):
         parser.error('Team ID must be a safe folder name.')
+    if not args.development and (args.staging_name or args.external_checkpoints):
+        parser.error('Staging options require --development.')
+    if args.staging_name and not re.fullmatch('[A-Za-z0-9_-]+',args.staging_name):
+        parser.error('The staging name must be a safe folder name.')
     root=Path(__file__).resolve().parents[1]
     if not args.development and (not args.organizer_validator or not args.organizer_validator.is_file()):
         parser.error('Final packaging requires the actual organizer validator.')
@@ -42,8 +49,8 @@ def main():
     if not args.development:
         subprocess.run([sys.executable,str(args.organizer_validator.resolve()),'--dir',str(args.outputs.resolve())],
                        check=True)
-    weights=verify_weights(root)
-    folder=f'{args.team_id}-development' if args.development else args.team_id
+    weights=['receipt.json','epic-classes.json'] if args.external_checkpoints else verify_weights(root)
+    folder=f'{args.staging_name or args.team_id}-development' if args.development else args.team_id
     with ZipFile(args.zipfile,'x',compression=ZIP_DEFLATED) as archive:
         for name in ('README.md','requirements.txt','run.sh','Dockerfile'):
             archive.write(root/name,f'{folder}/{name}')
@@ -62,7 +69,10 @@ def main():
         if not args.development:
             archive.writestr(f'{folder}/team_id.txt',args.team_id+'\n')
         else:
-            message='Development sample. Not for organizer upload. Use --team-id DEVELOPMENT to reproduce sample output.\n'
+            message=(f'Development sample. Not for organizer upload. '
+                     f'Use --team-id {args.team_id} to reproduce sample output.\n')
+            if args.external_checkpoints:
+                message += 'Obtain both checkpoints from the upstream sources listed in weights/README.md.\n'
             archive.writestr(f'{folder}/DEVELOPMENT_ONLY.txt',message)
     print(f'Wrote {args.zipfile} with {len(files)} locally valid output files.')
 
