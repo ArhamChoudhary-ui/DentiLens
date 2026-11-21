@@ -9,13 +9,10 @@ import numpy as np
 import torch
 from torch import nn
 
+from instrument_taxonomy import LABELS as CANONICAL_LABELS
+
 LABELS = {
-    'dental_mirror': 'Dental mirror', 'dental_explorer': 'Dental explorer',
-    'periodontal_probe': 'Periodontal probe', 'dental_forceps': 'Dental forceps',
-    'dental_scaler': 'Dental scaler', 'suction_tip': 'Suction tip',
-    'dental_handpiece': 'Dental handpiece', 'orthodontic_pliers': 'Orthodontic pliers',
-    'ligature_applicator': 'Ligature applicator', 'wire_cutter': 'Wire cutter',
-    'bracket_holder': 'Bracket holder', 'other_instrument': 'Other instrument',
+    **CANONICAL_LABELS,
     'band_pusher': 'Band pusher', 'bayonet_forceps': 'Bayonet forceps',
     'hemostat': 'Artery forceps', 'blade_holder': 'Blade holder',
     'bracket_positioner': 'Bracket positioner', 'burnisher': 'Burnisher',
@@ -24,7 +21,6 @@ LABELS = {
     'suture_scissors': 'Suture scissors', 'tissue_forceps': 'Toothed tissue forceps',
     'spoon_excavator': 'Spoon excavator', 'three_way_syringe': 'Three-way syringe',
     'hand_gloved': 'Gloved hand', 'hand_ungloved': 'Bare hand', 'mouth_open': 'Open mouth',
-    'unknown': 'Uncertain instrument',
 }
 SIZE = 96
 ASSOCIATION_VERSION = 6

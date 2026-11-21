@@ -1,0 +1,41 @@
+version: 1
+classes:
+  dental_mirror: Dental mirror
+  dental_explorer: Dental explorer
+  periodontal_probe: Periodontal probe
+  dental_scaler: Dental scaler
+  dental_forceps: Dental forceps
+  suction_tip: Suction tip
+  dental_handpiece: Dental handpiece
+  orthodontic_pliers: Orthodontic pliers
+  ligature_applicator: Ligature applicator
+  wire_cutter: Wire cutter
+  bracket_holder: Bracket holder
+  other_instrument: Other instrument
+  unknown: Uncertain instrument
+  non_instrument: Non-instrument
+common_source_aliases:
+  Mouth mirror: dental_mirror
+  Dental Mirrors: dental_mirror
+  Explorer No.5: dental_explorer
+  airotor: dental_handpiece
+  Contra-angle handpiece: dental_handpiece
+  forcep: dental_forceps
+  Weingart Pliers: orthodontic_pliers
+  Ligature Applicator: ligature_applicator
+  Hard Wire Cutter: wire_cutter
+  Bracket Holder: bracket_holder
+source_mappings:
+  dentalguard:
+    hand_gloved: non_instrument
+    hand_ungloved: non_instrument
+    mouth_open: non_instrument
+    Blade holder: other_instrument
+    Burnisher: other_instrument
+    Cord packer: other_instrument
+    Dycal carrier: other_instrument
+    composite instrument: unknown
+    plastic filling instrument: unknown
+    prophy: unknown
+    spoon excavators: other_instrument
+    triple syringe dental: other_instrument

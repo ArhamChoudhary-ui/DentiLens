@@ -1,0 +1,44 @@
+version: 1
+sources:
+  dentalguard:
+    title: DentalGuard-PGIE-Master
+    url: https://universe.roboflow.com/s-workspace-w5cu4/dentalguard-pgie-master
+    release: v3
+    license: CC BY 4.0
+    evidence: README.dataset.txt
+    license_scope: Archive notice permits reuse and commercial adaptation with attribution under CC BY 4.0. Patient consent and privacy rights are unverified.
+    local_benchmark: true
+    production_training: pending provenance and privacy review
+    annotation_format: YOLO OBB
+    limitations: Source IDs are inferred from filenames. Patient IDs, FPS, full recordings, occlusion tags, and annotation exhaustiveness are unavailable.
+  instrument_v3:
+    title: Dental Instrument Detection V3
+    url: https://universe.roboflow.com/mechatronics-engineering/dental-instrument-detection-v3-yymto
+    release: v3
+    license: CC BY 4.0
+    evidence: README.dataset.txt
+    license_scope: Archive notice permits reuse and commercial adaptation with attribution under CC BY 4.0. Patient consent and privacy rights are unverified.
+    local_benchmark: true
+    production_training: pending provenance and privacy review
+    annotation_format: YOLO OBB
+    limitations: Photo baseline only. Augmented 640px export lacks reliable patient or recording IDs.
+  dentilens_audit:
+    title: DentiLens reviewed mirror probes
+    url: https://www.pexels.com/video/4489972/
+    release: DentiLens 4.2
+    license: Unverified for ML training
+    evidence: reference/instrument-recovery-mirror-probes.json
+    license_scope: Local evaluation only pending review of footage rights and related source groups.
+    local_benchmark: false
+    production_training: excluded
+    annotation_format: Normalized AABB
+    limitations: Three manually boxed mirror frames from one recording. No exhaustive ground truth.
+  additional_recordings:
+    title: Dental education and consented intraoral recordings
+    url: null
+    release: null
+    license: Unverified
+    evidence: null
+    local_benchmark: false
+    production_training: excluded
+    limitations: No new licensed and consented recording has been verified for intake.

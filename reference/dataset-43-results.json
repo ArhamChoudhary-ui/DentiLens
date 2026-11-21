@@ -1,0 +1,350 @@
+{
+  "annotation_version": 1,
+  "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+  "classification_counts": {
+    "test": {
+      "dental_explorer": 59,
+      "dental_forceps": 22,
+      "dental_handpiece": 103,
+      "dental_mirror": 98,
+      "non_instrument": 1082,
+      "other_instrument": 202,
+      "unknown": 42
+    },
+    "train": {
+      "dental_explorer": 201,
+      "dental_forceps": 115,
+      "dental_handpiece": 371,
+      "dental_mirror": 423,
+      "non_instrument": 4010,
+      "other_instrument": 647,
+      "unknown": 149
+    },
+    "valid": {
+      "dental_explorer": 81,
+      "dental_forceps": 37,
+      "dental_handpiece": 65,
+      "dental_mirror": 162,
+      "non_instrument": 1187,
+      "other_instrument": 152,
+      "unknown": 52
+    }
+  },
+  "classifier": {
+    "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+    "dataset": "dentalguard-4.3-v1",
+    "heads": {
+      "instrument-crop-mobilenet-v1": {
+        "accepted_accuracy": 0.022727272727272728,
+        "checkpoint_sha256": "59a4877b45be3dde683d65e368a81dfab275dfe3eecc9af997ab0f8441315449",
+        "class_order": [
+          "dental_mirror",
+          "dental_explorer",
+          "unknown"
+        ],
+        "confidence_p10_p50_p90": [
+          0.6114765405654907,
+          0.9414237141609192,
+          0.9978159666061401
+        ],
+        "confusion_matrix": [
+          [
+            5,
+            2,
+            91
+          ],
+          [
+            2,
+            0,
+            57
+          ],
+          [
+            44,
+            2,
+            1078
+          ]
+        ],
+        "coverage_curve": [
+          {
+            "accuracy": 0.8984375,
+            "coverage": 0.09992193598750976
+          },
+          {
+            "accuracy": 0.875,
+            "coverage": 0.2498048399687744
+          },
+          {
+            "accuracy": 0.8484375,
+            "coverage": 0.4996096799375488
+          },
+          {
+            "accuracy": 0.8511966701352758,
+            "coverage": 0.7501951600312255
+          },
+          {
+            "accuracy": 0.8454332552693209,
+            "coverage": 1.0
+          }
+        ],
+        "crops": 1281,
+        "macro_f1": 0.32818696749012327,
+        "negative_false_acceptance": 0.034195933456561925,
+        "per_class": {
+          "dental_explorer": {
+            "f1-score": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 59.0
+          },
+          "dental_mirror": {
+            "f1-score": 0.06711409395973154,
+            "precision": 0.09803921568627451,
+            "recall": 0.05102040816326531,
+            "support": 98.0
+          },
+          "unknown": {
+            "f1-score": 0.9174468085106383,
+            "precision": 0.8792822185970636,
+            "recall": 0.9590747330960854,
+            "support": 1124.0
+          }
+        },
+        "raw_accuracy": 0.8454332552693209,
+        "raw_expected_calibration_error": 0.12422005177288661,
+        "rejected": 0.9656518345042935,
+        "top3_accuracy": 0.9430132708821234,
+        "truth_counts": {
+          "dental_explorer": 59,
+          "dental_mirror": 98,
+          "non_instrument": 1082,
+          "unknown": 42
+        },
+        "unknown_top1_rate": 0.9570647931303669
+      },
+      "instrument-crop-mobilenet-v3-mirror-explorer": {
+        "accepted_accuracy": 0.0,
+        "checkpoint_sha256": "12570da0224647db85f76e93443129aad90cf0270cc27299fd4eca4f5b49be69",
+        "class_order": [
+          "dental_mirror",
+          "dental_explorer",
+          "unknown"
+        ],
+        "confidence_p10_p50_p90": [
+          0.6969019770622253,
+          0.9723700284957886,
+          0.9993748068809509
+        ],
+        "confusion_matrix": [
+          [
+            4,
+            16,
+            78
+          ],
+          [
+            1,
+            8,
+            50
+          ],
+          [
+            52,
+            14,
+            1058
+          ]
+        ],
+        "coverage_curve": [
+          {
+            "accuracy": 0.9609375,
+            "coverage": 0.09992193598750976
+          },
+          {
+            "accuracy": 0.95,
+            "coverage": 0.2498048399687744
+          },
+          {
+            "accuracy": 0.9359375,
+            "coverage": 0.4996096799375488
+          },
+          {
+            "accuracy": 0.9001040582726326,
+            "coverage": 0.7501951600312255
+          },
+          {
+            "accuracy": 0.8352849336455894,
+            "coverage": 1.0
+          }
+        ],
+        "crops": 1281,
+        "macro_f1": 0.37752622428378996,
+        "negative_false_acceptance": 0.0027726432532347504,
+        "per_class": {
+          "dental_explorer": {
+            "f1-score": 0.16494845360824742,
+            "precision": 0.21052631578947367,
+            "recall": 0.13559322033898305,
+            "support": 59.0
+          },
+          "dental_mirror": {
+            "f1-score": 0.05161290322580645,
+            "precision": 0.07017543859649122,
+            "recall": 0.04081632653061224,
+            "support": 98.0
+          },
+          "unknown": {
+            "f1-score": 0.9160173160173161,
+            "precision": 0.8920741989881956,
+            "recall": 0.9412811387900356,
+            "support": 1124.0
+          }
+        },
+        "raw_accuracy": 0.8352849336455894,
+        "raw_expected_calibration_error": 0.07320889367618011,
+        "rejected": 0.9976580796252927,
+        "top3_accuracy": 1.0,
+        "truth_counts": {
+          "dental_explorer": 59,
+          "dental_mirror": 98,
+          "non_instrument": 1082,
+          "unknown": 42
+        },
+        "unknown_top1_rate": 0.9258391881342701
+      }
+    }
+  },
+  "counts": {
+    "archive_images": 8103,
+    "mixed_context_crops_excluded": 5070,
+    "near_duplicate_frames_quarantined": 18,
+    "without_verified_source_split": 4705
+  },
+  "creation_date": "2026-11-21",
+  "detection_counts": {
+    "test": {
+      "dental_explorer": 59,
+      "dental_forceps": 22,
+      "dental_handpiece": 103,
+      "dental_mirror": 98,
+      "non_instrument": 1974,
+      "other_instrument": 202,
+      "unknown": 42
+    },
+    "train": {
+      "dental_explorer": 201,
+      "dental_forceps": 115,
+      "dental_handpiece": 371,
+      "dental_mirror": 423,
+      "non_instrument": 7246,
+      "other_instrument": 647,
+      "unknown": 149
+    },
+    "valid": {
+      "dental_explorer": 81,
+      "dental_forceps": 37,
+      "dental_handpiece": 65,
+      "dental_mirror": 162,
+      "non_instrument": 2094,
+      "other_instrument": 152,
+      "unknown": 52
+    }
+  },
+  "detector": {
+    "ap50": 0.008812550838835087,
+    "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+    "checkpoint_sha256": "e04a3e278d78e1e520842826da6f0ec77c3d8e8b2b26b735a141c2c1bb1cb064",
+    "dataset": "dentalguard-4.3-v1",
+    "false_positives_overlapping_context": {
+      "hand_gloved": 22,
+      "hand_ungloved": 2,
+      "mouth_open": 4
+    },
+    "fn": 500,
+    "fp": 1612,
+    "frames_by_recording": {
+      "102003": 132,
+      "102022": 54,
+      "102104": 196,
+      "102117": 191
+    },
+    "map50_95": 0.003814328892747672,
+    "max_per_recording": null,
+    "per_class_localization": {
+      "dental_explorer": {
+        "matched": 2,
+        "recall": 0.03389830508474576,
+        "total": 59
+      },
+      "dental_forceps": {
+        "matched": 1,
+        "recall": 0.045454545454545456,
+        "total": 22
+      },
+      "dental_handpiece": {
+        "matched": 4,
+        "recall": 0.038834951456310676,
+        "total": 103
+      },
+      "dental_mirror": {
+        "matched": 1,
+        "recall": 0.01020408163265306,
+        "total": 98
+      },
+      "other_instrument": {
+        "matched": 16,
+        "recall": 0.07920792079207921,
+        "total": 202
+      },
+      "unknown": {
+        "matched": 2,
+        "recall": 0.047619047619047616,
+        "total": 42
+      }
+    },
+    "precision": 0.015873015873015872,
+    "ranking_score_floor": 0.001,
+    "recall": 0.049429657794676805,
+    "score_cutoff": 0.15,
+    "tp": 26
+  },
+  "leakage": {
+    "dhash_max_distance": 4,
+    "exact_conflicts": [],
+    "near_duplicate_pairs": [],
+    "patient_conflicts": [],
+    "recording_conflicts": []
+  },
+  "recording_splits": {
+    "101846": "train",
+    "101966": "train",
+    "101972": "valid",
+    "101986": "train",
+    "101990": "train",
+    "101992": "train",
+    "101994": "valid",
+    "101996": "train",
+    "102003": "test",
+    "102015": "train",
+    "102022": "test",
+    "102030": "train",
+    "102050": "train",
+    "102070": "train",
+    "102072": "valid",
+    "102073": "valid",
+    "102074": "train",
+    "102081": "train",
+    "102086": "train",
+    "102104": "test",
+    "102117": "test",
+    "102125": "train"
+  },
+  "reproduced_baseline": {
+    "instrument-detail": {
+      "guard_test": 0.45454545454545453,
+      "photo_test": 0.81
+    },
+    "instrument-identity": {
+      "guard_test": 0.391304347826087,
+      "photo_test": 0.7414285714285714
+    }
+  },
+  "taxonomy_version": 1,
+  "version": "dentalguard-4.3-v1"
+}
