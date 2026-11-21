@@ -1,5 +1,29 @@
 # DentiLens XR
 
+## Samsung XR Hackathon · Track 4
+
+Team **Rajasthani**, Vellore Institute of Technology, Vellore, built the
+DentiLens XR Action Intelligence Engine for first-person video summarization.
+Samsung’s required submission archive layout is shown below in order.
+
+```text
+TEAM_ID/
+├── run.sh
+├── code/
+├── weights/
+├── requirements.txt
+├── outputs/
+│   └── <video_id>.json
+└── README.md
+```
+
+`TEAM_ID` is the identifier issued by Samsung. The staging package uses
+`Rajasthani_Staging` while that identifier is unverified.
+
+[Track 4 code and setup](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/track4) ·
+[Package audit](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/PACKAGE_AUDIT.md) ·
+[Submission checklist](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/FINAL_SUBMISSION_CHECKLIST.md)
+
 ## Team
 
 Team name: Rajasthani
