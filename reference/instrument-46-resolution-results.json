@@ -1,0 +1,229 @@
+{
+  "512": {
+    "context_counts": {
+      "hand_gloved": 39,
+      "hand_ungloved": 4,
+      "mouth_open": 2
+    },
+    "metrics": {
+      "ap50": 0.006216152446587251,
+      "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+      "checkpoint_sha256": "e04a3e278d78e1e520842826da6f0ec77c3d8e8b2b26b735a141c2c1bb1cb064",
+      "dataset": "dentalguard-4.3-v1",
+      "false_positives_overlapping_context": {
+        "hand_gloved": 39,
+        "hand_ungloved": 4,
+        "mouth_open": 2
+      },
+      "fn": 519,
+      "fp": 1651,
+      "frames_by_recording": {
+        "101972": 255,
+        "101994": 167,
+        "102072": 40,
+        "102073": 175
+      },
+      "image_size": 512,
+      "map50_95": 0.0028855327541027374,
+      "max_per_recording": null,
+      "per_class_localization": {
+        "dental_explorer": {
+          "matched": 1,
+          "recall": 0.012345679012345678,
+          "total": 81
+        },
+        "dental_forceps": {
+          "matched": 3,
+          "recall": 0.08108108108108109,
+          "total": 37
+        },
+        "dental_handpiece": {
+          "matched": 2,
+          "recall": 0.03076923076923077,
+          "total": 65
+        },
+        "dental_mirror": {
+          "matched": 3,
+          "recall": 0.018518518518518517,
+          "total": 162
+        },
+        "other_instrument": {
+          "matched": 18,
+          "recall": 0.11842105263157894,
+          "total": 152
+        },
+        "unknown": {
+          "matched": 3,
+          "recall": 0.057692307692307696,
+          "total": 52
+        }
+      },
+      "precision": 0.01784651992861392,
+      "ranking_score_floor": 0.001,
+      "recall": 0.0546448087431694,
+      "score_cutoff": 0.15,
+      "split": "valid",
+      "tp": 30
+    },
+    "missed_with_ranked_overlap": 173,
+    "small_boxes": 12,
+    "small_matched": 0,
+    "unmatched_categories": {
+      "low_tool_overlap_unverified": 1496,
+      "overlap_with_already_matched_tool": 1,
+      "overlap_with_annotated_non_instrument": 45,
+      "partial_tool_overlap": 109
+    }
+  },
+  "640": {
+    "context_counts": {
+      "hand_gloved": 94,
+      "hand_ungloved": 11,
+      "mouth_open": 7
+    },
+    "metrics": {
+      "ap50": 0.004019748229027919,
+      "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+      "checkpoint_sha256": "e04a3e278d78e1e520842826da6f0ec77c3d8e8b2b26b735a141c2c1bb1cb064",
+      "dataset": "dentalguard-4.3-v1",
+      "false_positives_overlapping_context": {
+        "hand_gloved": 94,
+        "hand_ungloved": 11,
+        "mouth_open": 7
+      },
+      "fn": 512,
+      "fp": 2606,
+      "frames_by_recording": {
+        "101972": 255,
+        "101994": 167,
+        "102072": 40,
+        "102073": 175
+      },
+      "image_size": 640,
+      "map50_95": 0.001362506380502802,
+      "max_per_recording": null,
+      "per_class_localization": {
+        "dental_explorer": {
+          "matched": 2,
+          "recall": 0.024691358024691357,
+          "total": 81
+        },
+        "dental_forceps": {
+          "matched": 3,
+          "recall": 0.08108108108108109,
+          "total": 37
+        },
+        "dental_handpiece": {
+          "matched": 3,
+          "recall": 0.046153846153846156,
+          "total": 65
+        },
+        "dental_mirror": {
+          "matched": 7,
+          "recall": 0.043209876543209874,
+          "total": 162
+        },
+        "other_instrument": {
+          "matched": 19,
+          "recall": 0.125,
+          "total": 152
+        },
+        "unknown": {
+          "matched": 3,
+          "recall": 0.057692307692307696,
+          "total": 52
+        }
+      },
+      "precision": 0.013999243284146803,
+      "ranking_score_floor": 0.001,
+      "recall": 0.06739526411657559,
+      "score_cutoff": 0.15,
+      "split": "valid",
+      "tp": 37
+    },
+    "missed_with_ranked_overlap": 197,
+    "small_boxes": 12,
+    "small_matched": 0,
+    "unmatched_categories": {
+      "low_tool_overlap_unverified": 2298,
+      "overlap_with_already_matched_tool": 1,
+      "overlap_with_annotated_non_instrument": 112,
+      "partial_tool_overlap": 195
+    }
+  },
+  "768": {
+    "context_counts": {
+      "hand_gloved": 140,
+      "hand_ungloved": 10,
+      "mouth_open": 9
+    },
+    "metrics": {
+      "ap50": 0.004017892070275911,
+      "archive_sha256": "1a5487700315f3437f5a9d6f50c5f3394702c3e792050d5e7ccd2b83c8765ceb",
+      "checkpoint_sha256": "e04a3e278d78e1e520842826da6f0ec77c3d8e8b2b26b735a141c2c1bb1cb064",
+      "dataset": "dentalguard-4.3-v1",
+      "false_positives_overlapping_context": {
+        "hand_gloved": 140,
+        "hand_ungloved": 10,
+        "mouth_open": 9
+      },
+      "fn": 513,
+      "fp": 2713,
+      "frames_by_recording": {
+        "101972": 255,
+        "101994": 167,
+        "102072": 40,
+        "102073": 175
+      },
+      "image_size": 768,
+      "map50_95": 0.0010957747968348992,
+      "max_per_recording": null,
+      "per_class_localization": {
+        "dental_explorer": {
+          "matched": 3,
+          "recall": 0.037037037037037035,
+          "total": 81
+        },
+        "dental_forceps": {
+          "matched": 3,
+          "recall": 0.08108108108108109,
+          "total": 37
+        },
+        "dental_handpiece": {
+          "matched": 2,
+          "recall": 0.03076923076923077,
+          "total": 65
+        },
+        "dental_mirror": {
+          "matched": 9,
+          "recall": 0.05555555555555555,
+          "total": 162
+        },
+        "other_instrument": {
+          "matched": 14,
+          "recall": 0.09210526315789473,
+          "total": 152
+        },
+        "unknown": {
+          "matched": 5,
+          "recall": 0.09615384615384616,
+          "total": 52
+        }
+      },
+      "precision": 0.0130956711531466,
+      "ranking_score_floor": 0.001,
+      "recall": 0.06557377049180328,
+      "score_cutoff": 0.15,
+      "split": "valid",
+      "tp": 36
+    },
+    "missed_with_ranked_overlap": 194,
+    "small_boxes": 12,
+    "small_matched": 0,
+    "unmatched_categories": {
+      "low_tool_overlap_unverified": 2364,
+      "overlap_with_annotated_non_instrument": 159,
+      "partial_tool_overlap": 190
+    }
+  }
+}

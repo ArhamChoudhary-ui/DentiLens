@@ -1,0 +1,4 @@
+version: 1
+actions: [view, store, extract, annotate, train, evaluate, publish, commercial]
+statuses: [pending, authorized, restricted, expired, revoked, rejected, quarantined]
+categories: [real_intraoral, training_demo, typodont]

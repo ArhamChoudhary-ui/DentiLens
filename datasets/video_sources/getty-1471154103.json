@@ -1,0 +1,16 @@
+{
+  "category": "real_intraoral",
+  "category_status": "provisional",
+  "id": "local-getty-1471154103",
+  "identifiable": null,
+  "license": null,
+  "name": "Getty preview clip",
+  "permissions": {},
+  "recording_group": "local-getty-1471154103",
+  "reference": "Local source supplied in project conversation or retained in a prior audit",
+  "review_status": "No complete reviewed track annotation",
+  "rights_reference": null,
+  "rights_reviewer": null,
+  "split": "quarantine",
+  "status": "pending"
+}

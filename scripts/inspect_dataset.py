@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import cv2
 import numpy as np
 
-from instrument_dataset import Path, checksum, image_from_archive, load_dataset, validate
+from instrument_dataset import Path, checksum, image_from_archive, load_dataset, read_json, validate
 
 
 UI = """<!doctype html><html lang="en"><meta charset="utf-8">
@@ -23,6 +23,7 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.35rem;b
 figure{margin:0}img{display:block;width:100%;height:120px;object-fit:contain;background:#ecefe9}
 </style><main><h1>Instrument Dataset Explorer</h1><p id="source"></p>
 <section><h2>Split summary</h2><table id="stats"></table><p id="warnings"></p></section>
+<section id="video-inventory" hidden><h2>Video source inventory</h2><p id="video-summary"></p><div id="video-filters"></div><table id="videos"></table></section>
 <section><h2>Annotation previews</h2><p>Frames show geometry only. Crop thumbnails are included for tools with clearly assigned labels.</p>
 <div id="filters"></div><p id="count" aria-live="polite"></p><div id="cards"></div></section></main>
 <script>
@@ -60,6 +61,34 @@ for(const [key,title] of Object.entries(keys)){
  select.addEventListener('change',render);label.append(select);$('filters').append(label);controls[key]=select;
 }
 render();
+if(data.videos.length){
+ $('video-inventory').hidden=false;
+ const videoKeys={category:'Source type',group:'Source group',permission:'Permission',coverage:'Annotation review',
+   split:'Video split',class_filter:'Video instrument',visibility_filter:'Visibility'};
+ const options={};
+ function renderVideos(){
+  const table=$('videos');table.replaceChildren();
+  const rows=data.videos.filter(row=>Object.keys(videoKeys).every(key=>!options[key].value||
+    (Array.isArray(row[key])?row[key].includes(options[key].value):row[key]===options[key].value)));
+  const labels=['Recording','Group','Source type','Permission','Split','Duration','Resolution','Review',
+    'Tracks','Instrument instances','Occlusion','Reviewed empty frames','Classes'];
+  for(const cells of [labels,...rows.map(row=>[row.id,row.group,row.category,row.permission,row.split,row.duration,
+    row.resolution,row.coverage,row.tracks,row.instances,row.occlusion,row.empty,row.class_filter.join(', ')])]){
+    const tr=table.insertRow();cells.forEach(value=>tr.insertCell().textContent=value);
+  }
+  $('video-summary').textContent=rows.length+' of '+data.videos.length+' recordings · '+
+    new Set(rows.map(row=>row.group)).size+' source groups';
+ }
+ for(const [key,title] of Object.entries(videoKeys)){
+   const label=el('label',title),select=document.createElement('select');
+   const all=el('option','All');all.value='';select.append(all);
+   for(const value of [...new Set(data.videos.flatMap(row=>row[key]))].sort()){
+     const item=el('option',value);item.value=value;select.append(item);
+   }
+   select.addEventListener('change',renderVideos);label.append(select);$('video-filters').append(label);options[key]=select;
+ }
+ renderVideos();
+}
 </script>"""
 
 
@@ -83,10 +112,52 @@ def preview(image, box, kind, label):
     return 'data:image/jpeg;base64,'+base64.b64encode(encoded).decode()
 
 
+def video_inventory(registry,annotations):
+    from video_benchmark_data import check_isolation, require
+    verified={}
+    if annotations:
+        for path in sorted(annotations.glob('*.json')):
+            annotation=read_json(path)
+            verified[annotation['recording']]=annotation
+    if not registry:
+        return []
+    records=[read_json(path) for path in sorted(registry.glob('*.json'))]
+    check_isolation(records)
+    result=[]
+    for record in records:
+        permission='Quarantined'
+        try:
+            require(record,'view','store','extract','annotate')
+            if record['split']!='quarantine' and record.get('cfr_verified') is True:
+                permission='Annotation authorized'
+                purpose='train' if record['split']=='train' else 'evaluate'
+                require(record,purpose)
+                permission='Training authorized' if purpose=='train' else 'Evaluation authorized'
+        except ValueError:
+            pass
+        video=record.get('video')
+        candidate=verified.get(record['id'])
+        annotation=candidate if (candidate and permission!='Quarantined'
+                                 and candidate['review']['source_sha256']==record.get('sha256')) else None
+        objects=[row for row in annotation['objects'] if row['box'] is not None] if annotation else []
+        result.append(dict(id=record['id'],group=record['recording_group'],category=record['category'],
+            split=record['split'],permission=permission,coverage='Verified' if annotation else 'Pending',
+            duration=f"{video['duration']:.1f} s" if video else '—',
+            resolution=f"{video['width']} × {video['height']}" if video else '—',
+            tracks=len(annotation['events']) if annotation else '—',instances=len(objects) if annotation else '—',
+            occlusion=sum(row['occluded'] for row in objects) if annotation else '—',
+            empty=len(set(annotation['frames'])-{row['frame'] for row in objects}) if annotation else '—',
+            class_filter=sorted({row['label'] for row in objects}),
+            visibility_filter=sorted({row['visibility'] for row in annotation['objects']}) if annotation else []))
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('dataset','archive','output'):
         parser.add_argument(name,type=Path)
+    parser.add_argument('--video-registry',type=Path)
+    parser.add_argument('--video-annotations',type=Path)
     args = parser.parse_args()
     metadata,frames,crops = load_dataset(args.dataset)
     validate(metadata,frames,crops)
@@ -117,7 +188,7 @@ def main():
         stats.append([split,len({f['recording'] for f in frame_rows}),len(frame_rows),
                       sum(len(f['annotations']) for f in frame_rows),sum(c['split']==split for c in crops)])
     source = metadata['provenance']
-    data = dict(stats=stats,samples=samples, title=source['title'],url=source['url'],license=source['license'],
+    data = dict(videos=video_inventory(args.video_registry,args.video_annotations),stats=stats,samples=samples, title=source['title'],url=source['url'],license=source['license'],
                 version=metadata['version'], distribution={'Detection':metadata['detection_counts'],
                                                           'Classification':metadata['classification_counts']},
                 warning=f'{len(metadata["exclusions"])} numbered inputs excluded. '+source['limitations'])

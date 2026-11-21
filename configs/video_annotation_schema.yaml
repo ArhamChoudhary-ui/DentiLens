@@ -1,0 +1,6 @@
+version: 1
+timebase: source_frame_index_divided_by_verified_constant_fps
+review_scope: every scheduled sample, including empty frames
+visibility: [visible, partial, mostly_occluded, invisible, outside, ambiguous]
+boxed: [visible, partial, mostly_occluded, ambiguous]
+review_states: [pending, verified]
