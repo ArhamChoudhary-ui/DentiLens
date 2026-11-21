@@ -45,8 +45,13 @@ def predict(model, frame, size):
     return list(zip(result.boxes.conf.cpu().tolist(), result.boxes.xyxyn.cpu().numpy()))
 
 
-def evaluate(sources, legacy, candidate):
+def evaluate(sources, legacy, candidate, reflection=None, portrait=None, portrait_split=False):
     manifest = json.loads((ROOT/'reference/xr4-instrument-frames.json').read_text())['sources']
+    if portrait_split:
+        manifest['6502766']['split'] = 'related'
+        manifest['33337556']['split'] = 'valid'
+    validation = [source for source, group in manifest.items() if group['split'] == 'valid']
+    testing = [source for source, group in manifest.items() if group['split'] == 'test']
     torch.set_num_threads(4)
     models = {'legacy': (YOLO(str(legacy)), 320)}
     if candidate:
@@ -70,15 +75,69 @@ def evaluate(sources, legacy, candidate):
                     samples[name].setdefault(source, []).append((expected, predict(model, frame, size)))
         finally:
             cap.release()
+    if portrait:
+        training = json.loads((ROOT/'reference/instrument-video-v3-frames.json').read_text())
+        cap = cv2.VideoCapture(str(portrait))
+        try:
+            frame_grid = np.tile(training['grid'], 2)
+            for number, boxes in training['frames'].items():
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(number))
+                ok, frame = cap.read()
+                if not ok:
+                    raise ValueError(f'Could not decode portrait frame {number}.')
+                expected = [box / frame_grid for box in boxes]
+                for name, (model, size) in models.items():
+                    samples[name].setdefault('6502638', []).append((expected, predict(model, frame, size)))
+        finally:
+            cap.release()
+    if reflection:
+        cap = cv2.VideoCapture(str(reflection))
+        try:
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            indices = np.linspace(0, frame_count - 1, min(30, frame_count), dtype=int)
+            for frame_index in indices:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_index))
+                ok, frame = cap.read()
+                if not ok:
+                    raise ValueError(f'Could not decode reflection frame {frame_index}.')
+                for name, (model, size) in models.items():
+                    samples[name].setdefault('6529138', []).append(([], predict(model, frame, size)))
+        finally:
+            cap.release()
     output = {}
     for name, rows in samples.items():
+        validation_rows = [item for source in validation for item in rows[source]]
+        choices = (.1, .15, .2, .25, .3, .35, .4, .5, .6, .7)
+        at_validation = {cutoff: score(validation_rows, cutoff) for cutoff in choices}
         threshold = .40 if name == 'legacy' else max(
-            (.1, .15, .2, .25, .3, .35, .4, .5, .6, .7),
-            key=lambda threshold: (score(rows['6502766'], threshold)['f1'], threshold))
-        heldout = [item for source in ('braces', '33337556') for item in rows[source]]
-        output[name] = {'score_threshold': threshold, 'held_out': score(heldout, threshold),
+            choices, key=lambda cutoff: (at_validation[cutoff]['f1'], cutoff))
+        heldout = [item for source in testing for item in rows[source]]
+        output[name] = {'score_threshold': threshold, 'validation': at_validation[threshold],
+            'held_out': score(heldout, threshold),
             'by_source': {source: {'frames': len(items), 'split': manifest[source]['split'], **score(items, threshold)}
-                          for source,items in rows.items()}}
+                          for source,items in rows.items() if source in manifest}}
+        if portrait_split and name == 'pilot':
+            precise = [cutoff for cutoff, result in at_validation.items()
+                       if result['tp'] >= 3 and result['precision'] >= .8]
+            if precise:
+                verified = max(precise, key=lambda cutoff: (at_validation[cutoff]['recall'], cutoff))
+                output[name]['precision_operating_point'] = {
+                    'score_threshold': verified, 'validation': at_validation[verified],
+                    'held_out': score(heldout, verified),
+                    'reflection_boxes': score(rows['6529138'], verified)['fp'] if reflection else None,
+                }
+            else:
+                output[name]['precision_operating_point'] = None
+        if portrait:
+            output[name]['portrait_training_check'] = {
+                'source': '6502638', 'frames': len(rows['6502638']), **score(rows['6502638'], threshold),
+            }
+        if reflection:
+            rows_reflection = rows['6529138']
+            output[name]['reflection_check'] = {
+                'source': '6529138', 'sampled_frames': len(rows_reflection),
+                'boxes_on_reflection_clip': score(rows_reflection, threshold)['fp'],
+            }
     return output
 
 
@@ -88,7 +147,10 @@ if __name__ == '__main__':
     parser.add_argument('bedside_video', type=Path)
     parser.add_argument('legacy', type=Path)
     parser.add_argument('--candidate', type=Path)
+    parser.add_argument('--reflection-video', type=Path)
+    parser.add_argument('--portrait-video', type=Path)
+    parser.add_argument('--portrait-split', action='store_true')
     options = parser.parse_args()
     clips = capture_sources(options.sources)
     clips['5892118'] = options.bedside_video
-    print(json.dumps(evaluate(clips, options.legacy, options.candidate), indent=2))
+    print(json.dumps(evaluate(clips, options.legacy, options.candidate, options.reflection_video, options.portrait_video, options.portrait_split), indent=2))
