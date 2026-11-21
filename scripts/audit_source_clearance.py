@@ -32,7 +32,7 @@ def assess(record):
             states[purpose]='Denied or restricted' if rights.get(purpose) is False else 'Unverified'
             missing[purpose]=str(exc)
     return dict(id=record['id'],name=record['name'],status=record['status'],content_type=record['category'],
-                original_url=url,creator=creator,local_reference=record['reference'],
+                original_url=record.get('original_url') or url,creator=creator,local_reference=record['reference'],
                 identifiable=record.get('identifiable'),consent_documented=bool((record.get('consent') or {}).get('reference')),
                 permission_evidence_documented=bool(record.get('rights_reference')),expires=record.get('expires'),
                 revocation='Recorded revoked' if record['status']=='revoked' else 'Unverified',

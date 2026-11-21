@@ -115,10 +115,11 @@ def test_clearance_packet_keeps_all_existing_leads_unverified(tmp_path):
     output=tmp_path/'requests'
     package(registry,output,[])
     rows=read_json(output/'worksheet.json')
-    assert len(rows)==10
+    assert len(rows)==11
     assert all(row['status']=='pending' and len(row['missing'])==8 for row in rows)
     assert all(set(row['permissions'])==set(ACTIONS) for row in rows)
-    assert len(list(output.glob('draft-local-*.md')))==10
+    assert len(list(output.glob('draft-*.md')))==11
+    assert 'huggingface.co' in (output/'draft-mobiusi-dental-action-sample.md').read_text()
     assert 'subject consent' in (output/'request-template.md').read_text()
 
 
