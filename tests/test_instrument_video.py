@@ -106,6 +106,41 @@ def test_instrument_scan_api_and_full_video_export(monkeypatch, examination_vide
         assert any(row['time']==0 and row.get('track_id')=='V-1' for row in report['appearances'])
         assert scan.read_text()==raw
 
+        import hashlib
+        import torch
+        from instrument_identity import network
+        shadow_dir = tmp_path/'shadow'
+        shadow_dir.mkdir()
+        weights = shadow_dir/'model.pt'
+        torch.save(network(4).state_dict(),weights)
+        fixture = dict(model='fixture-experimental',temperature=2.,calibration_version='fixture',
+                       evaluation_date='2026-11-21',validation_status='Experimental',
+                       classes=['dental_mirror','dental_explorer','non_instrument','unknown'],
+                       thresholds={'dental_mirror':.95,'dental_explorer':.95},
+                       weights_sha256=hashlib.sha256(weights.read_bytes()).hexdigest())
+        sidecar = session/'instrument-identities.json'
+        original = {'model':'fixture-production','predictions':{}}
+        sidecar.write_text(json.dumps(original))
+        (shadow_dir/'model.json').write_text(json.dumps(fixture))
+        endpoint = path+'/instrument-shadow'
+        assert client.post(endpoint).status_code == 503
+        monkeypatch.setenv('DENTILENS_INSTRUMENT_SHADOW',str(shadow_dir))
+        response = client.post(endpoint)
+        assert response.status_code==200,response.text
+        shadow = response.json()
+        assert shadow['metadata']['temperature']==2
+        assert len(shadow['rows'])==3
+        assert all(row['production'] is None for row in shadow['rows'].values())
+        assert client.get(endpoint).json()==shadow and json.loads(sidecar.read_text())==original
+        monkeypatch.delenv('DENTILENS_INSTRUMENT_SHADOW')
+        assert client.get(endpoint).json() is None
+        assert json.loads(sidecar.read_text())==original
+        monkeypatch.setenv('DENTILENS_INSTRUMENT_SHADOW',str(shadow_dir))
+        (shadow_dir/'model.json').write_text(json.dumps(dict(fixture,weights_sha256='bad')))
+        assert client.post(endpoint).status_code==422
+        assert client.get(endpoint).json()==shadow
+
+
 
 
 

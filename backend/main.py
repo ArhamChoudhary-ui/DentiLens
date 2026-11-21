@@ -7,12 +7,14 @@ from io import BytesIO
 import json
 import logging
 import mimetypes
+import os
 from pathlib import Path
 import shutil
 import sqlite3
 import sys
 from threading import Lock
 from tempfile import NamedTemporaryFile
+from time import perf_counter
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from zipfile import ZipFile
@@ -31,7 +33,8 @@ from exam_intelligence import evidence_index, quality_report, search_exam, tooth
 from audio_intelligence import audio_ready, transcribe
 from storyboard import collect_events, csv_summary, generate, with_events
 from instrument_identity import (ASSOCIATION_VERSION, MAX_TRACK_GAP, classify_pipeline, context_model,
-                                 crop, crop_geometry, describe_tracks, identity_pipeline, pipeline_version)
+                                 crop, crop_geometry, describe_tracks, identity_model, identity_pipeline,
+                                 pipeline_version, predict_video)
 from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
@@ -444,7 +447,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         try:
             models = identity_pipeline(ROOT/'models')
             _, info = models[0]
-            identity = {key: info[key] for key in ('model','classes','thresholds','scores')}
+            identity = {key: info[key] for key in ('model','classes','thresholds','scores','weights_sha256')}
+            identity['validation_status'] = 'Production'
             context = context_model(ROOT/'models')
             identity['context'] = context[1]['thresholds'] if context else None
             identity['specialists'] = [
@@ -454,7 +458,7 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         except (OSError,ValueError,RuntimeError) as exc:
             LOG.exception('Could not load instrument identity models')
             identity = {'error':str(exc)}
-        return {'identity':identity, 'model_ready': instrument_model_ready(ROOT / 'models'),
+        return {'identity':identity, 'shadow_enabled': bool(os.getenv('DENTILENS_INSTRUMENT_SHADOW')), 'model_ready': instrument_model_ready(ROOT / 'models'),
                 'experimental_ready': (ROOT / 'models/video-instruments.pt').is_file(),
                 'report': instrument_records(exam_id.hex)}
 
@@ -508,6 +512,50 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         except (OSError,ValueError,RuntimeError,cv2.error) as exc:
             LOG.exception('Instrument identity inference failed for examination %s', key)
             raise HTTPException(422,str(exc)) from exc
+        finally:
+            instrument_scan_lock.release()
+
+    @app.get('/api/exams/{exam_id}/instrument-shadow')
+    def saved_instrument_shadow(exam_id: UUID):
+        key = exam_id.hex
+        report_for(key)
+        if not os.getenv('DENTILENS_INSTRUMENT_SHADOW'):
+            return None
+        return read_sidecar(key,'instrument-shadow.json')
+
+    @app.post('/api/exams/{exam_id}/instrument-shadow')
+    def instrument_shadow(exam_id: UUID):
+        key = exam_id.hex
+        report_for(key)
+        configured = os.getenv('DENTILENS_INSTRUMENT_SHADOW')
+        if not configured:
+            raise HTTPException(503,'Shadow comparison is disabled.')
+        scan = read_sidecar(key,'instruments-video.json')
+        production = read_sidecar(key,'instrument-identities.json')
+        if scan is None or production is None:
+            raise HTTPException(422,'Run video scan and instrument identification first.')
+        if not instrument_scan_lock.acquire(blocking=False):
+            raise HTTPException(409,'An instrument analysis is running.')
+        try:
+            model,info = identity_model(Path(configured),'model')
+            if not info.get('calibration_version') or not info.get('validation_status','').startswith('Experimental'):
+                raise ValueError('Shadow model must have experimental calibration metadata.')
+            started = perf_counter()
+            predictions, = predict_video(storage/key/'source.mp4',scan['observations'],[(model,info)])
+            elapsed = perf_counter()-started
+            metadata = {field:info[field] for field in ('model','classes','thresholds','weights_sha256',
+                       'calibration_version','temperature','evaluation_date','validation_status')}
+            result = dict(metadata=metadata,production_model=production['model'],latency_seconds=elapsed,rows={})
+            for identifier, prediction in predictions.items():
+                original = production['predictions'].get(identifier)
+                result['rows'][identifier] = dict(
+                    production=original, experimental=prediction,
+                    disagreement=(original or {}).get('class_id')!=(prediction or {}).get('class_id'))
+            write_sidecar(key,'instrument-shadow.json',result)
+            return result
+        except (OSError,ValueError,RuntimeError,KeyError,cv2.error) as exc:
+            LOG.exception('Instrument shadow inference failed for examination %s',key)
+            raise HTTPException(422,'Could not run the configured shadow checkpoint. Check the server log.') from exc
         finally:
             instrument_scan_lock.release()
 

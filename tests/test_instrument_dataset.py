@@ -100,3 +100,42 @@ def test_recovery_approval_cannot_include_holdout_examples():
     for approvals in (['b'],['c'],['invented'],['a','a']):
         with pytest.raises(ValueError):
             reviewed_rows([train,validation,test],approvals)
+
+
+def test_temperature_fits_only_on_validation_and_preserves_order():
+    from calibrate_instrument_recovery import evaluate, fit_temperature
+
+    classes = ['dental_mirror','dental_explorer','non_instrument','unknown']
+    logits = [[5,0,0,0],[5,0,0,0],[0,5,0,0],[0,0,5,0]]
+    labels = [0,1,1,2]
+    with pytest.raises(ValueError,match='validation'):
+        fit_temperature(logits,labels,split='test')
+    temperature = fit_temperature(logits,labels,split='valid')
+    assert temperature > 1
+    rows = [dict(id=str(i),group='validation',label=classes[label],logits=values)
+            for i,(values,label) in enumerate(zip(logits,labels))]
+    raw = evaluate(rows,classes,1)
+    calibrated = evaluate(rows,classes,temperature)
+    assert raw['top1']==calibrated['top1']==.75
+    assert calibrated['nll']<raw['nll']
+    assert calibrated['sweep'][-2]['accepted']<=raw['sweep'][-2]['accepted']
+
+
+def test_intake_requires_permissions_and_quarantines_unclear_examples():
+    from validate_instrument_intake import validate_intake
+
+    row=dict(id='new',source='cleared archive',recording='source-1',filename='sample.jpg',
+             parent_frame=2,reviewer='reviewer',dataset_version='next',permission_evidence='release',
+             label='dental_mirror',box=[.1,.1,.8,.8],width=80,height=80,split='train',
+             status='verified',identifiable=False,sha256='0'*64,dhash='0'*16,
+             permissions=dict(extract=True,annotate=True,train=True,evaluate=True))
+    assert validate_intake([row])==['new']
+    assert validate_intake([dict(row,status='quarantine',permissions={})])==[]
+    with pytest.raises(ValueError,match='permissions'):
+        validate_intake([dict(row,permissions={})])
+    with pytest.raises(ValueError,match='locked'):
+        validate_intake([row],{'source-1'})
+    with pytest.raises(ValueError,match='consent'):
+        validate_intake([dict(row,identifiable=True)])
+    with pytest.raises(ValueError,match='similar crop'):
+        validate_intake([row,dict(row,id='next',recording='source-2',split='test',sha256='1'*64)])

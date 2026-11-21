@@ -67,7 +67,7 @@ def reviewed_rows(crops, approvals):
     return selected
 
 
-def fit(rows, eval_rows, image_for, output, epochs, resume, provenance):
+def fit(rows, eval_rows, image_for, output, epochs, resume, provenance, augment=False):
     torch.manual_seed(44)
     torch.set_num_threads(4)
     foundation, source = identity_model(ROOT/'models','instrument-detail')
@@ -87,18 +87,23 @@ def fit(rows, eval_rows, image_for, output, epochs, resume, provenance):
     else:
         output.mkdir(parents=True,exist_ok=False)
         write_json(output/'provenance.json',provenance)
-    def features(items):
+    def features(items, augment_views=False):
         results, labels = [], []
         with torch.inference_mode():
             for low in range(0,len(items),32):
                 batch = items[low:low+32]
                 pixels = [encoded_crop(image_for(row),row['box'],{'color':True}) for row in batch]
-                encoded = model.features(model_pixels(crop_tensor(pixels),'mobilenet_v3_small'))
-                results.append(model.avgpool(encoded).flatten(1))
-                labels.extend(CLASSES.index(row['label']) for row in batch)
+                variants = [pixels]
+                if augment_views:
+                    variants += [[cv2.convertScaleAbs(px,alpha=.82,beta=9) for px in pixels],
+                                 [cv2.convertScaleAbs(px,alpha=1.10,beta=-5) for px in pixels]]
+                for views in variants:
+                    encoded = model.features(model_pixels(crop_tensor(views),'mobilenet_v3_small'))
+                    results.append(model.avgpool(encoded).flatten(1))
+                    labels.extend(CLASSES.index(row['label']) for row in batch)
         return torch.cat(results).clone(), torch.tensor(labels)
     preparation = perf_counter()
-    train_x, train_y = features(rows)
+    train_x, train_y = features(rows,augment)
     validation_x, validation_y = features(eval_rows)
     preparation_seconds = perf_counter()-preparation
     weights = torch.bincount(train_y,minlength=len(CLASSES)).float().clamp(min=1).pow(-.5)
@@ -130,7 +135,8 @@ def fit(rows, eval_rows, image_for, output, epochs, resume, provenance):
                         head_training_seconds=previous_duration+perf_counter()-clock),output/'last.pt')
         if stale>=4:
             break
-    info = dict(model='instrument-recovery-mobilenet-v1-experimental', classes=CLASSES,
+    version = 'instrument-recovery-mobilenet-v2-exposure' if augment else 'instrument-recovery-mobilenet-v1'
+    info = dict(model=version+'-experimental', classes=CLASSES,
                 backbone='mobilenet_v3_small',color=True,
                 thresholds={'dental_mirror':.95,'dental_explorer':.95})
     model.load_state_dict(torch.load(output/'best.pt',map_location='cpu',weights_only=True))
@@ -140,7 +146,7 @@ def fit(rows, eval_rows, image_for, output, epochs, resume, provenance):
                checkpoint_sha256=checksum(output/'best.pt'),history=history,early_stopping_patience=4,
                duration_seconds=previous_duration+perf_counter()-clock, feature_seconds=preparation_seconds, validation_accuracy=float((prediction==validation_y).float().mean()),
                training_class_counts=dict(Counter(row['label'] for row in rows)),hardware='Apple Silicon CPU',
-               seed=44,optimizer='AdamW',learning_rate=.001,batch=24))
+               augmentation='mild exposure variants' if augment else 'none',seed=44,optimizer='AdamW',learning_rate=.001,batch=24))
     return model.eval(),info
 
 
@@ -150,6 +156,7 @@ def main():
         parser.add_argument(field,type=Path)
     parser.add_argument('--approvals',type=Path)
     parser.add_argument('--resume',action='store_true')
+    parser.add_argument('--augment',action='store_true')
     parser.add_argument('--epochs',type=int,default=12)
     args=parser.parse_args()
     metadata,frames,crops=load_dataset(args.dataset)
@@ -170,10 +177,12 @@ def main():
                                    ('manifests/dataset.json','intraoral_detection/frames.json',
                                     'instrument_classification/crops.json')},
                         approvals_sha256=checksum(args.approvals),training_ids=[row['id'] for row in approved])
+        if args.augment:
+            provenance['augmentation']='mild exposure variants'
         if args.resume and read_json(args.output/'provenance.json')!=provenance:
             raise ValueError('Training input changed since the checkpoint was created.')
         valid=[row for row in crops if row['split']=='valid' and row['label'] in CLASSES]
-        model,info=fit(approved,valid,image_for,args.output,args.epochs,args.resume,provenance)
+        model,info=fit(approved,valid,image_for,args.output,args.epochs,args.resume,provenance,args.augment)
         write_json(args.output/'provenance.json',provenance)
         test=[row for row in crops if row['split']=='test' and row['label'] in CLASSES]
         results=[]

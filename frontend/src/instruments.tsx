@@ -3,8 +3,8 @@ import { api, clock, send } from './api'
 import type { Box } from './api'
 import { RegionEditor } from './review-tools'
 
-type Prediction = {label:string;confidence:number;accepted:boolean;model:string;supporting_frames?:number;reason?:string | null;alternatives:{label:string;confidence:number}[]}
-type IdentityInfo = {model?:string;specialists?:IdentityInfo[];context?:Record<string,number>|null;thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
+type Prediction = {class_id?:string;label:string;confidence:number;accepted:boolean;model:string;supporting_frames?:number;reason?:string | null;alternatives:{label:string;confidence:number}[]}
+type IdentityInfo = {weights_sha256?:string;validation_status?:string;model?:string;specialists?:IdentityInfo[];context?:Record<string,number>|null;thresholds?:Record<string,number>;error?:string;scores?:Record<string,{crops:number;abstention:number}>}
 type Observation = {identity?:Prediction | null;
   detection_id:string; class:string; time:number; reason_code?:string;
   crop_geometry?:{width:number;height:number;encoded_width:number;encoded_height:number;padding:number}; track_identity?:Prediction | null; confidence:number | null; polygon:number[][] | null; box:Box
@@ -19,7 +19,10 @@ type Diagnostics = {raw_proposals:number;duplicate_proposals:number;tracks:numbe
 type Review = { review_action?:string; detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'|'unknown'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
 type InstrumentReport = {observations?:Observation[];diagnostics?:Diagnostics;identity_model?:string | null; device:string | null; samples:number; seconds:number; scanned:boolean; experimental_samples?:number | null; appearances:Appearance[]; reviews:Review[] }
 type TrackedFrame = {frame:number; time:number; box:Box}
-type InstrumentResponse = {identity?:IdentityInfo;model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
+type ShadowReport = {metadata:{model:string;classes:string[];thresholds:Record<string,number>;weights_sha256:string;
+  calibration_version:string;temperature:number;evaluation_date:string;validation_status:string};production_model:string;
+  latency_seconds:number;rows:Record<string,{production:Prediction|null;experimental:Prediction|null;disagreement:boolean}>}
+type InstrumentResponse = {shadow_enabled?:boolean;identity?:IdentityInfo;model_ready:boolean; experimental_ready?:boolean; report:InstrumentReport | null}
 
 export function Instruments({examId, duration, currentTime, jump, refresh}: {
   examId:string; duration:number; currentTime:number; jump:(time:number)=>void; refresh:()=>Promise<void>
@@ -46,18 +49,28 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const [experimentalReady,setExperimentalReady]=useState(false)
   const [identity,setIdentity]=useState<IdentityInfo>()
   const [identifying,setIdentifying]=useState(false)
+  const [shadowEnabled,setShadowEnabled]=useState(false)
+  const [shadow,setShadow]=useState<ShadowReport|null>(null)
+  const [shadowBusy,setShadowBusy]=useState(false)
   const [tracking,setTracking]=useState(false)
   const [tracked,setTracked]=useState<TrackedFrame[] | null>(null)
   const [trackedFrame,setTrackedFrame]=useState<TrackedFrame>()
   useEffect(()=>{
     const controller=new AbortController()
+    setShadow(null);setShadowEnabled(false)
     api<InstrumentResponse>(root+'/instruments',{signal:controller.signal})
-      .then(data=>{setAvailable(data.model_ready);setExperimentalReady(!!data.experimental_ready);setIdentity(data.identity);setReport(data.report);setCandidates(data.report?.experimental_samples != null)})
+      .then(data=>{
+        setShadowEnabled(!!data.shadow_enabled)
+        if(data.shadow_enabled) void api<ShadowReport|null>(root+'/instrument-shadow',{signal:controller.signal})
+          .then(value=>{if(!controller.signal.aborted)setShadow(value)})
+          .catch(e=>{if(!controller.signal.aborted)setError(e.message)})
+        setAvailable(data.model_ready);setExperimentalReady(!!data.experimental_ready);setIdentity(data.identity);setReport(data.report);setCandidates(data.report?.experimental_samples != null)})
       .catch(e=>{if(!controller.signal.aborted)setError(e.message)})
     return ()=>controller.abort()
   },[root])
 
   const reviews=new Map(report?.reviews.map(item=>[item.detection_id,item]))
+  const comparison=selected && shadow?.rows[selected.best.detection_id]
   const current=selected && reviews.get(selected.best.detection_id)
   const candidatesAndReviews=report?.appearances.filter(item=>reviews.get(item.best.detection_id)?.decision==='confirmed' ||
     (candidates && item.best.confidence!==null && (showContext || !['non_instrument','context_detected'].includes(item.status ?? '')))) ?? []
@@ -73,6 +86,12 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const previewBox=trackedFrame?.box ?? box
   const still=root+'/still.jpg?time='+sourceTime
 
+  async function runShadow() {
+    setShadowBusy(true);setError('')
+    try {setShadow(await send<ShadowReport>(root+'/instrument-shadow',{}))}
+    catch(e) {setError(e instanceof Error?e.message:'Shadow comparison failed.')}
+    finally {setShadowBusy(false)}
+  }
   function clearTrack() {
     setTracked(null)
     setTrackedFrame(undefined)
@@ -160,6 +179,19 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     <details>
       <summary>Instrument model</summary>
       <p className="quiet">{identity?.error ?? identity?.model ?? 'Checking classifier…'}</p>
+      {identity?.weights_sha256 && <p className="quiet">Production SHA-256 <code>{identity.weights_sha256}</code></p>}
+      {shadowEnabled && <div>
+        <button className="subtle compact-action" disabled={shadowBusy || busy || identifying || !report?.identity_model}
+          onClick={()=>void runShadow()}>{shadowBusy?'Comparing…':'Run shadow comparison'}</button>
+        {shadow && <>
+          <button className="subtle compact-action" onClick={()=>setShadow(null)}>Hide comparison</button>
+          <p className="quiet">{shadow.metadata.model} · {shadow.metadata.validation_status} · {shadow.latency_seconds.toFixed(1)} s</p>
+          <p className="quiet">{shadow.metadata.calibration_version} · {shadow.metadata.evaluation_date}
+            {' · '}{shadow.metadata.classes.map(key=>key.replaceAll('_',' ')).join(', ')}
+            {' · '}{Object.entries(shadow.metadata.thresholds).map(([key,value])=>key.replaceAll('_',' ')+' '+Math.round(value*100)+'%').join(', ')}</p>
+          <p className="quiet">Shadow SHA-256 <code>{shadow.metadata.weights_sha256}</code></p>
+        </>}
+      </div>}
       {!!identity?.model && <p className="quiet">Local weights · models/instrument-identity.pt · V3 photos and reviewed video crops</p>}
       {identity?.specialists?.map(detail=><p key={detail.model} className="quiet">
         {detail.model} · {Object.keys(detail.thresholds ?? {}).map(key=>key.replaceAll('_',' ')).join(', ') || 'No enabled identities'}
@@ -247,6 +279,14 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
           {selected.best.identity.accepted ? selected.best.identity.label : 'Uncertain instrument'} · {selected.best.identity.model}
           {' · '}{selected.best.identity.alternatives.map(value=>`${value.label} ${Math.round(value.confidence*100)}%`).join(' · ')}
         </p>}
+        {comparison && <details open>
+          <summary>Shadow comparison</summary>
+          <p className="quiet">Production · {comparison.production ? comparison.production.label+' '+Math.round(comparison.production.confidence*100)+'% · '+comparison.production.model : 'No prediction'}
+            {comparison.production && !comparison.production.accepted && ' · Rejected'}</p>
+          <p className="quiet">Experimental · {comparison.experimental ? comparison.experimental.label+' '+Math.round(comparison.experimental.confidence*100)+'%' : 'No prediction'}
+            {comparison.experimental && !comparison.experimental.accepted && ' · Rejected'}</p>
+          <p className="quiet">{comparison.disagreement?'Different top classes':'Same top class'} · {current?.decision==='confirmed'?current.label:'Awaiting reviewer confirmation'}</p>
+        </details>}
         {selected?.context_identity && <p className="quiet">
           {selected.context_identity.label} visible in this crop · {Math.round(selected.context_identity.confidence*100)}% model score
         </p>}

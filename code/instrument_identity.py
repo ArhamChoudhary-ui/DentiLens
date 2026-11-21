@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from functools import lru_cache
 from hashlib import file_digest
 import json
+import math
 
 import cv2
 import numpy as np
@@ -92,6 +93,10 @@ def load_identity(root, stem, changed):
     padding = info.get('crop_padding',DEFAULT_CROP_PADDING)
     if not isinstance(padding,(int,float)) or not 0<=padding<=.35:
         raise ValueError('Instrument crop padding must be between 0 and 0.35.')
+    temperature = info.get('temperature',1.)
+    if (not isinstance(temperature,(int,float)) or not math.isfinite(temperature)
+            or not .05<=temperature<=20):
+        raise ValueError('Invalid instrument calibration temperature.')
     thresholds = info['thresholds']
     if any(key not in classes or key=='unknown' or not 0 < value <= 1 for key,value in thresholds.items()):
         raise ValueError('Instrument classifier thresholds are incompatible.')
@@ -189,7 +194,7 @@ def score_crops(model, info, crops, *, diagnostics=False):
     data = model_pixels(crop_tensor([pixels for _,pixels in valid]),info.get('backbone','cnn'))
     with torch.inference_mode():
         logits = model(data)
-        probabilities = logits.softmax(1).numpy()
+        probabilities = (logits / info.get('temperature',1.)).softmax(1).numpy()
     for (index,_), scores, raw in zip(valid,probabilities,logits.tolist() if diagnostics else [None]*len(valid)):
         order = np.argsort(-scores)[:3]
         top = [{'class_id':info['classes'][i], 'label':LABELS[info['classes'][i]], 'confidence':float(scores[i])}

@@ -67,7 +67,11 @@ def main():
     parser.add_argument('--max-per-recording',type=int)
     parser.add_argument('--model',choices=('video','still-obb'),default='video')
     parser.add_argument('--errors',type=Path)
+    parser.add_argument('--split',choices=('valid','test'),default='test')
+    parser.add_argument('--image-size',type=int)
     args = parser.parse_args()
+    if args.image_size and args.split!='valid':
+        parser.error('Resolution experiments use validation only.')
     metadata,frames,crops = load_dataset(args.dataset)
     issues = validate(metadata,frames,crops)
     if any(value for value in issues.values() if isinstance(value,list)):
@@ -98,10 +102,10 @@ def main():
     with ZipFile(args.archive) as archive:
         for row in frames:
             recording = row['recording']
-            if row['split']!='test' or (args.max_per_recording and per_source[recording]>=args.max_per_recording):
+            if row['split']!=args.split or (args.max_per_recording and per_source[recording]>=args.max_per_recording):
                 continue
             _,image = image_from_archive(archive,row['member'])
-            prediction = model.predict(image,imgsz=release['image_size'],conf=.001,max_det=300,
+            prediction = model.predict(image,imgsz=args.image_size or release['image_size'],conf=.001,max_det=300,
                                        device='cpu',verbose=False)[0]
             boxes = prediction.obb if task=='obb' else prediction.boxes
             if task=='obb':
@@ -137,6 +141,8 @@ def main():
                   **({'detector':'still-obb'} if task=='obb' else {}),
                   ranking_score_floor=.001, max_per_recording=args.max_per_recording,
                   frames_by_recording=dict(per_source), **detection_metrics(samples,cutoff))
+    if args.split=='valid':
+        result.update(split=args.split,image_size=args.image_size or release['image_size'])
     write_json(args.output,result)
     if args.errors:
         write_json(args.errors,errors)
