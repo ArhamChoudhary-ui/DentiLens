@@ -7,8 +7,9 @@ type Observation = {
   detection_id:string; class:string; time:number; confidence:number | null; polygon:number[][] | null; box:Box
 }
 type Appearance = { id:string; time:number; end:number; best:Observation }
-type Review = { detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null }
+type Review = { detection_id:string; label:string; note:string; decision:'confirmed'|'dismissed'; box?:Box | null; fdi_number?:string | null; visibility?:'visible' | 'partial' | null }
 type InstrumentReport = { device:string | null; samples:number; seconds:number; scanned:boolean; appearances:Appearance[]; reviews:Review[] }
+type TrackedFrame = {frame:number; time:number; box:Box}
 type InstrumentResponse = {model_ready:boolean; report:InstrumentReport | null}
 
 export function Instruments({examId, duration, currentTime, jump, refresh}: {
@@ -24,10 +25,16 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const [box,setBox]=useState<Box | null>(null)
   const [label,setLabel]=useState('')
   const [note,setNote]=useState('')
+  const [fdi,setFdi]=useState('')
+  const [visibility,setVisibility]=useState('')
+  const [anchor,setAnchor]=useState<string>()
   const [busy,setBusy]=useState(false)
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState('')
   const [candidates,setCandidates]=useState(false)
+  const [tracking,setTracking]=useState(false)
+  const [tracked,setTracked]=useState<TrackedFrame[] | null>(null)
+  const [trackedFrame,setTrackedFrame]=useState<TrackedFrame>()
   useEffect(()=>{
     const controller=new AbortController()
     api<InstrumentResponse>(root+'/instruments',{signal:controller.signal})
@@ -40,17 +47,25 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   const current=selected && reviews.get(selected.best.detection_id)
   const visible=report?.appearances.filter(item=>reviews.get(item.best.detection_id)?.decision==='confirmed' ||
     (candidates && item.best.confidence!==null)) ?? []
-  const sourceTime=selected?.best.time ?? time
+  const sourceTime=trackedFrame?.time ?? selected?.best.time ?? time
+  const previewBox=trackedFrame?.box ?? box
   const still=root+'/still.jpg?time='+sourceTime
 
+  function clearTrack() {
+    setTracked(null)
+    setTrackedFrame(undefined)
+  }
   function choose(item:Appearance) {
+    clearTrack()
     const record=reviews.get(item.best.detection_id)
     setSelected(item);setManual(false);setRedraw(false);setBox(record?.box ?? null);setError('')
     setLabel(record?.label ?? '');setNote(record?.note ?? '')
+    setFdi(record?.fdi_number ?? '');setVisibility(record?.visibility ?? '');setAnchor(undefined)
   }
   function addManual() {
+    clearTrack()
     setSelected(undefined);setManual(true);setRedraw(true);setBox(null);setError('')
-    setTime(Math.min(currentTime,Math.max(0,duration-.01)));setLabel('');setNote('')
+    setTime(Math.min(currentTime,Math.max(0,duration-.01)));setLabel('');setNote('');setFdi('');setVisibility('');setAnchor(undefined)
   }
   async function scan() {
     setBusy(true);setError('')
@@ -58,12 +73,28 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     catch(e) {setError(e instanceof Error?e.message:'Instrument scan failed.')}
     finally {setBusy(false)}
   }
+  async function follow() {
+    if(!selected) return
+    clearTrack()
+    setTracking(true);setError('')
+    try {
+      const data=await send<{frames:TrackedFrame[]}>(root+'/instrument-reviews/'+selected.best.detection_id+'/track',{})
+      setTracked(data.frames)
+    } catch(e) {setError(e instanceof Error?e.message:'Could not follow the instrument.')}
+    finally {setTracking(false)}
+  }
+  function useTrackedFrame() {
+    if(!trackedFrame || !selected) return
+    setTime(trackedFrame.time);setBox(trackedFrame.box);setAnchor(selected.best.detection_id)
+    setSelected(undefined);setManual(true);setRedraw(true);setNote('');clearTrack()
+  }
   async function review(decision:Review['decision']) {
     if(!selected && !manual) return
     setSaving(true);setError('')
     try {
       const record=await send<Review>(root+'/instrument-reviews',{
         detection_id:selected?.best.detection_id ?? null,time:manual?time:null,label,note,decision,box,
+        fdi_number:fdi || null,visibility:visibility || null,tracked_from:anchor ?? null,
       })
       const data=await api<InstrumentResponse>(root+'/instruments')
       setReport(data.report)
@@ -76,7 +107,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
   return <section className="panel intelligence-panel instruments-page">
     <div className="section-heading"><h2>Instrument review</h2>
       <div className="actions">
-        <button className="subtle compact-action" disabled={saving} onClick={addManual}>Mark instrument</button>
+        <button className="subtle compact-action" disabled={saving || tracking} onClick={addManual}>Mark instrument</button>
         <button className="subtle compact-action" disabled={!available || busy || !!report?.scanned} onClick={()=>void scan()}>
           {busy?'Scanning…':report?.scanned?'Scan complete':'Scan for candidates'}</button>
       </div>
@@ -85,7 +116,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
     {error && <p className="error" role="alert">{error}</p>}
     {report?.scanned && <label className="toggle"><input type="checkbox" checked={candidates} disabled={saving}
       onChange={e=>{setCandidates(e.target.checked);if(!e.target.checked && current?.decision!=='confirmed')setSelected(undefined)}}/>
-      <span>Show model candidates<small>{report.samples} frames sampled. Inspect each box before confirming.</small></span></label>}
+      <span>Show model candidates<small>{report.samples} frames sampled. Still-photo model. Video tests found missed tools and incorrect boxes.</small></span></label>}
     <div className="instrument-layout">
       {visible.length>0 ? <div>
         <div className="instrument-timeline" aria-label={candidates?'Instrument candidates and reviews':'Confirmed instruments'}>
@@ -94,14 +125,14 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
             const confirmed=saved?.decision==='confirmed'
             const at=confirmed?item.best.time:item.time
             return <button key={item.id} type="button" aria-label={`Open ${confirmed?'review':'candidate'} at ${clock(at,true)}`}
-              onClick={()=>choose(item)} disabled={saving} aria-pressed={selected?.id===item.id}
+              onClick={()=>choose(item)} disabled={saving || tracking} aria-pressed={selected?.id===item.id}
               style={{left:at/duration*100+'%',width:Math.max(.7,confirmed?0:(item.end-item.time)/duration*100)+'%'}}/>
           })}
         </div>
         <div className="instrument-list">
           {visible.map(item=>{
             const saved=reviews.get(item.best.detection_id)
-            return <button className="history-row" key={item.id} disabled={saving} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
+            return <button className="history-row" key={item.id} disabled={saving || tracking} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id}>
               <time>{clock(item.best.time,true)}</time>
               <span>{saved?.decision==='confirmed'?saved.label || 'Reviewed instrument':'Model candidate'}</span>
               <small>{saved?.decision ?? 'Unreviewed'}</small>
@@ -115,7 +146,7 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
         {redraw ? <RegionEditor key={sourceTime} src={still} value={box} change={setBox}/> : selected && <div className="instrument-image">
           <img src={still} alt={`Examination frame at ${clock(sourceTime,true)}`}/>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            {box ? <rect x={box[0]*100} y={box[1]*100} width={(box[2]-box[0])*100} height={(box[3]-box[1])*100} vectorEffect="non-scaling-stroke"/> :
+            {previewBox ? <rect x={previewBox[0]*100} y={previewBox[1]*100} width={(previewBox[2]-previewBox[0])*100} height={(previewBox[3]-previewBox[1])*100} vectorEffect="non-scaling-stroke"/> :
               <polygon points={selected.best.polygon?.map(p=>p.map(v=>v*100).join(',')).join(' ')} vectorEffect="non-scaling-stroke"/>}
           </svg>
         </div>}
@@ -124,16 +155,42 @@ export function Instruments({examId, duration, currentTime, jump, refresh}: {
             ` · Model guess: ${selected.best.class} (${Math.round(selected.best.confidence*100)}%)`}</p>
         <div className="actions">
           <button className="subtle compact-action" onClick={()=>jump(sourceTime)}>Open source video</button>
-          {!manual && !redraw && <button className="subtle compact-action" onClick={()=>setRedraw(true)}>Redraw box</button>}
+          {!manual && !redraw && !trackedFrame && <button className="subtle compact-action" disabled={tracking} onClick={()=>{clearTrack();setRedraw(true)}}>Redraw box</button>}
+          {current?.decision==='confirmed' && !redraw && <button className="subtle compact-action" disabled={tracking || saving} onClick={()=>void follow()}>{tracking?'Following…':'Follow nearby frames'}</button>}
         </div>
-        <label className="field">Reviewed label<input maxLength={100} value={label} disabled={saving} onChange={e=>setLabel(e.target.value)}/></label>
+        {tracked && <div className="field">
+          {tracked.length===0 ? <p className="quiet">No stable match nearby. Mark the instrument on another clear frame.</p> : <>
+            <label className="field">Inspect tracked frame
+              <select value={trackedFrame?.frame ?? ''} onChange={e=>setTrackedFrame(tracked.find(frame=>String(frame.frame)===e.target.value))}>
+                <option value="">Confirmed frame</option>
+                {tracked.map(frame=><option key={frame.frame} value={frame.frame}>{clock(frame.time,true)} · Review needed</option>)}
+              </select>
+            </label>
+            {trackedFrame && <button className="subtle compact-action" onClick={useTrackedFrame}>Review this frame</button>}
+          </>}
+        </div>}
+        {!trackedFrame && <><label className="field">Reviewed label<input list="review-instrument-types" maxLength={100} value={label} disabled={saving} onChange={e=>setLabel(e.target.value)}/></label>
+        <datalist id="review-instrument-types">
+          {['Dental mirror', 'Dental explorer/probe', 'Periodontal probe', 'Scaler', 'Dental suction', 'High-speed handpiece',
+            'Low-speed handpiece', 'Dental forceps', 'Orthodontic bracket holder', 'Bracket positioner', 'Ligature applicator',
+            'Weingart pliers', 'Wire cutter', 'Other recognizable dental instrument', 'Unknown'].map(type=><option key={type} value={type}/>)}
+        </datalist>
+        <details>
+          <summary>Tooth association and visibility</summary>
+          <label className="field">Associated FDI number (optional)<input value={fdi} maxLength={2} onChange={e=>setFdi(e.target.value)}/></label>
+          <label className="field">Visibility<select value={visibility} onChange={e=>setVisibility(e.target.value)}>
+            <option value="">Unspecified</option><option value="visible">Visible</option><option value="partial">Partially obscured</option>
+          </select></label>
+        </details>
         <label className="field">Note<textarea maxLength={500} rows={2} value={note} disabled={saving} onChange={e=>setNote(e.target.value)}/></label>
         <div className="actions">
-          <button className="primary compact-action" disabled={saving || !label.trim() || (redraw && !box)}
+          <button className="primary compact-action" disabled={saving || tracking || !label.trim() || (redraw && !box)}
             onClick={()=>void review('confirmed')}>{current?.decision==='confirmed'?'Save changes':'Confirm'}</button>
           {!manual && <button className="subtle compact-action" disabled={saving || current?.decision==='dismissed'}
             onClick={()=>void review('dismissed')}>Dismiss</button>}
         </div>
+        {current?.decision==='confirmed' && <a className="inline-jump" href={root+'/instrument-annotations'} download="instrument-annotations.json">Download instrument annotations</a>}
+        </>}
       </div>}
     </div>
   </section>

@@ -12,6 +12,7 @@ import type { Box, Exam, Finding, MediaInfo, Report, Review } from './api'
 import { FrameAnalysis, FullVideoExport, RegionEditor, ToothChart } from './review-tools'
 import { ExamIntelligence } from './intelligence'
 import { Instruments } from './instruments'
+import { AudioIntelligence, ExaminationStoryboard } from './video-events'
 import './styles.css'
 
 const Anatomy = lazy(() => import('./anatomy'))
@@ -284,7 +285,7 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   const [building,setBuilding]=useState(false)
   const [saving,setSaving]=useState(false)
   const [picked,setPicked]=useState<string[] | null>(null)
-  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence' | 'anatomy' | 'instruments'>('review')
+  const [tab,setTab]=useState<'review' | 'teeth' | 'patient' | 'xr' | 'intelligence' | 'anatomy' | 'instruments' | 'audio' | 'storyboard'>('review')
   const [anatomyTooth,setAnatomyTooth]=useState('')
   const [chartTooth,setChartTooth]=useState('')
   const reviews=exam.reviews ?? []
@@ -360,11 +361,14 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
       <button className={tab==='teeth'?'active':''} aria-pressed={tab==='teeth'} onClick={()=>setTab('teeth')}>Tooth chart</button>
       <button className={tab==='intelligence'?'active':''} aria-pressed={tab==='intelligence'} onClick={()=>setTab('intelligence')}>Search & quality</button>
       <button className={tab==='instruments'?'active':''} aria-pressed={tab==='instruments'} onClick={()=>setTab('instruments')}>Instruments</button>
+      <button className={tab==='storyboard'?'active':''} aria-pressed={tab==='storyboard'} onClick={()=>setTab('storyboard')}>Storyboard</button>
+      <button className={tab==='audio'?'active':''} aria-pressed={tab==='audio'} onClick={()=>setTab('audio')}>Audio</button>
       <button className={tab==='anatomy'?'active':''} aria-pressed={tab==='anatomy'} onClick={()=>{setAnatomyTooth('');setTab('anatomy')}}>3D anatomy</button>
       <button className={tab==='patient'?'active':''} aria-pressed={tab==='patient'} onClick={()=>setTab('patient')}><Play size={16}/> Patient view</button>
       <button className={tab==='xr'?'active':''} aria-pressed={tab==='xr'} onClick={()=>setTab('xr')}><Glasses size={17}/> XR preview</button>
     </div>
-    {tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
+    {tab==='audio' ? <AudioIntelligence id={exam.id} duration={report.video.duration}/> : tab==='storyboard' ?
+      <ExaminationStoryboard id={exam.id} duration={report.video.duration}/> : tab==='xr' ? <XR exam={exam} refresh={refresh} openReview={seconds=>{seek(seconds);setTab('review')}}/> : tab==='teeth' ?
       <ToothChart exam={exam} jump={item=>{chooseFinding(item);setTab('review')}} jumpToTime={openReview} initial={chartTooth}
         openAnatomy={openAnatomy}/> : tab==='instruments' ?
       <Instruments examId={exam.id} duration={report.video.duration} currentTime={time} jump={seconds=>{setPlayerMode('source');openReview(seconds)}} refresh={refresh}/> : tab==='anatomy' ?

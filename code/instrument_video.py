@@ -102,3 +102,67 @@ def measure_instruments(source, video, models, detector=None):
             capture.release()
     return {'device': device, 'samples': samples, 'seconds': round(perf_counter() - started, 2),
             'observations': observations, 'appearances': group_instruments(observations, stride)}
+
+
+def track_reviewed_region(source, video, frame_index, box):
+    """Follow a reviewer-drawn region while bidirectional image matches agree."""
+    import numpy as np
+
+    capture = cv2.VideoCapture(str(source))
+    fps = video['fps']
+
+    def read(index):
+        capture.set(cv2.CAP_PROP_POS_FRAMES, index)
+        ok, image = capture.read()
+        if not ok:
+            raise ValueError(f'Could not read source frame {index}.')
+        height, width = image.shape[:2]
+        if width > 960:
+            image = cv2.resize(image, (960, round(height * 960 / width)), interpolation=cv2.INTER_AREA)
+        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    try:
+        anchor = read(frame_index)
+        height, width = anchor.shape
+        dimensions = np.array([width, height], dtype=np.float32)
+        original = np.array([[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]]) * dimensions
+        left, top = original[0].astype(int)
+        right, bottom = np.ceil(original[2]).astype(int)
+        mask = np.zeros_like(anchor)
+        mask[top:bottom, left:right] = 255
+        corners = cv2.goodFeaturesToTrack(anchor, 90, .015, 3, mask=mask)
+        if corners is None or len(corners) < 6:
+            return []
+        samples = []
+        step = max(1, round(fps / 8))
+        for direction in (-1, 1):
+            for offset in range(step, round(fps * 1.5) + 1, step):
+                index = frame_index + direction * offset
+                if index < 0 or index >= video['frames']:
+                    break
+                image = read(index)
+                forward, forward_ok, _ = cv2.calcOpticalFlowPyrLK(anchor, image, corners, None)
+                if forward is None:
+                    break
+                backward, backward_ok, _ = cv2.calcOpticalFlowPyrLK(image, anchor, forward, None)
+                if backward is None:
+                    break
+                error = np.linalg.norm((backward - corners)[:, 0], axis=1)
+                keep = (forward_ok[:, 0] > 0) & (backward_ok[:, 0] > 0) & (error < 1.5)
+                if keep.sum() < max(6, len(corners) * .35):
+                    break
+                transform, inliers = cv2.estimateAffinePartial2D(
+                    corners[keep], forward[keep], ransacReprojThreshold=2.5)
+                if transform is None or inliers.sum() < max(6, keep.sum() * .65):
+                    break
+                scale = np.linalg.norm(transform[0, :2])
+                if not .70 <= scale <= 1.35:
+                    break
+                moved = cv2.transform(original[None, :, :], transform)[0] / dimensions
+                if np.any(moved < -.02) or np.any(moved > 1.02):
+                    break
+                bounds = np.clip(np.concatenate((moved.min(axis=0), moved.max(axis=0))), 0, 1)
+                samples.append(dict(time=index / fps, frame=index, box=bounds.tolist()))
+        return sorted(samples, key=lambda item: item['frame'])
+    finally:
+        capture.release()

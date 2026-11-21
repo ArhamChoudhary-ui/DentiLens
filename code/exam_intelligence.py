@@ -67,7 +67,7 @@ def tooth_history(timeline, report, reviews, fdi=None, track_id=None):
     return {'fdi': fdi, 'tracks': histories, 'other_reviews': manual}
 
 
-def search_exam(timeline, report, reviews, query, instruments=None):
+def search_exam(timeline, report, reviews, query, instruments=None, events=(), storyboard=None):
     tracks, findings, evidence = index_exam(timeline, report)
     q = query.lower()
     timestamp = re.search(r'\b(\d{1,2}):(\d{2})(\.\d+)?\b', q)
@@ -78,8 +78,25 @@ def search_exam(timeline, report, reviews, query, instruments=None):
     kind = TYPE.search(q)
     code = number[0] if number else None
     tooth_type = kind[0].removesuffix('s') if kind else None
-    if any(word in q for word in ('procedure', 'transcript', 'audio')):
-        return {'results': [], 'message': 'This examination has no indexed activity or audio records.'}
+    if any(word in q for word in ('transcript', 'audio', 'spoken', 'comments', 'said', 'chapter', 'storyboard')):
+        chapters = 'chapter' in q or 'storyboard' in q
+        if chapters:
+            rows = [{**row,'label':row['title'], 'kind':'chapter',
+                     'status':'reviewed' if row['reviewed'] else 'generated'}
+                    for row in (storyboard or {}).get('chapters',[])]
+        else:
+            rows = [row for row in events if row['kind']=='audio']
+        if exact is not None:
+            rows = [row for row in rows if row['start']<=exact<row['end']]
+        about = re.search(r'\b(?:about|contains?)\s+(.+?)\s*[?.]?$',q)
+        if about:
+            rows=[row for row in rows if about[1] in row['label'].lower()]
+        results = [dict(id=row['id'],kind=row['kind'],label=row['label'],time=row['start'],
+                        end=row['end'],status=row['status']) for row in rows]
+        return {'results':results[:100],'total':len(results),
+                'message':'' if results else 'No matching saved chapters or transcript segments.'}
+    if 'procedure' in q:
+        return {'results': [], 'message': 'This examination has no indexed procedure labels.'}
     instrument_terms = {'mirror', 'forceps', 'handpiece', 'burnisher', 'explorer', 'syringe', 'excavator', 'instrument',
                         'probe', 'cutter', 'pliers', 'scaler', 'suction', 'prophy', 'packer', 'carrier', 'blade', 'instruments', 'tool', 'tools'}
     terms = set(re.findall(r'\w+',q)) & instrument_terms

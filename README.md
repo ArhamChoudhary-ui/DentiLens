@@ -130,6 +130,28 @@ See the [dataset registry](datasets/dataset_registry.yaml),
 [technical audit](reference/xr35-validation.md) and
 [held-out photo evaluation](reference/instrument-model-v30-evaluation.json).
 
+### Review instruments, audio and chapters in XR 4.0
+
+- Confirm a box in **Instruments**, then choose **Follow nearby frames**.
+  Inspect each proposed box against the source. Choose **Review this frame**
+  to place a confirmed observation and preserve its link to the anchor.
+  Download review records and original candidate boxes as JSON.
+- In **Audio**, select a language and transcribe the source recording locally.
+  Jump to a segment, edit text or timing, add a note or associate an FDI number.
+  You can also record a voice note, edit the transcription, and save it as a
+  bookmark at the selected source time.
+- In **Storyboard**, build chapters from source frames and timestamped
+  evidence. Seek by thumbnail, review or edit a chapter, and export CSV or JSON.
+  Use **Search & quality** to find transcript text and chapter titles.
+
+Install the pinned [Whisper tiny model](https://huggingface.co/openai/whisper-tiny)
+for local speech recognition with `python scripts/install_whisper.py`.
+The download requires an internet connection. Inference runs on CPU with
+local files. Videos without audio are reported as such.
+
+See the [video evaluation](reference/xr40-audit.md) for source-level splits,
+measured errors, and the reason the video-trained model remains experimental.
+
 ### Install on a fresh checkout
 
 Use Python 3.11 and Node.js 22. The app prefers PyTorch MPS when available and

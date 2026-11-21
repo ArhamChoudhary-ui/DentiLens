@@ -27,7 +27,9 @@ sys.path.insert(0, str(ROOT / 'code'))
 from annotated_reel import context_windows, export_annotated_reel
 from full_video import process_exam, stamp, video_info
 from exam_intelligence import evidence_index, quality_report, search_exam, tooth_history
-from instrument_video import instrument_model_ready, measure_instruments
+from audio_intelligence import audio_ready, transcribe
+from storyboard import collect_events, csv_summary, generate, with_events
+from instrument_video import instrument_model_ready, measure_instruments, track_reviewed_region
 from reviewed_video import confirmed_row, render_reviewed
 
 mimetypes.add_type('model/gltf-binary', '.glb')
@@ -76,6 +78,9 @@ class InstrumentReview(BaseModel):
     note: str = Field(default='', max_length=500)
     time: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     box: Region | None = None
+    fdi_number: str | None = Field(default=None, pattern=r'^[1-4][1-8]$')
+    visibility: Literal['visible', 'partial'] | None = None
+    tracked_from: str | None = Field(default=None, pattern=r'^instrument-(?:\d+-\d+|manual-[a-f0-9]{32})$')
 
     @model_validator(mode='after')
     def check_review(self):
@@ -86,6 +91,33 @@ class InstrumentReview(BaseModel):
         if self.detection_id is None and (self.decision != 'confirmed' or self.time is None or self.box is None):
             raise ValueError('Choose a source frame and draw the instrument region.')
         return self
+
+
+class AudioRequest(BaseModel):
+    language: str = Field(default='auto', pattern=r'^(auto|en|hi|es|fr|de)$')
+
+
+class AudioEdit(BaseModel):
+    text: str = Field(max_length=4000)
+    start: float = Field(ge=0, allow_inf_nan=False)
+    end: float = Field(gt=0, allow_inf_nan=False)
+    status: Literal['reviewed', 'removed'] = 'reviewed'
+    note: str = Field(default='', max_length=500)
+    fdi_number: str | None = Field(default=None, pattern=r'^[1-4][1-8]$')
+
+
+class Chapter(BaseModel):
+    id: str = Field(pattern=r'^chapter-[a-zA-Z0-9-]{1,64}$')
+    title: str = Field(min_length=1,max_length=120)
+    start: float = Field(ge=0, allow_inf_nan=False)
+    end: float = Field(gt=0, allow_inf_nan=False)
+    thumbnail: float = Field(ge=0, allow_inf_nan=False)
+    note: str = Field(default='',max_length=500)
+    reviewed: bool = False
+
+
+class StoryboardEdit(BaseModel):
+    chapters: list[Chapter] = Field(max_length=200)
 
 
 class AnalysisCancelled(Exception):
@@ -111,6 +143,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
     storage = Path(storage or ROOT / 'runtime/full-video').resolve()
     database = storage / 'exams.sqlite3'
     instrument_scan_lock = Lock()
+    transcript_lock = Lock()
+    storyboard_lock = Lock()
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='dentilens-exam')
 
     def connect():
@@ -420,7 +454,14 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             origin = original['original_label'] if original else record['class']
             prior_box = original.get('box') if original else None
             data.update(original_label=origin, time=record['time'], frame=record['frame'], box=body.box or prior_box)
+            if original:
+                data['tracked_from'] = original.get('tracked_from')
         else:
+            if body.tracked_from:
+                current = instrument_records(key)
+                if not current or not any(row['detection_id'] == body.tracked_from and row['decision'] == 'confirmed'
+                                         for row in current['reviews']):
+                    raise HTTPException(422, 'The source instrument review is unavailable.')
             if body.time >= video['duration']:
                 raise HTTPException(422, 'Choose a frame within this recording.')
             frame = min(video['frames'] - 1, round(body.time * video['fps']))
@@ -431,6 +472,172 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             con.execute('INSERT OR REPLACE INTO instrument_reviews VALUES (?,?,?)',
                         (key, data['detection_id'], json.dumps(data, allow_nan=False)))
         return data
+
+    @app.get('/api/exams/{exam_id}/instrument-annotations')
+    def instrument_annotations(exam_id: UUID):
+        key = exam_id.hex
+        report_for(key)
+        data = instrument_records(key) or {'reviews': [], 'observations': []}
+        original = {row['detection_id']: row for row in data['observations']}
+        return {'annotations': [
+            {**review, 'original_detection': original[review['detection_id']]}
+            if review.get('original_label') and review['detection_id'] in original else review
+            for review in data['reviews']
+        ]}
+
+    @app.post('/api/exams/{exam_id}/instrument-reviews/{detection_id}/track')
+    def track_instrument(exam_id: UUID, detection_id: str):
+        key = exam_id.hex
+        video = report_for(key)['video']
+        data = instrument_records(key) or {'reviews': [], 'observations': []}
+        review = next((row for row in data['reviews'] if row['detection_id'] == detection_id), None)
+        if not review or review['decision'] != 'confirmed':
+            raise HTTPException(404, 'Confirm the instrument before tracking it.')
+        original = next((row for row in data['observations'] if row['detection_id'] == detection_id), None)
+        box = review.get('box') or (original or {}).get('box')
+        if not box:
+            raise HTTPException(422, 'Draw the instrument region before tracking it.')
+        try:
+            frames = track_reviewed_region(storage / key / 'source.mp4', video, review['frame'], box)
+        except (OSError, ValueError, cv2.error) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {'anchor': detection_id, 'frames': frames}
+
+    def read_sidecar(key, name):
+        path = storage / key / name
+        return json.loads(path.read_text()) if path.is_file() else None
+
+    def write_sidecar(key, name, item):
+        workspace = storage / key
+        path = None
+        try:
+            with NamedTemporaryFile(mode='w', dir=workspace, delete=False) as temporary:
+                path = Path(temporary.name)
+                json.dump(item, temporary, allow_nan=False)
+            path.replace(workspace / name)
+        finally:
+            if path:
+                path.unlink(missing_ok=True)
+
+    @app.get('/api/exams/{exam_id}/transcript')
+    def get_transcript(exam_id: UUID):
+        report_for(exam_id.hex)
+        return {'model_ready': audio_ready(ROOT / 'models'), 'transcript': read_sidecar(exam_id.hex,'transcript.json')}
+
+    @app.post('/api/exams/{exam_id}/transcript')
+    def create_transcript(exam_id: UUID, body: AudioRequest):
+        key = exam_id.hex
+        report = report_for(key)
+        if not transcript_lock.acquire(blocking=False):
+            raise HTTPException(409,'A transcription is running.')
+        try:
+            previous = read_sidecar(key,'transcript.json')
+            if previous is not None:
+                return previous
+            result = transcribe(storage/key/'source.mp4', ROOT/'models', body.language, report['video']['duration'])
+            result['original_segments'] = [dict(row) for row in result['segments']]
+            write_sidecar(key,'transcript.json',result)
+            return result
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise HTTPException(422,str(exc)) from exc
+        finally:
+            transcript_lock.release()
+
+    @app.post('/api/exams/{exam_id}/voice-note')
+    def voice_note(exam_id: UUID, recording: UploadFile = File(...), language: str = Form('auto')):
+        key = exam_id.hex
+        report_for(key)
+        if language not in {'auto', 'en', 'hi', 'es', 'fr', 'de'}:
+            raise HTTPException(422, 'Choose a supported language.')
+        limit = 5 * 1024 * 1024
+        payload = recording.file.read(limit + 1)
+        if not payload or len(payload) > limit:
+            raise HTTPException(413, 'Record a short note under 5 MB.')
+        if not transcript_lock.acquire(blocking=False):
+            raise HTTPException(409, 'A transcription is running.')
+        try:
+            with NamedTemporaryFile(dir=storage/key) as temporary:
+                temporary.write(payload)
+                temporary.flush()
+                result = transcribe(Path(temporary.name), ROOT/'models', language, 60)
+            return {'text': ' '.join(segment['text'] for segment in result['segments'])[:500]}
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        finally:
+            transcript_lock.release()
+
+    @app.put('/api/exams/{exam_id}/transcript/{segment_id}')
+    def edit_transcript(exam_id: UUID, segment_id: str, body: AudioEdit):
+        key=exam_id.hex
+        report=report_for(key)
+        if body.end <= body.start or body.end > report['video']['duration']:
+            raise HTTPException(422,'Choose a valid transcript interval.')
+        if body.status == 'reviewed' and not body.text.strip():
+            raise HTTPException(422,'Enter the reviewed transcript text.')
+        with transcript_lock:
+            result=read_sidecar(key,'transcript.json')
+            if not result:
+                raise HTTPException(404,'Transcribe the recording first.')
+            row=next((row for row in result['segments'] if row['id']==segment_id),None)
+            if row is None:
+                raise HTTPException(404,'Transcript segment not found.')
+            row.update(body.model_dump(),updated=utcnow())
+            write_sidecar(key,'transcript.json',result)
+            return result
+
+    def events_for(key, report):
+        return collect_events(report,reviews_for(key),instrument_records(key),read_sidecar(key,'transcript.json'))
+
+    def storyboard_for(key, report):
+        data=read_sidecar(key,'storyboard.json')
+        if data is None:
+            return None
+        return {**data,'chapters':with_events(data['chapters'],events_for(key,report))}
+
+    @app.get('/api/exams/{exam_id}/storyboard')
+    def get_storyboard(exam_id: UUID):
+        return {'storyboard':storyboard_for(exam_id.hex,report_for(exam_id.hex))}
+
+    @app.post('/api/exams/{exam_id}/storyboard')
+    def create_storyboard(exam_id: UUID):
+        key=exam_id.hex
+        report=report_for(key)
+        with storyboard_lock:
+            if read_sidecar(key,'storyboard.json') is None:
+                try:
+                    chapters=generate(storage/key/'source.mp4',report,events_for(key,report))
+                    write_sidecar(key,'storyboard.json',dict(chapters=chapters,original_chapters=chapters))
+                except (OSError,ValueError) as exc:
+                    raise HTTPException(422,str(exc)) from exc
+        return storyboard_for(key,report)
+
+    @app.put('/api/exams/{exam_id}/storyboard')
+    def edit_storyboard(exam_id: UUID, body: StoryboardEdit):
+        key=exam_id.hex
+        report=report_for(key)
+        duration=report['video']['duration']
+        parts=sorted(body.chapters,key=lambda item:item.start)
+        if len({item.id for item in parts})!=len(parts) or any(
+                not item.title.strip() or not item.start<=item.thumbnail<item.end<=duration
+                for item in parts) or any(a.end>b.start for a,b in zip(parts,parts[1:])):
+            raise HTTPException(422,'Chapters need valid, non-overlapping intervals and unique IDs.')
+        with storyboard_lock:
+            data=read_sidecar(key,'storyboard.json')
+            if data is None:
+                raise HTTPException(404,'Build the storyboard first.')
+            data.update(chapters=[item.model_dump() for item in parts],updated=utcnow())
+            write_sidecar(key,'storyboard.json',data)
+        return storyboard_for(key,report)
+
+    @app.get('/api/exams/{exam_id}/storyboard-export')
+    def export_storyboard(exam_id: UUID, format: Literal['json','csv']='json'):
+        data=storyboard_for(exam_id.hex,report_for(exam_id.hex))
+        if data is None:
+            raise HTTPException(404,'Build the storyboard first.')
+        if format=='csv':
+            return Response(csv_summary(data['chapters']),media_type='text/csv',
+                            headers={'Content-Disposition':'attachment; filename=storyboard.csv'})
+        return JSONResponse(data,headers={'Content-Disposition':'attachment; filename=storyboard.json'})
 
     @app.get('/api/exams/{exam_id}/tooth-history')
     def history(exam_id: UUID, fdi: Annotated[str | None, Query(pattern=r'^[1-4][1-8]$')] = None,
@@ -445,7 +652,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
     def intelligence(exam_id: UUID, q: Annotated[str, Query(min_length=1, max_length=160)]):
         key = exam_id.hex
         report = report_for(key)
-        return search_exam(storage / key / 'timeline.jsonl', report, reviews_for(key), q.strip(), instrument_records(key))
+        return search_exam(storage / key / 'timeline.jsonl', report, reviews_for(key), q.strip(),
+                           instrument_records(key), events_for(key,report), read_sidecar(key,'storyboard.json'))
 
     @app.get('/api/exams/{exam_id}/evidence-index')
     def export_evidence_index(exam_id: UUID):
@@ -453,6 +661,8 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
         report = report_for(key)
         data = evidence_index(storage / key / 'timeline.jsonl', report, reviews_for(key))
         data['instruments'] = instrument_records(key)
+        data['events'] = events_for(key,report)
+        data['storyboard'] = storyboard_for(key,report)
         return JSONResponse({'examination_id': key, **data},
                             headers={'Content-Disposition': 'attachment; filename=dentilens-evidence-index.json'})
 
