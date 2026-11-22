@@ -22,7 +22,7 @@ npm --prefix frontend run build
 bash run_full.sh
 ```
 
-- **Video Intelligence** accepts MP4s up to 500 MB and at least 4 seconds long. Preview the upload, run inference, seek from the action list or timeline, and play the selected source intervals.
+- **Video Intelligence** accepts MP4s up to 500 MB and at least 4 seconds long. Preview the upload, run inference, seek from the action list or timeline, and play the selected source intervals. **Why This Moment?** shows the actual window prediction and model score used in the highlight ranking, or identifies a fallback clip. The explanation stays outside the submission JSON.
 - **Analysis History** reopens locally stored recordings and validated results.
 - **Benchmark & Validation** shows the Samsung manifest, canonical labels and the team’s local checks.
 - **Settings** shows whether the local server and checkpoint files are available.

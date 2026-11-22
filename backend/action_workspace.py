@@ -154,6 +154,7 @@ class ActionWorkspace:
             self.write(folder, {**record, 'data': data, 'model': provenance['model'],
                                 'warnings': checked['warnings'].get(target.name, []),
                                 'label_source': provenance.get('class_contract', 'Model prediction'),
+                                'highlight_evidence': provenance.get('highlight_evidence', []),
                                 'manifest_match': known}, 'ready')
         except Exception as exc:
             LOG.exception('Track 4 inference failed for run %s', record['id'])

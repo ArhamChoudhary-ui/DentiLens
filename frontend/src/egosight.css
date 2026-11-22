@@ -64,3 +64,8 @@
 .eg-string { color:#a7eed1; }.eg-number { color:#a0bcff; }
 @media (max-width:900px) { .egosight { grid-template-columns:176px minmax(0,1fr); } .eg-review{grid-template-columns:1fr} .eg-hero{gap:22px} }
 @media (max-width:640px) { .egosight { display:block; } .eg-nav{padding:12px 16px; border-right:0; border-bottom:1px solid var(--eg-line); gap:8px; } .eg-nav>div{display:flex; flex-wrap:wrap; gap:1px;} .eg-nav>div button{width:auto; padding:5px 7px; font-size:.76rem;} .eg-nav>small{display:none;} .eg-main{padding:18px;} .eg-hero{grid-template-columns:1fr;} .eg-hero figure{aspect-ratio:16/9;} .eg-heading{align-items:center;} }
+
+.eg-reason { margin-top:14px; border-left:3px solid var(--eg-accent); border-radius:0 9px 9px 0; padding:13px 16px; background:#192c31; }
+.eg-reason h2 { margin:0 0 4px; }
+.eg-reason small { color:var(--eg-accent); }
+.eg-reason p { margin:6px 0 0; }

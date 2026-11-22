@@ -77,6 +77,9 @@ def stage(outputs, destination, team_id):
         '` .venv/bin/python code/check_submission.py --dir outputs `. '
         'The local checker returns a nonzero status for incomplete manifest coverage. '
         'The supplied kit lacks the official validator.\n'
+        'Samsung excluded the two unavailable FPVSum videos `Scuba_KD74Ywuy9ng` and '
+        '`Scuba_Um4kqB8bQBg`. The organizer manifest is preserved. '
+        'No hidden FPVSum labels were used to produce these predictions.\n'
     )
     archive = destination / 'Rajasthani_Track4_Staging.zip'
     with ZipFile(archive, 'x', compression=ZIP_DEFLATED) as bundle:

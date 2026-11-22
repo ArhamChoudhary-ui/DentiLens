@@ -78,8 +78,10 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
             candidates.append(dict(start=start, end=end, visual=motion, confidence=0.0))
         strategy = 'motion'
         provenance['limitations'].append('Motion-only baseline: no recognized actions or predicted video category.')
-    highlights = select(candidates, duration, strategy=strategy, ensure_highlight=True)
-    if not candidates:
+    evidence = []
+    highlights = select(candidates, duration, strategy=strategy, ensure_highlight=True, evidence=evidence)
+    provenance['highlight_evidence'] = evidence
+    if any(item.get('fallback') for item in evidence):
         provenance['highlight_fallback'] = 'Uniform first four seconds because no scored candidates were available'
     if duration * 0.15 < 4.0:
         provenance['budget_warning'] = 'Four-second minimum exceeds 15% for this short source video'

@@ -23,7 +23,7 @@ The JSON download matched the runner output for all four clips. The FPVSum trans
 | Reopen saved history and open benchmark and model settings | PASS |
 | Mobile overview at 390 pixels, desktop workflow at 1440 pixels | PASS |
 | FastAPI health, settings, errors, malformed upload cleanup and concurrent-run rejection | PASS |
-| Pytest and Vite production build | PASS (57 tests) |
+| Pytest and Vite production build | PASS (58 tests) |
 | Staging ZIP integrity and repeat inference from its launcher | PASS (byte-for-byte P02_13 JSON match) |
 
 
@@ -34,3 +34,14 @@ The staging ZIP contains 102 valid outputs out of 185 eligible IDs, including 55
 The written highlight rules require a four-second segment and target at most 15% of source duration. For very short clips, the checker records a warning when those constraints conflict.
 
 The standalone workspace was reverified after the repository cleanup.
+
+## Why This Moment?
+
+Chromium processed `P02_13.mp4` through upload, preview and inference.
+The result had 43 timed actions and one highlight, 24.00–28.00 seconds.
+The selected explanation showed the actual ranked window's “set alarm”
+prediction at a 44% model score. The score is for the window prediction.
+The selector also applies its heuristic, duration budget and overlap rules.
+The targeted unit test passed for both a scored candidate and a fallback
+with no confidence score. The browser download matched the runner file
+and passed the team validator with zero warnings.

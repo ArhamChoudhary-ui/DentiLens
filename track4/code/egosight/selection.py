@@ -4,7 +4,7 @@ import math
 from .temporal import tiou
 
 
-def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highlight=False):
+def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highlight=False, evidence=None):
     if not math.isfinite(duration) or duration <= 0 or not 0 < ratio <= 0.15:
         raise ValueError("Duration must be positive; budget ratio must be in (0, .15]")
     if strategy not in {'diversity', 'confidence', 'uniform', 'motion'}:
@@ -24,7 +24,7 @@ def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highli
     if ensure_highlight and duration < 4:
         raise ValueError('A four-second highlight requires at least four seconds of footage')
     if ensure_highlight and not remaining:
-        remaining.append({'start': 0.0, 'end': 4.0, 'confidence': 0.0})
+        remaining.append({'start': 0.0, 'end': 4.0, 'fallback': True})
     if ensure_highlight and budget < 4.0:
         # The guide requires >=4s and treats budget excess as a warning/penalty.
         # The three manifest videos shorter than 26.67s cannot satisfy both.
@@ -64,5 +64,8 @@ def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highli
         selected.append({**chosen, 'importance': importance})
         covered.add((chosen.get('verb'), chosen.get('noun')))
         budget -= chosen['end']-chosen['start']
-    return [{'start': c['start'], 'end': c['end'], 'importance': c['importance']}
-            for c in sorted(selected, key=lambda c: c['start'])]
+    selected.sort(key=lambda c: c['start'])
+    if evidence is not None:
+        evidence.extend({key: c[key] for key in ('verb', 'noun', 'confidence', 'visual', 'importance', 'fallback')
+                         if key in c and c[key] is not None} for c in selected)
+    return [{'start': c['start'], 'end': c['end'], 'importance': c['importance']} for c in selected]

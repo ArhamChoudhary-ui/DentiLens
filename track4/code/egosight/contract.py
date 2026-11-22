@@ -110,10 +110,14 @@ def validate_submission(result, kit=None, require_manifest=True, filename=None, 
         raise ValueError('The guide requires the cooking label for EPIC videos')
     if not isinstance(result['actions'], list) or len(result['actions']) > 2000:
         raise ValueError('actions must be an array with at most 2000 items')
+    previous_action_start = 0.0
     for action in result['actions']:
         if not isinstance(action, dict) or set(action) != {'segment', 'verb', 'noun', 'score'}:
             raise ValueError('Invalid action fields')
-        segment_bounds(action, duration)
+        action_start, _ = segment_bounds(action, duration)
+        if action_start < previous_action_start:
+            raise ValueError('Actions must be chronological')
+        previous_action_start = action_start
         if not isinstance(action['verb'], str) or action['verb'] not in kit.verbs:
             raise ValueError('Unsupported action verb')
         if not isinstance(action['noun'], str) or action['noun'] not in kit.nouns:

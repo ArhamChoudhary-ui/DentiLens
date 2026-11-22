@@ -148,3 +148,19 @@ def test_input_cannot_be_output(video):
     size=video.stat().st_size
     result=subprocess.run([sys.executable,str(root/'code/main.py'),str(video),str(video)],capture_output=True)
     assert result.returncode==1 and video.stat().st_size==size
+
+
+def test_highlight_selection_exposes_actual_ranked_signal():
+    evidence = []
+    candidates = [
+        {'start': 0, 'end': 4, 'confidence': .1},
+        {'start': 6, 'end': 10, 'confidence': .9, 'verb': 'set', 'noun': 'alarm'},
+    ]
+    chosen = select(candidates, 30, ensure_highlight=True, evidence=evidence)
+    assert [(h['start'], h['end']) for h in chosen] == [(6, 10)]
+    assert evidence == [{'verb': 'set', 'noun': 'alarm', 'confidence': .9,
+                         'importance': chosen[0]['importance']}]
+    evidence.clear()
+    select([], 10, ensure_highlight=True, evidence=evidence)
+    assert evidence[0]['fallback'] is True
+    assert 'confidence' not in evidence[0]
