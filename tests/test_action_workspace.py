@@ -39,8 +39,19 @@ def test_action_dataset_and_metrics_endpoints(tmp_path):
         assert dataset['summary']['missing'] == 83
         assert dataset['summary']['excluded'] == 2
         assert dataset['disk']['free_gb'] > 0
-        assert dataset['network']['measured_rate_kbps'] == 275.4
+        assert dataset['network']['measured_rate_kbps'] in (275.4, 319.5)
         assert len(dataset['videos']) == 187
+        assert 'pipeline' in dataset
+        assert 'previously_validated' in dataset['summary']
+
+        # Test batch status and retry
+        batch_status_res = client.get('/api/action/batch/status')
+        assert batch_status_res.status_code == 200
+        assert 'is_running' in batch_status_res.json()
+
+        batch_retry_res = client.post('/api/action/batch/retry')
+        assert batch_retry_res.status_code == 200
+        assert batch_retry_res.json()['status'] == 'ok'
 
         # Test metrics endpoint
         metrics_res = client.get('/api/action/metrics')

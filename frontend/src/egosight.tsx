@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Activity, AlertCircle, ArrowDownToLine, ArrowRight, BarChart3, CheckCircle2,
   Clock3, Database, Download, ExternalLink, Eye, FileJson, Film, HardDrive,
-  HelpCircle, Info, Layers, LayoutGrid, Loader2, Play, Search, Settings2,
-  ShieldCheck, Sparkles, UploadCloud, Wifi, X
+  HelpCircle, Info, Layers, LayoutGrid, Loader2, Pause, Play, RefreshCw,
+  RotateCcw, Search, Settings2, ShieldCheck, Sparkles, UploadCloud, Wifi, X
 } from 'lucide-react'
 import { api, uploadWithProgress, UploadProgress } from './api'
 import './egosight.css'
@@ -85,10 +85,29 @@ export type DatasetItem = {
   duration_sec: number
   dataset: string
   category: string
-  status: 'validated' | 'source_unavailable' | 'excluded'
+  status: 'validated' | 'downloading' | 'processing' | 'downloaded' | 'source_unavailable' | 'failed' | 'excluded'
   has_prediction: boolean
   has_source: boolean
   source_url: string
+  attempts?: number
+  error?: string | null
+}
+
+export type ActivePipelineJob = {
+  video_id: string
+  stage: string
+  downloaded_bytes?: number
+  total_bytes?: number
+  percent?: number
+  speed_kbps?: number
+  eta_seconds?: number
+}
+
+export type PipelineInfo = {
+  is_running: boolean
+  active_job?: ActivePipelineJob | null
+  last_updated?: string | null
+  pid?: number | null
 }
 
 export type DatasetResponse = {
@@ -96,10 +115,13 @@ export type DatasetResponse = {
     total_manifest: number
     eligible: number
     validated: number
+    previously_validated: number
+    newly_validated: number
     missing: number
     excluded: number
     completion_pct: number
   }
+  pipeline?: PipelineInfo
   categories: Record<string, number>
   videos: DatasetItem[]
   disk: {
@@ -816,6 +838,44 @@ export function EgoSight() {
     }
   }
 
+  async function triggerBatchStart() {
+    try {
+      const res = await api<{ status: string; message: string }>('/api/action/batch/start', { method: 'POST' })
+      alert(res.message)
+      void loadDataset()
+    } catch (e) {
+      alert(`Could not start batch runner: ${errorText(e)}`)
+    }
+  }
+
+  async function triggerBatchStop() {
+    try {
+      const res = await api<{ status: string; message: string }>('/api/action/batch/stop', { method: 'POST' })
+      alert(res.message)
+      void loadDataset()
+    } catch (e) {
+      alert(`Could not stop batch runner: ${errorText(e)}`)
+    }
+  }
+
+  async function triggerBatchRetry() {
+    try {
+      const res = await api<{ status: string; message: string; reset_count: number }>('/api/action/batch/retry', { method: 'POST' })
+      alert(res.message)
+      void loadDataset()
+    } catch (e) {
+      alert(`Could not retry failed videos: ${errorText(e)}`)
+    }
+  }
+
+  useEffect(() => {
+    if (view !== 'Dataset & Coverage' || !datasetData?.pipeline?.is_running) return
+    const interval = setInterval(() => {
+      void loadDataset()
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [view, datasetData?.pipeline?.is_running])
+
   useEffect(() => {
     if (view === 'Dataset & Coverage' && !datasetData && !loadingDataset) {
       void loadDataset()
@@ -1160,17 +1220,62 @@ export function EgoSight() {
       {view === 'Dataset & Coverage' && <>
         <header className="eg-heading">
           <div>
-            <h1>Dataset Manifest & Benchmark Coverage</h1>
-            <p>Official Track 4 benchmark dataset tracking 187 items across EPIC-KITCHENS 100 (138 clips) and FPVSum (49 clips).</p>
+            <h1>Dataset Manifest & Benchmark Coverage (Mission 185/185)</h1>
+            <p>Resumable, storage-aware acquisition and inference pipeline across all 185 eligible benchmark videos.</p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href="/api/action/export/all" download="EgoSight_XR_102_Outputs_Track4.zip" className="eg-button eg-primary">
-              <Download size={16}/> Download 102 Validated Outputs (ZIP)
+            {datasetData?.pipeline?.is_running ? (
+              <button className="eg-button" style={{ borderColor: '#f87171', color: '#f87171' }} onClick={triggerBatchStop}>
+                <Pause size={15}/> Pause Pipeline
+              </button>
+            ) : (
+              <button className="eg-button eg-primary" onClick={triggerBatchStart}>
+                <Play size={15}/> Start Resumable Acquisition
+              </button>
+            )}
+            <button className="eg-button" onClick={triggerBatchRetry}>
+              <RotateCcw size={15}/> Retry Failed
+            </button>
+            <a href="/api/action/export/all" download="EgoSight_XR_102_Outputs_Track4.zip" className="eg-button">
+              <Download size={15}/> Download Validated ZIP
             </a>
           </div>
         </header>
 
-        {/* 4 Summary KPI Cards */}
+        {/* Live Active Pipeline Job Banner */}
+        {datasetData?.pipeline?.is_running && (
+          <div className="eg-upload-card" style={{ borderColor: 'var(--eg-accent)', background: '#122528', marginBottom: 20 }}>
+            <div className="eg-upload-header">
+              <div className="eg-upload-title" style={{ color: 'var(--eg-accent)' }}>
+                <Loader2 size={18} className="eg-spin"/>
+                <strong>Active Acquisition Pipeline: {datasetData.pipeline.active_job?.video_id || 'Runner Active'}</strong>
+                <span style={{ fontSize: '0.8rem', color: 'var(--eg-muted)', marginLeft: 8 }}>
+                  ({datasetData.pipeline.active_job?.stage || 'running'})
+                </span>
+              </div>
+              <span className="eg-badge-green"><ShieldCheck size={12}/> Safe Headroom</span>
+            </div>
+            {datasetData.pipeline.active_job?.total_bytes ? (
+              <>
+                <div className="eg-progress-track">
+                  <div className="eg-progress-bar" style={{ width: `${datasetData.pipeline.active_job.percent ?? 0}%` }}/>
+                </div>
+                <div className="eg-progress-footer">
+                  <span>
+                    {((datasetData.pipeline.active_job.downloaded_bytes ?? 0) / (1024*1024)).toFixed(1)} MB / {((datasetData.pipeline.active_job.total_bytes ?? 0) / (1024*1024)).toFixed(1)} MB ({datasetData.pipeline.active_job.percent}%)
+                  </span>
+                  <span>
+                    Speed: {datasetData.pipeline.active_job.speed_kbps ?? 319.5} KB/s · ETA: {datasetData.pipeline.active_job.eta_seconds ? clock(datasetData.pipeline.active_job.eta_seconds) : 'calculating...'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="eg-progress-track"><div className="eg-progress-bar eg-indeterminate"/></div>
+            )}
+          </div>
+        )}
+
+        {/* 5 Summary KPI Cards */}
         <div className="eg-kpi-grid">
           <div className="eg-kpi-card">
             <div className="eg-kpi-label">Eligible Benchmark</div>
@@ -1180,12 +1285,21 @@ export function EgoSight() {
           <div className="eg-kpi-card">
             <div className="eg-kpi-label">Validated Outputs</div>
             <div className="eg-kpi-num" style={{ color: '#34d399' }}>{datasetData?.summary.validated ?? 102}</div>
-            <div className="eg-kpi-sub">{datasetData?.summary.completion_pct ?? 55.1}% of eligible benchmark (0 errors)</div>
+            <div className="eg-kpi-sub">
+              {datasetData?.summary.completion_pct ?? 55.1}% (102 baseline{datasetData?.summary.newly_validated ? ` + ${datasetData.summary.newly_validated} new` : ''})
+            </div>
           </div>
           <div className="eg-kpi-card">
-            <div className="eg-kpi-label">Missing Sources</div>
+            <div className="eg-kpi-label">Remaining Missing</div>
             <div className="eg-kpi-num" style={{ color: '#fbbf24' }}>{datasetData?.summary.missing ?? 83}</div>
             <div className="eg-kpi-sub">Upstream Bristol RDSF 1080p archive</div>
+          </div>
+          <div className="eg-kpi-card">
+            <div className="eg-kpi-label">Pipeline Status</div>
+            <div className="eg-kpi-num" style={{ color: datasetData?.pipeline?.is_running ? 'var(--eg-accent)' : '#94a3b8' }}>
+              {datasetData?.pipeline?.is_running ? 'Running' : 'Idle'}
+            </div>
+            <div className="eg-kpi-sub">Resumable sequential stream-process</div>
           </div>
           <div className="eg-kpi-card">
             <div className="eg-kpi-label">Organizer Excluded</div>
@@ -1216,11 +1330,11 @@ export function EgoSight() {
               <span className="eg-badge-amber"><Clock3 size={13}/> Bandwidth Constrained</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.84rem' }}>
-              Measured Throughput: <strong>{datasetData?.network.measured_rate_kbps ?? 275.4} KB/s</strong>.
-              Estimated Payload: <strong>{datasetData?.network.estimated_payload_gb ?? 150.2} GB</strong>.
+              Measured Throughput: <strong>{datasetData?.network.measured_rate_kbps ?? 319.5} KB/s</strong>.
+              Remaining Missing Payload: <strong>{datasetData?.network.estimated_payload_gb ?? 150.2} GB</strong>.
             </p>
             <p style={{ margin: 0, fontSize: '0.78rem', color: '#8ea6ad', lineHeight: 1.45 }}>
-              At 275 KB/s, full transfer requires ~154.8 hours. Use the acquire action in the table below to trigger safe bounded single-video execution when needed.
+              At ~320 KB/s, remaining transfer requires ~{datasetData?.network.estimated_transfer_hours ?? 136.5} hours. Resumable HTTP range requests ensure interrupted transfers resume without repeating bytes.
             </p>
           </div>
         </div>
@@ -1240,8 +1354,11 @@ export function EgoSight() {
           </div>
           <select className="eg-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
             <option value="all">All Statuses (187)</option>
-            <option value="validated">Validated Submissions (102)</option>
-            <option value="source_unavailable">Missing / Unretrieved (83)</option>
+            <option value="validated">Validated Submissions ({datasetData?.summary.validated ?? 102})</option>
+            <option value="downloading">Downloading ({datasetData?.videos.filter(v => v.status === 'downloading').length ?? 0})</option>
+            <option value="processing">Processing ({datasetData?.videos.filter(v => v.status === 'processing').length ?? 0})</option>
+            <option value="failed">Failed ({datasetData?.videos.filter(v => v.status === 'failed').length ?? 0})</option>
+            <option value="source_unavailable">Missing / Unretrieved ({datasetData?.summary.missing ?? 83})</option>
             <option value="excluded">Organizer Excluded (2)</option>
           </select>
           <select className="eg-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
@@ -1294,7 +1411,23 @@ export function EgoSight() {
                     <td>{clock(v.duration_sec)}</td>
                     <td>
                       {v.status === 'validated' && <span className="eg-badge-green"><CheckCircle2 size={12}/> Validated</span>}
-                      {v.status === 'source_unavailable' && <span className="eg-badge-amber"><Clock3 size={12}/> Unretrieved</span>}
+                      {v.status === 'downloading' && (
+                        <span className="eg-badge-green" style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', borderColor: 'rgba(59,130,246,0.3)' }}>
+                          <Loader2 size={12} className="eg-spin"/> Downloading
+                        </span>
+                      )}
+                      {v.status === 'processing' && (
+                        <span className="eg-badge-green" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', borderColor: 'rgba(168,85,247,0.3)' }}>
+                          <Activity size={12} className="eg-spin"/> Processing
+                        </span>
+                      )}
+                      {v.status === 'downloaded' && <span className="eg-badge-green"><CheckCircle2 size={12}/> Downloaded</span>}
+                      {v.status === 'failed' && (
+                        <span className="eg-badge-amber" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}>
+                          <AlertCircle size={12}/> Failed
+                        </span>
+                      )}
+                      {v.status === 'source_unavailable' && <span className="eg-badge-amber"><Clock3 size={12}/> Missing Source</span>}
                       {v.status === 'excluded' && <span className="eg-badge-gray"><X size={12}/> Excluded</span>}
                     </td>
                     <td>
@@ -1313,7 +1446,7 @@ export function EgoSight() {
                           </a>
                         </div>
                       )}
-                      {v.status === 'source_unavailable' && (
+                      {(v.status === 'source_unavailable' || v.status === 'failed') && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <button
                             className="eg-button"
@@ -1322,7 +1455,7 @@ export function EgoSight() {
                             onClick={() => triggerAcquire(v.video_id)}
                           >
                             {acquireStatus[v.video_id]?.loading ? <Loader2 size={12} className="eg-spin"/> : <Download size={12}/>}
-                            <span>Stream & Process</span>
+                            <span>{v.status === 'failed' ? 'Retry Acquisition' : 'Stream & Process'}</span>
                           </button>
                           {acquireStatus[v.video_id] && (
                             <span style={{ fontSize: '0.70rem', color: acquireStatus[v.video_id].isError ? '#f87171' : '#fbbf24' }}>
@@ -1330,6 +1463,9 @@ export function EgoSight() {
                             </span>
                           )}
                         </div>
+                      )}
+                      {(v.status === 'downloading' || v.status === 'processing') && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--eg-accent)' }}>In Progress...</span>
                       )}
                       {v.status === 'excluded' && (
                         <span style={{ fontSize: '0.75rem', color: '#7c8e94' }}>Excluded by organizers</span>

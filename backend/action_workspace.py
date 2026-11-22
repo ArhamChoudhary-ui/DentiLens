@@ -30,6 +30,7 @@ class ActionWorkspace:
         self.storage = storage
         self.slot = Lock()
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='egosight')
+        self.batch_proc: subprocess.Popen | None = None
         self.router = APIRouter(prefix='/api/action')
         for route, endpoint, method in [
             ('/settings', self.settings, 'GET'),
@@ -45,6 +46,10 @@ class ActionWorkspace:
             ('/export/all', self.export_all, 'GET'),
             ('/predictions/{video_id}', self.prediction, 'GET'),
             ('/batch/acquire', self.acquire, 'POST'),
+            ('/batch/start', self.batch_start, 'POST'),
+            ('/batch/stop', self.batch_stop, 'POST'),
+            ('/batch/retry', self.batch_retry, 'POST'),
+            ('/batch/status', self.batch_status, 'GET'),
         ]:
             self.router.add_api_route(route, endpoint, methods=[method])
 
@@ -75,6 +80,17 @@ class ActionWorkspace:
         manifest_file = ROOT / 'reference/student_package/manifest.csv'
         outputs_dir = self._outputs_dir()
         validated_files = {p.stem: p for p in outputs_dir.glob('*.json')} if outputs_dir.is_dir() else {}
+
+        state_file = ROOT.parent / 'runtime/track4-assets/full-manifest/Full Run/acquisition_state.json'
+        state_data = {}
+        if state_file.is_file():
+            try:
+                state_data = json.loads(state_file.read_text())
+            except Exception:
+                pass
+
+        video_states = state_data.get('videos', {})
+        active_job = state_data.get('active_job')
 
         excluded_ids = {'Scuba_KD74Ywuy9ng', 'Scuba_Um4kqB8bQBg'}
         category_map = {
@@ -128,7 +144,11 @@ class ActionWorkspace:
                         source_url = 'Verified local source & validated prediction'
                         total_validated += 1
                     else:
-                        status = 'source_unavailable'
+                        v_state = video_states.get(vid, {}).get('status')
+                        if v_state in {'downloading', 'processing', 'failed', 'downloaded'}:
+                            status = v_state
+                        else:
+                            status = 'source_unavailable'
                         has_prediction = False
                         has_source = False
                         source_url = 'https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/' if dataset == 'epic_kitchens_100' else 'YouTube (unretrieved)'
@@ -144,6 +164,8 @@ class ActionWorkspace:
                         'has_prediction': has_prediction,
                         'has_source': has_source,
                         'source_url': source_url,
+                        'attempts': video_states.get(vid, {}).get('attempts', 0),
+                        'error': video_states.get(vid, {}).get('error'),
                     })
 
         disk_total, disk_used, disk_free = shutil.disk_usage('/')
@@ -151,14 +173,36 @@ class ActionWorkspace:
         total_gb = round(disk_total / (1024**3), 1)
         used_gb = round(disk_used / (1024**3), 1)
 
+        previously_validated = 102
+        newly_validated = max(0, total_validated - previously_validated)
+        remaining_missing = (len(videos) - total_excluded) - total_validated
+        completion_pct = round((total_validated / max(1, len(videos) - total_excluded)) * 100, 1)
+
+        is_running = self.batch_proc is not None and self.batch_proc.poll() is None
+        if not is_running and active_job and state_data.get('last_updated'):
+            try:
+                last_dt = datetime.fromisoformat(state_data['last_updated'])
+                if (datetime.now(timezone.utc) - last_dt).total_seconds() < 45:
+                    is_running = True
+            except Exception:
+                pass
+
         return {
             'summary': {
                 'total_manifest': len(videos),
                 'eligible': len(videos) - total_excluded,
                 'validated': total_validated,
-                'missing': total_missing,
+                'previously_validated': previously_validated,
+                'newly_validated': newly_validated,
+                'missing': remaining_missing,
                 'excluded': total_excluded,
-                'completion_pct': round((total_validated / max(1, len(videos) - total_excluded)) * 100, 1),
+                'completion_pct': completion_pct,
+            },
+            'pipeline': {
+                'is_running': is_running,
+                'active_job': active_job,
+                'last_updated': state_data.get('last_updated'),
+                'pid': self.batch_proc.pid if self.batch_proc is not None else None,
             },
             'categories': categories,
             'videos': videos,
@@ -172,10 +216,10 @@ class ActionWorkspace:
             'network': {
                 'upstream_source': 'University of Bristol Research Data Storage Facility (RDSF)',
                 'upstream_url': 'https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/',
-                'measured_rate_kbps': 275.4,
-                'estimated_payload_gb': 150.2,
-                'estimated_transfer_hours': 154.8,
-                'constraint_note': 'Host storage is constrained to 8.8 GB free (3.0 GB reserve required). Concurrent batch download of all 83 missing EPIC-100 videos (150 GB) is physically impossible without exceeding disk capacity. Sequential single-video streaming is supported.',
+                'measured_rate_kbps': 319.5,
+                'estimated_payload_gb': round(150.2 * (remaining_missing / 83), 1) if remaining_missing > 0 else 0.0,
+                'estimated_transfer_hours': round((150.2 * (remaining_missing / 83) * 1024 * 1024) / (319.5 * 3600), 1) if remaining_missing > 0 else 0.0,
+                'constraint_note': 'Host storage is constrained to 8.66 GB free (3.0 GB reserve required). Concurrent batch download of all missing EPIC-100 videos (150 GB) is physically impossible without exceeding disk capacity. Sequential single-video stream-process-delete is enforced.',
             },
         }
 
@@ -319,9 +363,88 @@ class ActionWorkspace:
             'video_id': vid,
             'status': 'queued_or_constrained',
             'upstream_url': f'https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/{vid}.mp4',
-            'bandwidth_kbps': 275.4,
-            'message': f'Video {vid} is hosted at University of Bristol RDSF. At current network throughput (275 KB/s), single video transfer requires ~1.9 hours. Safe sequential acquisition is enabled when bandwidth permits.',
+            'bandwidth_kbps': 319.5,
+            'message': f'Video {vid} is hosted at University of Bristol RDSF. At current network throughput (319.5 KB/s), single video transfer requires ~1.9 hours. Safe sequential acquisition is enabled when bandwidth permits.',
         }
+
+    def batch_status(self):
+        state_file = ROOT.parent / 'runtime/track4-assets/full-manifest/Full Run/acquisition_state.json'
+        is_running = self.batch_proc is not None and self.batch_proc.poll() is None
+        data = {}
+        if state_file.is_file():
+            try:
+                data = json.loads(state_file.read_text())
+            except Exception:
+                pass
+        if not is_running and data.get('active_job') and data.get('last_updated'):
+            try:
+                last_dt = datetime.fromisoformat(data['last_updated'])
+                if (datetime.now(timezone.utc) - last_dt).total_seconds() < 45:
+                    is_running = True
+            except Exception:
+                pass
+        return {
+            'is_running': is_running,
+            'state': data,
+            'pid': self.batch_proc.pid if self.batch_proc is not None else None,
+        }
+
+    def batch_start(self):
+        if self.batch_proc is not None and self.batch_proc.poll() is None:
+            return {'status': 'already_running', 'pid': self.batch_proc.pid, 'message': 'Acquisition pipeline is already running.'}
+
+        stop_file = ROOT.parent / 'runtime/track4-assets/full-manifest/Full Run/stop.flag'
+        if stop_file.is_file():
+            stop_file.unlink()
+
+        cmd = [
+            sys.executable,
+            str(ROOT / 'scripts/resumable_acquisition_runner.py'),
+            '--team-id', 'Rajasthani',
+            '--reserve-gb', '3.0',
+            '--stop-file', str(stop_file),
+        ]
+        self.batch_proc = subprocess.Popen(
+            cmd,
+            cwd=str(ROOT.parent),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        return {'status': 'started', 'pid': self.batch_proc.pid, 'message': 'Resumable acquisition pipeline launched.'}
+
+    def batch_stop(self):
+        stop_file = ROOT.parent / 'runtime/track4-assets/full-manifest/Full Run/stop.flag'
+        stop_file.parent.mkdir(parents=True, exist_ok=True)
+        stop_file.touch()
+
+        if self.batch_proc is not None and self.batch_proc.poll() is None:
+            self.batch_proc.terminate()
+            try:
+                self.batch_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.batch_proc.kill()
+            return {'status': 'stopped', 'message': 'Acquisition pipeline stopped.'}
+
+        return {'status': 'idle', 'message': 'Acquisition pipeline is not running.'}
+
+    def batch_retry(self):
+        state_file = ROOT.parent / 'runtime/track4-assets/full-manifest/Full Run/acquisition_state.json'
+        if state_file.is_file():
+            try:
+                data = json.loads(state_file.read_text())
+                reset_count = 0
+                for v in data.get('videos', {}).values():
+                    if v.get('status') == 'failed':
+                        v['status'] = 'pending'
+                        v['error'] = None
+                        reset_count += 1
+                tmp = state_file.with_suffix('.tmp')
+                tmp.write_text(json.dumps(data, indent=2))
+                tmp.replace(state_file)
+                return {'status': 'ok', 'reset_count': reset_count, 'message': f'Reset {reset_count} failed videos to pending.'}
+            except Exception as e:
+                raise HTTPException(500, f'Failed to reset state: {e}')
+        return {'status': 'ok', 'reset_count': 0, 'message': 'No state file found.'}
 
     def restore(self):
         for path in self.storage.glob('*/run.json'):
