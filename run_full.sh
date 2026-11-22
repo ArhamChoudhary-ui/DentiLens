@@ -7,7 +7,8 @@ if [[ ! -x "$PYTHON" ]]; then
   printf '%s\n' 'Create the project Python environment using the README setup commands.' >&2
   exit 1
 fi
-if [[ ! -f frontend/dist/index.html ]]; then
+FRONTEND_ENTRY=frontend/dist/index.html
+if [[ ! -f "$FRONTEND_ENTRY" ]] || [[ -n "$(find frontend/src frontend/public frontend/index.html frontend/package.json frontend/package-lock.json -newer "$FRONTEND_ENTRY" -print -quit)" ]]; then
   npm --prefix frontend run build
 fi
 export YOLO_CONFIG_DIR="${YOLO_CONFIG_DIR:-$ROOT/runtime/ultralytics}"
