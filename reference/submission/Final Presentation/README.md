@@ -5,16 +5,18 @@ Team Rajasthani, Vellore Institute of Technology, Vellore
 
 ## Slide order
 
-| Slides | Content |
-| --- | --- |
-| 1–3 | Project, first-person video challenge, and the Action Intelligence Engine |
-| 4–7 | Implemented architecture, models, timed actions, and highlight selection |
-| 8–9 | Public walkthrough and potential wearable review workflow |
-| 10 | Original release results and 22 November local validation snapshot |
-| 11–12 | Reproduction, Samsung archive structure, and closing |
+1. Cover
+2. THE PROBLEM
+3. SOLUTION
+4. ARCHITECTURE
+5. Track Final Output
+6. DIFFERENTIATION
+7. DEMO & LOCAL SETUP
+8. Brownie Slides
+9. Thank You
 
 The PowerPoint keeps text, diagrams, and timelines editable. The PDF is
-the matching 12-page viewing copy. Edit the slide content in the PPTX.
+the matching nine-page viewing copy.
 
 ## Assets and evidence
 
