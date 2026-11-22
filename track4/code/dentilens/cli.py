@@ -12,7 +12,7 @@ from .video import VideoReader
 
 def main():
     root = Path(__file__).resolve().parents[2]
-    p = argparse.ArgumentParser(description='DentiLens XR: real action inference or explicitly labeled development modes')
+    p = argparse.ArgumentParser(description='EgoSight XR: real action inference or explicitly labeled development modes')
     p.add_argument('input', type=Path)
     p.add_argument('output', type=Path)
     p.add_argument('--team-id', default=configured_team_id())

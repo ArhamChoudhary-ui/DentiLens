@@ -1,19 +1,13 @@
-# DentiLens XR — Action Intelligence Engine
+# EgoSight XR — Action Intelligence Engine
 
 Samsung XR Hackathon Track 4 implementation inside the DentiLens repository.
 Team Rajasthani · Vellore Institute of Technology, Vellore.
 
-First-person recordings can make brief actions difficult to find. DentiLens
-reuses its video processing and review infrastructure to predict timed actions
-and export selected original footage. The action benchmark uses its own
-pretrained models. OpenCV decodes the video, PyTorch scores frames, the
-selector ranks temporal segments, and FFmpeg exports the chosen clips.
+Open **Video Intelligence** in EgoSight XR to upload and review an MP4. The browser uses the same inference engine as the standalone CLI. OpenCV decodes video, PyTorch scores RGB windows, the selector ranks temporal segments, and FFmpeg can export selected footage through the CLI.
 
-The local run processed **8 of 187 manifest videos** and validated every one.
-The remaining **179 source videos** were unavailable in the supplied
-workspace. The organizer's validator and official scores remain unavailable.
+The [submission folder](../submission/EgoSight%20XR) contains the current staging snapshot. The organizer’s validator and official scores are unavailable.
 
-## Results and presentation
+## Earlier release and reproducible examples
 
 - [Public walkthrough MP4](https://raw.githubusercontent.com/ArhamChoudhary-ui/DentiLens/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Walkthrough.mp4)
 - [PowerPoint](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Presentation.pptx) and [PDF](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Presentation.pdf)

@@ -235,6 +235,9 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
             update(exam_id, 'failed', 0, 'Analysis stopped',
                    'The local model or encoder failed. Check the server log and retry.')
 
+    from backend.action_workspace import ActionWorkspace
+    action = ActionWorkspace(storage / 'action-intelligence')
+
     @asynccontextmanager
     async def lifespan(_app):
         storage.mkdir(parents=True, exist_ok=True)
@@ -266,10 +269,13 @@ def create_app(storage=None, processor=process_exam, serve_frontend=True):
                         error='The server stopped before analysis finished. Use Retry analysis.'
                         WHERE state IN ('queued', 'running')""")
             con.execute("UPDATE exams SET state='cancelled',progress=0,stage='Analysis cancelled' WHERE state='canceling'")
+        action.restore()
         yield
+        action.pool.shutdown(wait=True, cancel_futures=True)
         pool.shutdown(wait=True, cancel_futures=True)
 
-    app = FastAPI(title='DentiLens XR', lifespan=lifespan)
+    app = FastAPI(title='EgoSight XR', lifespan=lifespan)
+    app.include_router(action.router)
 
     @app.get('/api/health')
     def health():

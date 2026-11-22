@@ -1,66 +1,53 @@
-# DentiLens XR
+# EgoSight XR
 
-DentiLens XR is a local video intelligence project by Team Rajasthani
-from Vellore Institute of Technology, Vellore.
+**See the Actions. Understand the Moment.**
 
-| Capability | Purpose | Entry point |
-| --- | --- | --- |
-| Dental Intelligence | Review dental examinations with tooth overlays, instrument candidates, bookmarks and exports. | `bash run_full.sh` |
-| Action Intelligence | Analyze first-person recordings and select highlights for Samsung XR Hackathon Track 4. | `cd track4` and run `./run.sh input.mp4 outputs/input.json` |
+EgoSight XR lets you review first-person recordings by action and jump straight to a selected highlight. Team Rajasthani built it for Samsung R&D Institute India XR Hackathon 2026, Track 4.
 
-Open **Action Intelligence** in the desktop workspace to watch the Track 4
-demo and find the setup instructions. The benchmark runs from the CLI.
-The [architecture and implementation status](reference/DENTILENS_ARCHITECTURE.md)
-explains the model paths and limitations.
+## Samsung Track 4 submission
 
-## Samsung XR Hackathon · Track 4
+[Submission files](submission/EgoSight%20XR) · [Model and CLI setup](track4) · [Verification results](reference/egosight-verification.md)
 
-Team **Rajasthani**, Vellore Institute of Technology, Vellore, built the
-DentiLens XR Action Intelligence Engine for first-person video summarization.
-Samsung’s required submission archive layout is shown below in order.
+The staging ZIP preserves the organizer’s order: `run.sh`, `code/`, `weights/`, `requirements.txt`, `outputs/`, `README.md`. The registered TEAM_ID and checkpoint redistribution terms still need confirmation. The ZIP uses the development ID and includes checkpoint setup instructions.
 
-```text
-TEAM_ID/
-├── run.sh
-├── code/
-├── weights/
-├── requirements.txt
-├── outputs/
-│   └── <video_id>.json
-└── README.md
+## Start the workspace
+
+On the development Mac, run `bash run_full.sh` and open [EgoSight XR](http://127.0.0.1:8502/). For a fresh checkout, use Python 3.11 and Node.js, install the frontend and Python dependencies, then set up the [Track 4 weights](track4/weights/README.md).
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements-full.txt -r track4/requirements.txt
+npm --prefix frontend ci
+npm --prefix frontend run build
+bash run_full.sh
 ```
 
-`TEAM_ID` is the identifier issued by Samsung. The staging package uses
-`Rajasthani_Staging` while that identifier is unverified.
+- **Video Intelligence** accepts MP4s up to 500 MB and at least 4 seconds long. Preview the upload, run inference, seek from the action list or timeline, and play the selected source intervals.
+- **Analysis History** reopens locally stored recordings and validated results.
+- **Benchmark & Validation** shows the Samsung manifest, canonical labels and the team’s local checks.
+- **Settings** shows whether the local server and checkpoint files are available.
+- **Dental Intelligence** opens the original DentiLens examination workspace with its own models and data.
 
-[Track 4 code and setup](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/track4) ·
-[Submission files](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/submission/Rajasthani) ·
-[Final presentation](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/reference/submission/Final%20Presentation) ·
-[Package audit](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/PACKAGE_AUDIT.md) ·
-[Submission checklist](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/FINAL_SUBMISSION_CHECKLIST.md)
+## How inference works
 
-## Team
+The React workspace calls the local FastAPI server. OpenCV reads the upload and the server invokes the standalone Python Track 4 runner. Known EPIC-KITCHENS clips use a pretrained TSN RGB ResNet50 for timed verb–noun predictions. Their activity category comes from the benchmark contract. Known FPVSum clips and other MP4 uploads use a pretrained R3D-18 category-transfer model. This path returns an activity category and highlights, and may return `other` where evidence is weak. The two paths share highlight selection and local JSON checking.
 
-Team name: Rajasthani
+Completed runs are stored under the app’s local runtime. The browser displays the source video and the genuine model output, and its download serves the exact JSON file from the runner. For an independent run, see [Track 4 inference and validation](track4). Browser uploads outside the manifest are development runs.
 
-College: Vellore Institute of Technology, Vellore
+## Dental Intelligence
 
-Members are Arham Choudhary and Aadeesh Sanghi.
-
-DentiLens XR turns a dental examination video into a full-length annotated
-recording with searchable tooth tracks, evidence frames and reviewer-controlled
-bookmarks.
+DentiLens XR turns a dental examination video into an annotated recording with searchable tooth tracks, evidence frames, and reviewer-controlled bookmarks. Arham Choudhary and Aadeesh Sanghi represent Team Rajasthani from Vellore Institute of Technology, Vellore.
 
 ## Full-video examination workspace
 
-On the development Mac, double-click `Launch DentiLens XR.command` in Finder or
+On the development Mac, double-click `Launch EgoSight XR.command` in Finder or
 run the following from the repository. Leave Terminal open during the demo.
 
 ```bash
 bash run_full.sh
 ```
 
-Open [DentiLens XR](http://127.0.0.1:8502/). Start a new examination, choose an
+Open [EgoSight XR](http://127.0.0.1:8502/) and select **Dental Intelligence**. Start a new examination, choose an
 MP4, MOV, M4V or WebM file, and pick Fast, Balanced or Detailed analysis.
 Use the Annotated and Original controls to compare the same timestamp. Search
 for a tooth type or FDI number, select a timeline suggestion, and confirm,
