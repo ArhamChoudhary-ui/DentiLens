@@ -38,15 +38,15 @@ def main():
     if args.staging_name and not re.fullmatch('[A-Za-z0-9_-]+',args.staging_name):
         parser.error('The staging name must be a safe folder name.')
     root=Path(__file__).resolve().parents[1]
-    if not args.development and (not args.organizer_validator or not args.organizer_validator.is_file()):
-        parser.error('Final packaging requires the actual organizer validator.')
+    if args.organizer_validator and not args.organizer_validator.is_file():
+        parser.error('The supplied validator path does not exist.')
     if args.team_id=='DEVELOPMENT' and not args.development:
         parser.error('Set the registered team ID for a final archive.')
     files=sorted(args.outputs.glob('*.json'))
     result=check_files(files,StudentKit(),team_id=args.team_id)
-    if not files or result['errors'] or (not args.development and result['missing_video_ids']):
-        parser.error(f'Output check failed: {result["errors"]}; missing {len(result["missing_video_ids"])} videos.')
-    if not args.development:
+    if not files or result['errors'] or (not args.development and result['required_missing_video_ids']):
+        parser.error(f'Output check failed: {result["errors"]}; missing {len(result["required_missing_video_ids"])} videos.')
+    if not args.development and args.organizer_validator:
         subprocess.run([sys.executable,str(args.organizer_validator.resolve()),'--dir',str(args.outputs.resolve())],
                        check=True)
     weights=['receipt.json','epic-classes.json'] if args.external_checkpoints else verify_weights(root)

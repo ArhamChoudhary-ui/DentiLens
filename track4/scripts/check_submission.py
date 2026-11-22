@@ -9,6 +9,9 @@ from dentilens.contract import StudentKit, validate_submission
 from dentilens.schema import atomic_json
 
 
+EXCLUDED_BY_ORGANIZER = frozenset({'Scuba_KD74Ywuy9ng', 'Scuba_Um4kqB8bQBg'})
+
+
 def check_files(paths, kit, require_manifest=True, team_id=None):
     errors, warnings, seen = {}, {}, set()
     for path in paths:
@@ -24,8 +27,12 @@ def check_files(paths, kit, require_manifest=True, team_id=None):
                 warnings[path.name] = file_warnings
         except (ValueError, KeyError, TypeError, OSError) as exc:
             errors[path.name] = str(exc)
-    return {'team_id': team_id, 'valid_videos': len(seen), 'errors': errors,
-            'warnings': warnings, 'missing_video_ids': sorted(set(kit.entries) - seen),
+    missing = set(kit.entries) - seen
+    excluded = EXCLUDED_BY_ORGANIZER & set(kit.entries)
+    return {'required_missing_video_ids': sorted(missing - excluded),
+            'organizer_excluded_video_ids': sorted(excluded),
+            'team_id': team_id, 'valid_videos': len(seen), 'errors': errors,
+            'warnings': warnings, 'missing_video_ids': sorted(missing),
             'organizer_validator_available': (kit.directory / 'validate.py').is_file(),
             'validator_source': 'Local implementation of supplied student guide'}
 
@@ -45,10 +52,11 @@ def main():
     report = check_files(paths, StudentKit(), not args.schema_only, args.team_id)
     if args.file is not None or args.schema_only:
         report['missing_video_ids'] = []
+        report['required_missing_video_ids'] = []
     if args.report:
         atomic_json(args.report, report)
     print(json.dumps(report, indent=2))
-    failed = bool(report['errors']) or (args.dir is not None and not args.schema_only and bool(report['missing_video_ids']))
+    failed = bool(report['errors']) or (args.dir is not None and not args.schema_only and bool(report['required_missing_video_ids']))
     return int(failed)
 
 

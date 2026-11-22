@@ -104,8 +104,7 @@ Runtime category mapping uses `ski` and preserves the actual video ID.
 .venv/bin/python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" \
   --report /path/to/audit.json
 .venv/bin/python scripts/check_submission.py --dir /path/to/outputs
-.venv/bin/python scripts/package.py /path/to/outputs /path/to/final.zip --team-id "$DENTILENS_TEAM_ID" \
-  --organizer-validator /path/to/official/validate.py
+.venv/bin/python scripts/package.py /path/to/outputs /path/to/final.zip --team-id "$DENTILENS_TEAM_ID"
 ```
 
 The batch runner searches recursively for manifest-named MP4s and uses one
@@ -116,7 +115,10 @@ Re-run the same command to resume after adding more media. A nonzero exit
 status signals an incomplete or inconsistent set. Use a fresh output folder
 when the registered team ID replaces the development ID.
 
-Final packaging requires every output and runs the supplied validator.
+Final packaging requires all 185 scored manifest outputs and a verified team ID.
+Samsung confirmed that this local checker can be used for pre-submission
+verification. The two excluded FPVSum IDs stay in the supplied manifest.
+Pass an organizer validator only if one was supplied.
 `--development` produces a separately marked local archive for smoke
 testing. Add `--staging-name Rajasthani --external-checkpoints` to build
 the shareable staging copy with source, hashes and valid development

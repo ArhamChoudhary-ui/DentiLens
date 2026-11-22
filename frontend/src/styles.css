@@ -374,3 +374,14 @@ main { min-width: 0; width: 100%; max-width: 1670px; margin-inline: auto; paddin
 .instrument-queue { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; margin-block: .5rem .8rem; }
 .instrument-queue .field { min-width: min(100%, 13rem); }
 .instrument-audit-crop { display: block; width: 100%; max-height: 240px; object-fit: contain; margin-top: .5rem; background: #10161d; border-radius: .4rem; }
+
+.module-switch { display: grid; gap: 6px; }
+.module-switch button { justify-content: flex-start; }
+.module-switch button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.action-intelligence { max-width: 850px; margin: 0 auto; padding: clamp(18px, 4vw, 36px); }
+.action-intelligence dl { display: grid; gap: 12px; margin: 24px 0; }
+.action-intelligence dt { color: var(--bright); font-weight: 650; }
+.action-intelligence dd { margin: 4px 0 0; color: var(--muted); }
+.action-intelligence video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #101722; border-radius: 8px; }
+.action-intelligence pre { overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.action-intelligence a { color: var(--accent); }

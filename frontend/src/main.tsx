@@ -544,17 +544,29 @@ function ExamReview({ exam, refresh, remove }: { exam: Exam; refresh: () => Prom
   </>
 }
 
+const track4Repository = 'https://github.com/ArhamChoudhary-ui/DentiLens'
+const track4Branch = 'xr-4-video-intelligence'
+
+function ActionIntelligence() {
+  return <section className="panel action-intelligence">
+    <h1>Action Intelligence</h1>
+    <p>Samsung XR Hackathon Track 4. Analyze first-person video with the offline command-line engine.</p>
+    <dl>
+      <div><dt>EPIC-KITCHENS-100</dt><dd>Predicts timed actions and objects, such as opening an oven.</dd></div>
+      <div><dt>FPVSum</dt><dd>Predicts the overall activity and selects highlights from the original footage.</dd></div>
+    </dl>
+    <video controls playsInline preload="none" aria-label="Track 4 walkthrough"
+      src={`https://raw.githubusercontent.com/ArhamChoudhary-ui/DentiLens/${track4Branch}/reference/submission/DentiLens-Track4-Walkthrough.mp4`} />
+    <h2>Run locally</h2>
+    <pre><code>{'cd track4\n./run.sh input.mp4 outputs/input.json'}</code></pre>
+    <a href={`${track4Repository}/tree/${track4Branch}/track4`}>Open setup instructions</a>
+  </section>
+}
+
 function App() {
   const [exams,setExams]=useState<Exam[]>([])
   const [id,setId]=useState<string|null>(null)
-  const [exam,setExam]=useState<Exam>()
-  const [uploading,setUploading]=useState(false)
-  const [pollVersion,setPollVersion]=useState(0)
-  const [error,setError]=useState('')
-  const [loading,setLoading]=useState(true)
-  async function list() { const data=await api<Exam[]>('/api/exams');setExams(data);return data }
-  useEffect(()=>{
-    list().then(data=>{if(data[0])setId(data[0].id)}).catch(e=>setError(message(e))).finally(()=>setLoading(false))
+  const [exam,setExam]=useState…99 tokens truncated…(data=>{if(data[0])setId(data[0].id)}).catch(e=>setError(message(e))).finally(()=>setLoading(false))
   },[])
   useEffect(()=>{
     if(!id)return
@@ -580,6 +592,7 @@ function App() {
   function choose(next: string) {
     if (next!==id) { setExam(undefined); setId(next) }
     setUploading(false)
+    setModule('dental')
   }
   function created(next: Exam) {setExams(old=>[next,...old]);setExam(next);setId(next.id);setUploading(false)}
   async function retry() {
@@ -607,8 +620,13 @@ function App() {
   }
   const stopped=exam?.state==='failed'||exam?.state==='cancelled'
   return <div className="app-shell">
-    <nav className="sidebar" aria-label="Examination workspace">
-      <button className="brand" onClick={()=>setUploading(false)}><span className="brand-icon"><ScanLine size={23}/></span><span>DentiLens <b>XR</b><small>Examination workspace</small></span></button>
+    <nav className="sidebar" aria-label="DentiLens workspace">
+      <button className="brand" onClick={()=>{setModule('dental');setUploading(false)}}><span className="brand-icon"><ScanLine size={23}/></span><span>DentiLens <b>XR</b></span></button>
+      <div className="module-switch" aria-label="DentiLens modules">
+        <button className="subtle" aria-pressed={module==='dental'} onClick={()=>setModule('dental')}>Dental Intelligence</button>
+        <button className="subtle" aria-pressed={module==='action'} onClick={()=>setModule('action')}>Action Intelligence</button>
+      </div>
+      {module==='dental'&&<>
       <button className="primary new-exam" onClick={()=>setUploading(true)}><Plus size={18}/> New examination</button>
       <div className="sidebar-caption"><span>Examinations</span><span>{exams.length}</span></div>
       <div className="exam-list">
@@ -616,11 +634,12 @@ function App() {
           <Film size={16}/><span><strong title={row.title}>{row.title}</strong><small>{examStates[row.state]} · {row.profile}</small></span>{id===row.id&&!uploading&&<ChevronRight size={15}/>}</button>)}
         {!exams.length&&!loading&&<small>No examinations yet</small>}
       </div>
+      </>}
       <div className="sidebar-bottom"><Activity size={17}/><span>Local workspace<small>Files stay on this Mac</small></span></div>
     </nav>
     <main>
-      {error && <div role="alert" className="error page-error">{error}</div>}
-      {uploading ? <UploadScreen back={()=>setUploading(false)} submit={created}/> :
+      {module==='dental' && error && <div role="alert" className="error page-error">{error}</div>}
+      {module==='action' ? <ActionIntelligence/> : uploading ? <UploadScreen back={()=>setUploading(false)} submit={created}/> :
         exam?.state==='ready' && exam.report ? <ExamReview key={exam.id} exam={exam} refresh={refresh} remove={remove}/> :
         exam ? <div className="processing panel">
           <h1>{stopped?exam.stage:exam.state==='queued'?'Analysis queued':exam.state==='canceling'?'Stopping analysis':'Analyzing video'}</h1><p>{exam.title}</p>

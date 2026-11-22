@@ -109,6 +109,9 @@ def test_supplied_examples_are_not_manifest_outputs(kit):
     result = json.loads((kit.directory / 'P02_109.json').read_text())
     assert validate_submission(result, kit, require_manifest=False) == []
     result = json.loads((kit.directory / 'skiing_03.json').read_text())
+    assert result['label']['name'] == 'ski'
+    assert validate_submission(result, kit, require_manifest=False) == []
+    result['label']['name'] = 'skiing'
     with pytest.raises(ValueError, match='Unsupported video label'):
         validate_submission(result, kit, require_manifest=False)
 

@@ -1,5 +1,18 @@
 # DentiLens XR
 
+DentiLens XR is a local video intelligence project by Team Rajasthani
+from Vellore Institute of Technology, Vellore.
+
+| Capability | Purpose | Entry point |
+| --- | --- | --- |
+| Dental Intelligence | Review dental examinations with tooth overlays, instrument candidates, bookmarks and exports. | `bash run_full.sh` |
+| Action Intelligence | Analyze first-person recordings and select highlights for Samsung XR Hackathon Track 4. | `cd track4` and run `./run.sh input.mp4 outputs/input.json` |
+
+Open **Action Intelligence** in the desktop workspace to watch the Track 4
+demo and find the setup instructions. The benchmark runs from the CLI.
+The [architecture and implementation status](reference/DENTILENS_ARCHITECTURE.md)
+explains the model paths and limitations.
+
 ## Samsung XR Hackathon · Track 4
 
 Team **Rajasthani**, Vellore Institute of Technology, Vellore, built the
@@ -418,23 +431,18 @@ still required. No per-clip threshold tuning was applied to these four tests.
 
 ## Samsung Track 4
 
-The Action Intelligence Engine runs offline through
-[`track4/run.sh`](track4/run.sh). It produces timed verb–noun actions and
-selects highlights from the original first-person video. The
-[Track 4 README](track4/README.md) describes the separate setup,
-manifest runner and validation commands.
+Set up the separate [Track 4 environment](track4/README.md) and checkpoints.
+The engine writes one manifest JSON per video and can export selected source
+intervals as an MP4. EPIC-KITCHENS-100 contains 138 benchmark videos for timed
+verb–noun action prediction. FPVSum contains 49 original manifest entries for
+activity classification and highlight selection. The organizer excused two
+unavailable FPVSum videos, leaving 185 eligible entries.
 
-See the [final release report](reference/dentilens-track4-final-release.md),
-[manifest audit](results/final_manifest_audit.json) and
-[submission checklist](submission/FINAL_SUBMISSION_CHECKLIST.md),
-[package audit](submission/PACKAGE_AUDIT.md) and
-[AI disclosure](AI_DISCLOSURE.md).
-Team Rajasthani verified eight outputs locally. See the
-[public walkthrough](reference/submission/DentiLens-Track4-Walkthrough.mp4),
-[PowerPoint](reference/submission/DentiLens-Track4-Presentation.pptx) and
-[PDF](reference/submission/DentiLens-Track4-Presentation.pdf).
-The organizer's [presentation template](reference/submission/Submission_Final_forGithub.pptx)
-is preserved with the original layout.
+Action coverage counts a ground-truth action when at least 50% of its duration
+falls inside the union of the selected highlights. Action mAP evaluates labels
+separately. Keep the FPVSum annotations out of training and tuning.
+See the [organizer clarification](submission/ORGANIZER_UPDATE.md) and
+[submission files](submission/Rajasthani) for the checked snapshot.
 
 ## Model attribution
 
