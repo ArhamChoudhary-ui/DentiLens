@@ -1,18 +1,17 @@
 # EgoSight XR — Action Intelligence Engine
 
-Samsung XR Hackathon Track 4 implementation inside the DentiLens repository.
+Samsung XR Hackathon Track 4 implementation for EgoSight XR.
 Team Rajasthani · Vellore Institute of Technology, Vellore.
 
 Open **Video Intelligence** in EgoSight XR to upload and review an MP4. The browser uses the same inference engine as the standalone CLI. OpenCV decodes video, PyTorch scores RGB windows, the selector ranks temporal segments, and FFmpeg can export selected footage through the CLI.
 
 The [submission folder](../submission/EgoSight%20XR) contains the current staging snapshot. The organizer’s validator and official scores are unavailable.
 
-## Earlier release and reproducible examples
+## Demonstration and examples
 
-- [Public walkthrough MP4](https://raw.githubusercontent.com/ArhamChoudhary-ui/DentiLens/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Walkthrough.mp4)
-- [PowerPoint](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Presentation.pptx) and [PDF](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/reference/submission/DentiLens-Track4-Presentation.pdf)
-- [Final release report](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/reference/dentilens-track4-final-release.md)
-- [Actual EPIC and FPV JSON samples](reference/samples)
+- [Submission materials](../submission/EgoSight%20XR)
+- [Verification report](../reference/egosight-verification.md)
+- [Real JSON samples](reference/samples)
 
 Official weights are action coverage 40%, action mAP 25%, highlight F1
 25% and video-level label accuracy 10%. Local diagnostics use public EPIC
@@ -30,7 +29,7 @@ Verify the documented upstream sources and the SHA-256 digests in
 ```bash
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-export DENTILENS_TEAM_ID='your-registered-team-id'
+export EGOSIGHT_TEAM_ID='your-registered-team-id'
 ./run.sh "/path/to/P03_26.mp4" "/path/to/outputs/P03_26.json"
 .venv/bin/python scripts/check_submission.py --file "/path/to/outputs/P03_26.json"
 ```
@@ -93,12 +92,12 @@ The illustrative `skiing` label conflicts with the supported `ski` label.
 Runtime category mapping uses `ski` and preserves the actual video ID.
 
 ```bash
-.venv/bin/python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" \
+.venv/bin/python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$EGOSIGHT_TEAM_ID" \
   --report /path/to/audit.json --check-only
-.venv/bin/python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$DENTILENS_TEAM_ID" \
+.venv/bin/python scripts/run_manifest.py /path/to/videos /path/to/outputs --team-id "$EGOSIGHT_TEAM_ID" \
   --report /path/to/audit.json
 .venv/bin/python scripts/check_submission.py --dir /path/to/outputs
-.venv/bin/python scripts/package.py /path/to/outputs /path/to/final.zip --team-id "$DENTILENS_TEAM_ID"
+.venv/bin/python scripts/package.py /path/to/outputs /path/to/final.zip --team-id "$EGOSIGHT_TEAM_ID"
 ```
 
 The batch runner searches recursively for manifest-named MP4s and uses one

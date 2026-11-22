@@ -9,8 +9,8 @@ import json
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'code'))
-from dentilens.selection import select
-from dentilens.schema import atomic_json
+from egosight.selection import select
+from egosight.schema import atomic_json
 
 
 def measure(highlights,gt,duration):

@@ -1,6 +1,4 @@
--r requirements-grounded.txt
+-r track4/requirements.txt
 fastapi==0.121.1
 uvicorn==0.38.0
-pydantic==2.12.4
 python-multipart==0.0.20
-lap==0.5.13

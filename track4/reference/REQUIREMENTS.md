@@ -53,8 +53,7 @@ conflicts with an October 28 date on one track slide.
 The verified encoder is MCG-NJU/videomae-base at revision
 dc740ceda42fce44faed2ea03c6d447db72f6af9. Its model card describes self-supervised
 Kinetics-400 pretraining and lists CC-BY-NC-4.0. Frozen features feed separately
-trained linear verb, noun and category heads. Trained heads and dental weights
-are still needed. Training and checkpoint loading check vocabulary compatibility.
+trained linear verb, noun and category heads. The optional custom path requires trained heads. Training and checkpoint loading check vocabulary compatibility.
 
 Previously investigated model sources are
 https://huggingface.co/MCG-NJU/videomae-base and

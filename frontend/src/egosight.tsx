@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Activity, ArrowDownToLine, ArrowRight, CheckCircle2, Clock3, FileJson, Film, LayoutGrid, ScanLine, Settings2, UploadCloud } from 'lucide-react'
+import { Activity, ArrowDownToLine, ArrowRight, CheckCircle2, Clock3, FileJson, Film, LayoutGrid, Settings2, UploadCloud } from 'lucide-react'
 import { api } from './api'
 import './egosight.css'
 
 const repo = 'https://github.com/ArhamChoudhary-ui/DentiLens'
-const guide = repo + '/tree/xr-4-video-intelligence/track4'
+const guide = repo + '/tree/main/track4'
 type Span = [number, number]
 type Result = {
   duration_sec: number
@@ -98,7 +98,7 @@ function Review({ run }: { run: Run }) {
   </div>
 }
 
-export function EgoSight({openDental}: {openDental: () => void}) {
+export function EgoSight() {
   const [view,setView] = useState<View>('Overview')
   const [file,setFile] = useState<File | null>(null)
   const [preview,setPreview] = useState('')
@@ -153,7 +153,6 @@ export function EgoSight({openDental}: {openDental: () => void}) {
     <nav className="eg-nav" aria-label="EgoSight workspace">
       <button className="eg-brand" onClick={()=>setView('Overview')}><img src="/egosight.svg" alt=""/><span>EgoSight <b>XR</b></span></button>
       <div>{tabs.map(({title,Icon})=><button key={title} aria-current={view===title?'page':undefined} onClick={()=>setView(title)}><Icon size={17}/>{title}</button>)}</div>
-      <button className="eg-dental" onClick={openDental}><ScanLine size={17}/> Dental Intelligence <ArrowRight size={14}/></button>
       <small>Team Rajasthani · Track 4</small>
     </nav>
     <main className="eg-main">

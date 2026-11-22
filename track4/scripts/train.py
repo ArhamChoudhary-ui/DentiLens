@@ -11,10 +11,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'code'))
 import torch
-from dentilens.model import Encoder
-from dentilens.schema import atomic_json
-from dentilens.video import VideoReader
-from dentilens.contract import StudentKit
+from egosight.model import Encoder
+from egosight.schema import atomic_json
+from egosight.video import VideoReader
+from egosight.contract import StudentKit
 
 
 def read_rows(path):

@@ -1,6 +1,6 @@
 import json
 
-from dentilens.contract import ManifestEntry, StudentKit
+from egosight.contract import ManifestEntry, StudentKit
 from run_manifest import run_manifest
 
 

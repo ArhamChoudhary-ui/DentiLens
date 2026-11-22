@@ -6,9 +6,8 @@
 .eg-brand img { width:34px;height:34px; }
 .eg-brand b { color:var(--eg-accent); }
 .eg-nav>div { display:grid; gap:4px; }
-.eg-nav>div button,.eg-dental { display:flex; gap:9px; align-items:center; padding:10px 8px; border-radius:7px; width:100%; text-align:left; color:var(--eg-muted); font-size:.84rem; }
-.eg-nav>div button[aria-current],.eg-nav>div button:hover,.eg-dental:hover { background:#233739; color:var(--eg-accent); }
-.eg-dental { margin-top:auto; border-top:1px solid var(--eg-line); border-radius:0; }
+.eg-nav>div button { display:flex; gap:9px; align-items:center; padding:10px 8px; border-radius:7px; width:100%; text-align:left; color:var(--eg-muted); font-size:.84rem; }
+.eg-nav>div button[aria-current],.eg-nav>div button:hover:hover { background:#233739; color:var(--eg-accent); }
 .eg-nav>small { color:var(--eg-muted); padding:0 8px; }
 .eg-main { width:100%; max-width:1460px; min-width:0; padding:clamp(22px,4vw,60px); margin:auto; align-self:start; }
 .egosight h1,.egosight h2 { color:var(--eg-text); letter-spacing:-.035em; margin:0 0 12px; }
@@ -64,4 +63,4 @@
 .eg-json { max-height:320px; overflow:auto; padding:14px; background:#0d1518; border-radius:8px; font-size:.78rem; }
 .eg-string { color:#a7eed1; }.eg-number { color:#a0bcff; }
 @media (max-width:900px) { .egosight { grid-template-columns:176px minmax(0,1fr); } .eg-review{grid-template-columns:1fr} .eg-hero{gap:22px} }
-@media (max-width:640px) { .egosight { display:block; } .eg-nav{padding:12px 16px; border-right:0; border-bottom:1px solid var(--eg-line); gap:8px; } .eg-nav>div{display:flex; flex-wrap:wrap; gap:1px;} .eg-nav>div button,.eg-dental{width:auto; padding:5px 7px; font-size:.76rem;} .eg-nav>small{display:none;} .eg-main{padding:18px;} .eg-hero{grid-template-columns:1fr;} .eg-hero figure{aspect-ratio:16/9;} .eg-heading{align-items:center;} }
+@media (max-width:640px) { .egosight { display:block; } .eg-nav{padding:12px 16px; border-right:0; border-bottom:1px solid var(--eg-line); gap:8px; } .eg-nav>div{display:flex; flex-wrap:wrap; gap:1px;} .eg-nav>div button{width:auto; padding:5px 7px; font-size:.76rem;} .eg-nav>small{display:none;} .eg-main{padding:18px;} .eg-hero{grid-template-columns:1fr;} .eg-hero figure{aspect-ratio:16/9;} .eg-heading{align-items:center;} }

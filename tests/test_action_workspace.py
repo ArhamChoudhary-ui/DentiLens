@@ -1,15 +1,14 @@
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.action_workspace import ActionWorkspace
+from backend.main import create_app
 
 
 def test_action_settings_and_upload_rejection(tmp_path):
-    workspace = ActionWorkspace(tmp_path)
-    app = FastAPI()
-    app.include_router(workspace.router)
+    app = create_app(storage=tmp_path, serve_frontend=False)
+    workspace = next(route.endpoint.__self__ for route in app.routes if route.path == "/api/action/settings")
 
     with TestClient(app) as client:
+        assert client.get('/api/health').json()['status']=='ok'
         assert 'ski' in client.get('/api/action/settings').json()['labels']
         assert client.get('/api/action/runs').json() == []
         path = '/api/action/runs'
@@ -21,4 +20,3 @@ def test_action_settings_and_upload_rejection(tmp_path):
             assert client.post(path, files={'video': ('busy.mp4', b'bad')}).status_code == 409
         finally:
             workspace.slot.release()
-    workspace.pool.shutdown()

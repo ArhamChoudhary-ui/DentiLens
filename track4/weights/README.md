@@ -5,7 +5,7 @@ The loader verifies SHA-256 before loading.
 
 - `tsn_rgb.ckpt` from the [official EPIC-KITCHENS-100 TSN baseline](https://github.com/epic-kitchens/C1-Action-Recognition-TSN-TRN-TSM#pretrained-models).
   The project lists CC BY-NC 4.0. Credit University of Bristol and the
-  original TSN authors. DentiLens adapts the frame processing and scoring
+  original TSN authors. EgoSight adapts the frame processing and scoring
   code. Review distribution conditions before sharing a weights bundle.
 - `r3d_18-b3b3357e.pth` from [Torchvision](https://download.pytorch.org/models/r3d_18-b3b3357e.pth).
   The category transfer uses Kinetics-400 V1 weights.

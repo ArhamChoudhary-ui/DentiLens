@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from dentilens.pretrained import frame_tensor, LABEL_MAP, load_verified
-from dentilens.contract import StudentKit
+from egosight.pretrained import frame_tensor, LABEL_MAP, load_verified
+from egosight.contract import StudentKit
 from evaluate_local import epic_scores
 from evaluate_fpv_local import highlight_f1
 

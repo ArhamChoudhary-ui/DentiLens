@@ -60,7 +60,7 @@ def stage(outputs, destination, team_id):
                         ).replace('were unavailable in the supplied\nworkspace', 'are outstanding').replace(
                             'scripts/check_submission.py', 'code/check_submission.py'
                         ).replace(
-                            "export DENTILENS_TEAM_ID='your-registered-team-id'\n", ''
+                            "export EGOSIGHT_TEAM_ID='your-registered-team-id'\n", ''
                         ).replace(
                             '[Actual EPIC and FPV JSON samples](reference/samples)',
                             '[Locally checked predictions](outputs)'

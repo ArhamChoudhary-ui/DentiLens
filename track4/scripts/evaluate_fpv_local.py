@@ -8,7 +8,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'code'))
-from dentilens.contract import StudentKit,validate_submission
+from egosight.contract import StudentKit,validate_submission
 
 
 def highlight_f1(scores, highlights, duration):

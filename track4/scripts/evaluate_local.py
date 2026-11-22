@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'code'))
-from dentilens.contract import StudentKit, validate_submission
+from egosight.contract import StudentKit, validate_submission
 
 
 def seconds(value):

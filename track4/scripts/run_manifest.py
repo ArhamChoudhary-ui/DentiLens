@@ -121,7 +121,7 @@ def run_manifest(videos, outputs, report, team_id, check_only=False, kit=None):
                 subprocess.run(
                     ['bash', str(ROOT / 'run.sh'), str(source.resolve()), str(target.resolve()),
                      '--team-id', team_id, '--device', 'cpu'],
-                    env={**os.environ, 'DENTILENS_PYTHON': sys.executable}, check=True,
+                    env={**os.environ, 'EGOSIGHT_PYTHON': sys.executable}, check=True,
                 )
                 valid, invalid, duplicates = inspect_outputs(outputs, kit, team_id)
                 if video_id not in valid:

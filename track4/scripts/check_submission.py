@@ -5,8 +5,8 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'code'))
-from dentilens.contract import StudentKit, validate_submission
-from dentilens.schema import atomic_json
+from egosight.contract import StudentKit, validate_submission
+from egosight.schema import atomic_json
 
 
 EXCLUDED_BY_ORGANIZER = frozenset({'Scuba_KD74Ywuy9ng', 'Scuba_Um4kqB8bQBg'})

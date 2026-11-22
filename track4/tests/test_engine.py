@@ -9,11 +9,11 @@ import sys
 import numpy as np
 import pytest
 
-from dentilens.video import VideoReader, windows
-from dentilens.schema import validate, atomic_json
-from dentilens.selection import select
-from dentilens.temporal import nms, smooth
-from dentilens.pipeline import analyze
+from egosight.video import VideoReader, windows
+from egosight.schema import validate, atomic_json
+from egosight.selection import select
+from egosight.temporal import nms, smooth
+from egosight.pipeline import analyze
 
 
 def test_decode_and_source_alignment(video):
@@ -121,7 +121,7 @@ def test_motion_baseline_does_not_invent_actions(video):
     result,report=analyze(video,mode='motion-baseline')
     assert result['actions']==[] and result['label']=='unclassified'
     assert result['highlights']
-    assert report['dental']['enabled'] is False
+    assert report['mode']=='motion-baseline'
     assert report['official_schema_verified'] is False
     validate(result,120)
 
@@ -130,7 +130,7 @@ def test_cli_from_other_directory(video,tmp_path):
     root=Path(__file__).resolve().parents[1]
     result=subprocess.run(['bash',str(root/'run.sh'),str(video),str(tmp_path/'result.json'),
                            '--mode','infrastructure','--format','review'],cwd=tmp_path,capture_output=True,text=True,
-                          env={**os.environ,'DENTILENS_PYTHON':sys.executable})
+                          env={**os.environ,'EGOSIGHT_PYTHON':sys.executable})
     assert result.returncode==0,result.stderr
     assert json.loads((tmp_path/'result.json').read_text())['actions']==[]
     assert 'DEVELOPMENT OUTPUT' in result.stderr

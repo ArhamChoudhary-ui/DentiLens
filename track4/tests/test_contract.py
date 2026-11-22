@@ -8,9 +8,9 @@ import subprocess
 import sys
 
 import pytest
-from dentilens.contract import StudentKit, to_submission, validate_submission
-from dentilens.pipeline import analyze
-from dentilens.selection import select
+from egosight.contract import StudentKit, to_submission, validate_submission
+from egosight.pipeline import analyze
+from egosight.selection import select
 from make_test_video import make_video
 from check_submission import check_files
 
@@ -138,7 +138,7 @@ def test_default_cli_emits_six_key_contract(video, tmp_path):
     command = ['bash', str(root / 'run.sh'), str(source), str(output),
                '--mode', 'motion-baseline', '--team-id', 'test_team']
     result = subprocess.run(command, capture_output=True, text=True,
-                            env={**os.environ, 'DENTILENS_PYTHON': sys.executable})
+                            env={**os.environ, 'EGOSIGHT_PYTHON': sys.executable})
     assert result.returncode == 0, result.stderr
     payload = json.loads(output.read_text())
     assert set(payload) == {'team_id', 'video_id', 'duration_sec', 'label', 'actions', 'highlights'}
@@ -172,7 +172,7 @@ def test_cli_rejects_wrong_source_duration_before_inference(video, tmp_path):
     output = tmp_path / 'P03_26.json'
     result = subprocess.run(['bash', str(root / 'run.sh'), str(source), str(output),
                              '--mode', 'motion-baseline', '--team-id', 'test_team'],
-                            env={**os.environ, 'DENTILENS_PYTHON': sys.executable},
+                            env={**os.environ, 'EGOSIGHT_PYTHON': sys.executable},
                             capture_output=True, text=True)
     assert result.returncode == 1
     assert 'duration differs' in result.stderr
