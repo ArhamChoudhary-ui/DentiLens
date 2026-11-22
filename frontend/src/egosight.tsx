@@ -29,12 +29,14 @@ const endpoint = (id: string) => '/api/action/runs/' + id
 const clock = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error)
 
+const activityName = (label: string) => ({ rockclimbing: 'Rock climbing', skate: 'Skateboarding', ski: 'Skiing' }[label] ?? label)
+
 function highlightReason(evidence?: HighlightEvidence) {
   if (!evidence) return 'Run this video again to see the saved ranking signals.'
   if (evidence.fallback) return 'The selector used the first four seconds because no full-length candidate was scored.'
-  const label = [evidence.verb, evidence.noun].filter(Boolean).join(' ')
-  const score = evidence.confidence === undefined ? '' : ` (${Math.round(evidence.confidence * 100)}% model score)`
-  if (label) return `The highlight ranking used the window prediction “${label}”${score}, alongside the duration and overlap rules.`
+  const label = evidence.verb ? [evidence.verb, evidence.noun].filter(Boolean).join(' ') : activityName(evidence.noun ?? '')
+  const score = !evidence.confidence ? '' : ` (${Math.round(evidence.confidence * 100)}% window score)`
+  if (label && score) return `The ranking used the window prediction “${label}”${score}, alongside the duration and overlap rules.`
   return 'The selector ranked this window using the available scores and applied the duration and overlap rules.'
 }
 
@@ -44,6 +46,8 @@ function Review({ run }: { run: Run }) {
   const [playhead, setPlayhead] = useState(0)
   const [highlight, setHighlight] = useState(0)
   const [copied, setCopied] = useState('')
+  const selectedSpan = run.data?.highlights[highlight]?.segment
+  const selectedEvidence = run.highlight_evidence?.[highlight]
   const data = run.data!
   const actions = [...data.actions].sort((a, b) => a.segment[0] - b.segment[0])
   const laneEnds: number[] = []
@@ -66,12 +70,12 @@ function Review({ run }: { run: Run }) {
   return <div className="eg-review">
     <div>
       <video className="eg-player" ref={player} controls playsInline preload="metadata" src={endpoint(run.id)+'/video'}
-        onTimeUpdate={()=>{const v=player.current!; setPlayhead(v.currentTime); if(stopAt.current!==null&&v.currentTime>=stopAt.current){v.pause();stopAt.current=null}}}/>
+        onTimeUpdate={()=>{const v=player.current!; setPlayhead(v.currentTime); if(stopAt.current!==null&&v.currentTime>=stopAt.current){const end=stopAt.current;stopAt.current=null;v.pause();v.currentTime=end;setPlayhead(end)}}}/>
       <div className="eg-timeline" aria-label="Video timeline">
-        <div className="eg-track"><span className="eg-track-name">Actions</span><div style={{height: Math.max(13, laneEnds.length * 11 + 2)}}>
+        {actions.length > 0 && <div className="eg-track"><span className="eg-track-name">Actions</span><div style={{height: Math.max(13, laneEnds.length * 11 + 2)}}>
           {actions.map(({segment,verb,noun},i)=><button className="eg-action-mark" key={i} style={{...spanStyle(segment), top: 1 + actionLanes[i] * 11, height: 10}} onClick={()=>seek(segment[0])}
             title={`${verb} ${noun} · ${clock(segment[0])}–${clock(segment[1])}`} aria-label={`Seek to ${verb} ${noun} at ${clock(segment[0])}`}/>)}
-        </div></div>
+        </div></div>}
         <div className="eg-track"><span className="eg-track-name">Highlights</span><div>
           {data.highlights.map(({segment},i)=><button className="eg-highlight-mark" key={i} style={spanStyle(segment)} onClick={()=>{setHighlight(i);seek(...segment)}}
             title={`Play highlight ${i+1}`} aria-label={`Play highlight ${i+1}`}/>)}
@@ -85,10 +89,10 @@ function Review({ run }: { run: Run }) {
           <Film size={16}/><span>Highlight {i+1}</span><time>{clock(segment[0])}–{clock(segment[1])}</time><span>{(segment[1]-segment[0]).toFixed(1)} s</span>
         </button>)}
       </div>
-      {data.highlights[highlight] && <div className="eg-reason" aria-live="polite">
+      {selectedSpan && <div className="eg-reason" aria-live="polite">
         <h2>Why This Moment?</h2>
-        <small>Highlight {highlight + 1} · Heuristic selection</small>
-        <p>{highlightReason(run.highlight_evidence?.[highlight])}</p>
+        <small>{clock(selectedSpan[0])}–{clock(selectedSpan[1])} · {selectedEvidence?.fallback ? 'Heuristic fallback' : selectedEvidence ? 'Model-ranked highlight' : 'Ranking details unavailable'}</small>
+        <p>{highlightReason(selectedEvidence)}</p>
       </div>}
       <details className="eg-section"><summary><FileJson size={17}/> Output JSON</summary>
         <div className="eg-actions"><button className="eg-button" onClick={async()=>{
@@ -99,15 +103,15 @@ function Review({ run }: { run: Run }) {
       </details>
     </div>
     <aside className="eg-evidence">
-      <h2>Activity</h2><p className="eg-label">{data.label.name}</p>
-      <p>{run.label_source === 'Model prediction' ? data.label.name==='other'&&data.label.score===0?'The model abstained.':`${Math.round(data.label.score*100)}% model score` : 'Category supplied by the benchmark guide'}</p>
+      <h2>Activity</h2><p className="eg-label">{run.label_source === 'Model prediction' && data.label.name === 'other' && !data.label.score ? 'Activity uncertain' : activityName(data.label.name)}</p>
+      <p>{run.label_source === 'Model prediction' ? data.label.name==='other'&&data.label.score===0?'The full-video model abstained.':`${Math.round(data.label.score*100)}% full-video score` : 'Category supplied by the benchmark guide'}</p>
       <p className="eg-model">{run.model}</p>
       <p className="eg-valid"><CheckCircle2 size={16}/> Local validation passed</p>
       <p>Checked with the team-created Track 4 validator.</p>
       {!run.manifest_match && <p>Development clip. This output is outside the Samsung manifest.</p>}
       {run.warnings?.map(w=><p className="eg-warning" key={w}>{w}</p>)}
       <h2>Actions <span>{actions.length}</span></h2>
-      {!actions.length ? <p>This activity model returns video categories and highlights.</p> :
+      {!actions.length ? <p>This model scores activities and selects highlights. Timed verb–noun actions are available on the EPIC-KITCHENS path.</p> :
       <div className="eg-action-list">{actions.map(({segment,verb,noun,score},i)=><button className="eg-row" key={i} onClick={()=>seek(segment[0])}>
         <span>{i+1}</span><strong>{verb} {noun}</strong><time>{clock(segment[0])}–{clock(segment[1])}</time><span>{Math.round(score*100)}%</span>
       </button>)}</div>}

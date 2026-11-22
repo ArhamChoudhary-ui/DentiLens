@@ -81,3 +81,33 @@ pretrained model. The calibration participants were held out from fitting
 the calibration layer. They may have been seen by the upstream TSN. The
 reported values are window classification checks. The run did not measure
 official Track 4 performance. [Configuration and learning curves](tsn-calibration-results.json).
+
+## 11 PM readiness verification
+
+The original checkpoints reproduced all four real-video results in the table.
+Cooking is the organizer-supplied category for the EPIC path. On P02_13, the
+EPIC TSN aggregates sampled logits into action windows. The highest-scoring
+actions included `set alarm` at 25–27 s (87.1%), `open oven` at 19–21 s
+(62.2%), and `close oven` at 23–25 s (61.1%). The distinct four-second
+highlight window was 24–28 s and its selected action-pair score was 44.0%.
+
+The FPVSum path uses R3D-18 and returns an empty action array directly.
+The model sums softmax probabilities for Kinetics classes that map to an
+organizer category within each four-second window. The full-video score
+averages those mapped scores over the clip. On RockClimbing, the full-video
+score was 18.7% and the first window score was 87% rounded. TSN verb/noun
+mapping, calibration weights and action filtering are absent from this path.
+
+The climbing highlights showed hands reaching or holding the rock at
+0–4 s, 52–56 s and 68–72 s. The last two have a similar viewpoint.
+The three intervals are sorted and disjoint, and retain 12 of 83.5 seconds
+(14.4%). The selector's existing ranking was retained. The new UI identifies
+the selected range, separates full-video and window scores, and identifies
+a fallback without presenting it as recognition. It hides the empty action
+track on activity-only results. Highlight playback now settles at the
+selected endpoint. Browser checks passed for replacing a cooking clip with
+climbing, matching both downloads to their backend JSON, and mobile width.
+
+The local experimental calibration checkpoint loaded against the pinned TSN
+SHA-256. Its top-1 accuracies remain tied. No training was repeated during
+this verification.
