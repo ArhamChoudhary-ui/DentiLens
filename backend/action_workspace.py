@@ -35,6 +35,8 @@ class ActionWorkspace:
             ('/runs/{run_id}', self.get, 'GET'),
             ('/runs/{run_id}/video', self.video, 'GET'),
             ('/runs/{run_id}/result', self.result, 'GET'),
+            ('/runs/{run_id}/scenes', self.scenes, 'GET'),
+            ('/runs/{run_id}/thumbnails/{filename}', self.thumbnail, 'GET'),
         ]:
             self.router.add_api_route(route, endpoint, methods=[method])
 
@@ -73,11 +75,60 @@ class ActionWorkspace:
         path = self.storage / run_id.hex / 'run.json'
         if not path.is_file():
             raise HTTPException(404, 'Analysis not found.')
-        return json.loads(path.read_text())
+        record = json.loads(path.read_text())
+        if 'scene_understanding' not in record:
+            scene_file = self.storage / run_id.hex / 'scene_understanding.json'
+            if scene_file.is_file():
+                try:
+                    record['scene_understanding'] = json.loads(scene_file.read_text())
+                except Exception:
+                    pass
+        return record
 
     def video(self, run_id: UUID):
         r = self.get(run_id)
         return FileResponse(self.storage / run_id.hex / (r['video_id'] + '.mp4'), media_type='video/mp4')
+
+    def thumbnail(self, run_id: UUID, filename: str):
+        path = self.storage / run_id.hex / 'thumbnails' / filename
+        if not path.is_file() or not filename.endswith('.jpg'):
+            raise HTTPException(404, 'Thumbnail not found.')
+        return FileResponse(path, media_type='image/jpeg')
+
+    def scenes(self, run_id: UUID):
+        r = self.get(run_id)
+        if 'scene_understanding' in r and r['scene_understanding']:
+            return r['scene_understanding']
+        if r.get('status') == 'ready':
+            folder = self.storage / run_id.hex
+            src = folder / (r['video_id'] + '.mp4')
+            if src.is_file():
+                try:
+                    code_path = str(ROOT / 'code')
+                    if code_path not in sys.path:
+                        sys.path.insert(0, code_path)
+                    from egosight.scene_understanding import analyze_scene_understanding
+                    scene_data = analyze_scene_understanding(
+                        video_path=src,
+                        highlights=r.get('data', {}).get('highlights', []),
+                        actions=r.get('data', {}).get('actions', []),
+                        duration=r.get('duration', 0.0),
+                        output_dir=folder,
+                        run_id=r['id'],
+                        max_frames=14,
+                    )
+                    r['scene_understanding'] = scene_data
+                    self.write(folder, r, 'ready')
+                    return scene_data
+                except Exception as exc:
+                    LOG.exception('On-demand scene understanding failed for %s', r['id'])
+                    return {
+                        'status': 'failed',
+                        'model': 'Salesforce/blip-image-captioning-base',
+                        'error': str(exc),
+                        'scenes': [],
+                    }
+        return {'status': 'pending', 'model': 'Salesforce/blip-image-captioning-base', 'scenes': []}
 
     def result(self, run_id: UUID):
         r = self.get(run_id)
@@ -151,11 +202,38 @@ class ActionWorkspace:
             checked = json.loads(subprocess.check_output(validation, text=True, timeout=60))
             data = json.loads(target.read_text())
             provenance = json.loads(report.read_text())
+
+            # Generate AI scene understanding using BLIP
+            scene_data = None
+            try:
+                code_path = str(ROOT / 'code')
+                if code_path not in sys.path:
+                    sys.path.insert(0, code_path)
+                from egosight.scene_understanding import analyze_scene_understanding
+                scene_data = analyze_scene_understanding(
+                    video_path=src,
+                    highlights=data.get('highlights', []),
+                    actions=data.get('actions', []),
+                    duration=record.get('duration', 0.0),
+                    output_dir=folder,
+                    run_id=record['id'],
+                    max_frames=14,
+                )
+            except Exception as exc:
+                LOG.exception('Scene understanding failed for run %s', record['id'])
+                scene_data = {
+                    'status': 'failed',
+                    'model': 'Salesforce/blip-image-captioning-base',
+                    'error': str(exc),
+                    'scenes': [],
+                }
+
             self.write(folder, {**record, 'data': data, 'model': provenance['model'],
                                 'warnings': checked['warnings'].get(target.name, []),
                                 'label_source': provenance.get('class_contract', 'Model prediction'),
                                 'highlight_evidence': provenance.get('highlight_evidence', []),
-                                'manifest_match': known}, 'ready')
+                                'manifest_match': known,
+                                'scene_understanding': scene_data}, 'ready')
         except Exception as exc:
             LOG.exception('Track 4 inference failed for run %s', record['id'])
             message = str(exc) if isinstance(exc, ValueError) else 'Analysis failed or timed out. Check local logs and retry.'

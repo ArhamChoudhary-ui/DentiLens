@@ -52,8 +52,12 @@ class VideoReader:
                 decoded += 1
         finally:
             cap.release()
-        if decoded != self.info.frames:
+        if decoded == 0 or abs(decoded - self.info.frames) > 1:
             raise ValueError(f"Incomplete decode: expected {self.info.frames}, got {decoded}")
+        if decoded != self.info.frames:
+            # Reconcile container timescale/rounding discrepancy (e.g. VFR/GoPro ±1 frame)
+            # with sequentially verified stream count so bounds and duration are exact.
+            self.info = VideoInfo(decoded / self.info.fps, self.info.fps, decoded, self.info.width, self.info.height)
 
     def sample(self, start, end, count=16, size=224):
         if not (0 <= start < end <= self.info.duration) or count < 1 or size < 1:

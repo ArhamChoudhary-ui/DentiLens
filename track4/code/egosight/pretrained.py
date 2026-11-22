@@ -17,16 +17,19 @@ from .video import windows
 
 LABEL_MAP={
     'bike':('riding a bike','riding mountain bike'),
-    'boxing':('punching person (boxing)',),
-    'horse':('riding or walking with horse',),
-    'jumping':('bungee jumping','high jump','long jump','triple jump','jumping into pool'),
+    'bikepolo':('riding a bike','riding mountain bike','hitting baseball'),
+    'boxing':('punching person (boxing)','punching bag'),
+    'horse':('riding or walking with horse','grooming horse'),
+    'jumping':('high jump','long jump','triple jump','jumping into pool','jumpstyle dancing'),
+    'longboarding':('skateboarding','hoverboarding','snowboarding','roller skating'),
     'motor':('motorcycling',),
-    'parkour':('parkour',),
-    'rockclimbing':('rock climbing',),
-    'scuba':('scuba diving',),
-    'skate':('skateboarding',),
-    'ski':('skiing (not slalom or crosscountry)','skiing crosscountry','skiing slalom','ski jumping'),
-    'surfing':('surfing water','windsurfing','kitesurfing'),
+    'parkour':('parkour','vault','gymnastics tumbling'),
+    'plane':('paragliding','parasailing','skydiving','flying kite'),
+    'rockclimbing':('rock climbing','ice climbing','climbing a rope','climbing ladder','climbing tree'),
+    'scuba':('scuba diving','snorkeling'),
+    'skate':('skateboarding','hoverboarding','riding scooter','roller skating'),
+    'ski':('skiing (not slalom or crosscountry)','skiing crosscountry','skiing slalom','ski jumping','snowboarding'),
+    'surfing':('surfing water','windsurfing','kitesurfing','surfing crowd'),
 }
 
 
@@ -171,22 +174,30 @@ class FPVTransfer:
         self.mapping={name:[self.categories.index(label) for label in labels] for name,labels in LABEL_MAP.items()}
 
     def predict(self,reader):
-        candidates=[]; evidence=[]; aggregate=[]
+        candidates=[]; evidence=[]; aggregate=[]; window_scores=[]
         with torch.inference_mode():
             for start,end in windows(reader.info.duration,4.,4.):
-                frames,_=reader.sample(start,end,8,128)
+                frames,_=reader.sample(start,end,16,128)
+                motion=float(np.mean([np.abs(b.astype(float)-a.astype(float)).mean()/255 for a,b in zip(frames,frames[1:])]))
                 inputs=self.transform(torch.from_numpy(np.stack(frames)).permute(0,3,1,2)).unsqueeze(0)
                 probability=self.model(inputs.to(self.device)).softmax(1).cpu()[0]
                 scores={name:float(probability[classes].sum()) for name,classes in self.mapping.items()}
                 aggregate.append(scores)
                 best=max(scores,key=scores.get)
-                candidates.append(dict(start=start,end=end,confidence=scores[best],verb=None,noun=best))
+                window_scores.append((start,end,scores,motion))
+                candidates.append(dict(start=start,end=end,confidence=scores[best],visual=motion,verb='other',noun='other'))
                 evidence.append(dict(start=start,end=end,category_scores=scores))
         pooled={name:float(np.mean([row[name] for row in aggregate])) for name in self.mapping}
         label=max(pooled,key=pooled.get)
         score=pooled[label]
-        if score<.10:
+        if score<.04:
             label,score='other',0.
-        return [],candidates,label,score,dict(model='Torchvision R3D-18 Kinetics-400 transfer',
+        actions=[]
+        for start,end,scores,motion in window_scores:
+            act_conf=scores.get(label,0.)
+            if act_conf>=.10:
+                actions.append(dict(start=start,end=end,verb='other',noun='other',
+                                    confidence=float(np.clip(act_conf,0.,1.)),visual=motion))
+        return actions,candidates,label,score,dict(model='Torchvision R3D-18 Kinetics-400 transfer',
             checkpoint_sha256=self.checksum,category_scores=pooled,window_category_scores=evidence,
             unsupported_labels=sorted(StudentKit().labels-set(self.mapping)-{'cooking','other'}))

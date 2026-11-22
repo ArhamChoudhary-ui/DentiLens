@@ -34,6 +34,29 @@ def test_bad_video(tmp_path):
         VideoReader(broken)
 
 
+def test_verify_reconciles_single_frame_discrepancy(video):
+    reader = VideoReader(video)
+    original_frames = reader.info.frames
+    # Simulate a +1 container rounding discrepancy (e.g. VFR/action camera container timescale)
+    from egosight.video import VideoInfo
+    reader.info = VideoInfo((original_frames + 1) / reader.info.fps, reader.info.fps,
+                            original_frames + 1, reader.info.width, reader.info.height)
+    reader.verify()
+    assert reader.info.frames == original_frames
+    assert reader.info.duration == original_frames / reader.info.fps
+
+
+def test_verify_detects_truncated_video(video):
+    reader = VideoReader(video)
+    original_frames = reader.info.frames
+    # Simulate a truncated video missing multiple frames (> 1 frame discrepancy)
+    from egosight.video import VideoInfo
+    reader.info = VideoInfo((original_frames + 5) / reader.info.fps, reader.info.fps,
+                            original_frames + 5, reader.info.width, reader.info.height)
+    with pytest.raises(ValueError, match="Incomplete decode"):
+        reader.verify()
+
+
 def test_intervals_cover_tail():
     values=list(windows(121.3))
     assert values[0]==(0,4)

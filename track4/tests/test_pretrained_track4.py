@@ -27,7 +27,8 @@ def test_weights_require_the_pinned_hash(tmp_path):
 def test_category_map_uses_exact_supported_vocabulary():
     kit=StudentKit()
     assert set(LABEL_MAP)<=kit.labels and 'ski' in LABEL_MAP and 'skiing' not in LABEL_MAP
-    assert 'plane' not in LABEL_MAP
+    assert 'plane' in LABEL_MAP and 'bikepolo' in LABEL_MAP and 'longboarding' in LABEL_MAP
+    assert len(LABEL_MAP) == 14
 
 
 def test_epic_metric_uses_one_to_one_matches():
