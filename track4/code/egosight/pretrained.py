@@ -48,8 +48,23 @@ def frame_tensor(image):
     return torch.from_numpy(rgb).permute(2,0,1)
 
 
+def load_tsn_calibration(path, base_sha256):
+    artifact = torch.load(path, map_location='cpu', weights_only=True)
+    if (not isinstance(artifact, dict) or artifact.get('format') != 'egosight-tsn-calibration-v1'
+            or artifact.get('pretrained_sha256') != base_sha256):
+        raise ValueError('Calibration checkpoint does not match the source TSN weights')
+    bias, log_scale = artifact.get('bias'), artifact.get('log_scale')
+    if not all(isinstance(t, torch.Tensor) and t.shape == shape and torch.is_floating_point(t)
+               and bool(torch.isfinite(t).all()) for t, shape in ((bias, (397,)), (log_scale, (2,)))):
+        raise ValueError('Invalid TSN calibration parameters')
+    scale = log_scale.exp().repeat_interleave(torch.tensor([97, 300]))
+    if not torch.isfinite(scale).all() or not (scale > 0).all():
+        raise ValueError('Invalid TSN calibration scale')
+    return scale, bias
+
+
 class EpicTSN:
-    def __init__(self,root,device):
+    def __init__(self,root,device,calibration=None):
         manifest=json.loads((root/'receipt.json').read_text())
         annotation=root/'epic-classes.json'
         with annotation.open('rb') as stream:
@@ -75,6 +90,10 @@ class EpicTSN:
         self.model.load_state_dict(weights)
         self.model.to(self.device).eval()
         self.checksum=manifest['tsn_rgb.ckpt']
+
+        self.calibration = None
+        if calibration is not None:
+            self.calibration = load_tsn_calibration(calibration, self.checksum)
 
     def features(self,reader):
         """Decode once at half-second cadence and cache only logits and motion."""
@@ -118,6 +137,9 @@ class EpicTSN:
                 if not len(indices):
                     continue
                 mean=logits[indices].mean(0)
+                if self.calibration is not None:
+                    scale, bias = self.calibration
+                    mean = mean * scale + bias
                 verb=mean[:97].softmax(0).numpy()
                 noun=mean[97:].softmax(0).numpy()
                 probabilities=verb[self.pairs[:,0]]*noun[self.pairs[:,1]]

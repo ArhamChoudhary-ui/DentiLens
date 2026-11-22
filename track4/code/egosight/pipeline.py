@@ -8,7 +8,7 @@ from .schema import validate
 
 
 def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
-            allow_short=False, strategy='diversity', encoder_path=None, dataset=None, weights_root=None):
+            allow_short=False, strategy='diversity', encoder_path=None, dataset=None, weights_root=None, tsn_calibration=None):
     reader = VideoReader(path)
     duration = reader.info.duration
     if duration < 4:
@@ -17,6 +17,8 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
         raise ValueError('Unknown inference mode')
     # Fail before expensive decoding when inference prerequisites are absent.
     published = mode == 'model' and checkpoint is None and dataset is not None
+    if tsn_calibration is not None and (not published or dataset != 'epic_kitchens_100'):
+        raise ValueError('TSN calibration requires the pretrained EPIC action model')
     if mode == 'model' and not published and (not checkpoint or not Path(checkpoint).is_file()):
         raise ValueError('No trained action checkpoint. Train with scripts/train.py; use an explicit baseline for infrastructure QA.')
     if not (published and dataset=='epic_kitchens_100'):
@@ -31,12 +33,16 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
     if published:
         from .pretrained import EpicTSN, FPVTransfer
         root = Path(weights_root or Path(__file__).resolve().parents[2] / 'weights')
-        predictor = EpicTSN(root,device) if dataset=='epic_kitchens_100' else FPVTransfer(root,device)
+        predictor = EpicTSN(root,device,tsn_calibration) if dataset=='epic_kitchens_100' else FPVTransfer(root,device)
         actions,candidates,label,score,details = predictor.predict(reader)
         actions = nms(actions)
         actions = sorted(sorted(actions,key=lambda action:-action['confidence'])[:2000],
                          key=lambda action:(action['start'],action['end']))
         provenance.update(**details,label_score=score,action_scores=actions,device=predictor.device,dataset=dataset)
+        if tsn_calibration is not None:
+            from hashlib import file_digest
+            with Path(tsn_calibration).open('rb') as stream:
+                provenance['tsn_calibration_sha256'] = file_digest(stream, 'sha256').hexdigest()
         if dataset=='epic_kitchens_100':
             provenance['class_contract'] = 'EPIC category prescribed by the organizer guide'
     elif mode == 'model':

@@ -23,7 +23,7 @@ The JSON download matched the runner output for all four clips. The FPVSum trans
 | Reopen saved history and open benchmark and model settings | PASS |
 | Mobile overview at 390 pixels, desktop workflow at 1440 pixels | PASS |
 | FastAPI health, settings, errors, malformed upload cleanup and concurrent-run rejection | PASS |
-| Pytest and Vite production build | PASS (58 tests) |
+| Pytest and Vite production build | PASS (59 tests) |
 | Staging ZIP integrity and repeat inference from its launcher | PASS (byte-for-byte P02_13 JSON match) |
 
 
@@ -45,3 +45,39 @@ The selector also applies its heuristic, duration budget and overlap rules.
 The targeted unit test passed for both a scored candidate and a fallback
 with no confidence score. The browser download matched the runner file
 and passed the team validator with zero warnings.
+
+## Final reproducibility check
+
+The browser download matched the packaged CLI output byte for byte on
+`P02_13.mp4`. Both used the original TSN. The team validator checked all 102
+staged outputs and reported zero errors and three short-clip budget warnings.
+No complete local footage matching the other 83 eligible manifest IDs was
+found in the project runtime or Downloads.
+
+The published R3D-18 path still returns `other` for the tested skateboarding
+and surfing footage. The surfing clip’s mapped surfing score led at 0.0583,
+below the existing 0.10 fallback threshold. Skateboarding was outside the
+top two mapped categories for the skate clip. EPIC calibration does not change
+these results. The organizer footage and hidden FPVSum labels were excluded
+from the calibration data.
+
+## Frozen TSN calibration
+
+Six complete official EPIC training videos were checksum-verified. Four
+participants supplied 59 training windows (P02_116, P08_07, P06_109, P26_15).
+Two other participants supplied 70 validation windows (P03_116, P04_103).
+The CPU run took 46.9 seconds including frame extraction. The best validation
+loss was at epoch 10.
+
+| Held-out metric | Original TSN | With calibration |
+| --- | ---: | ---: |
+| Verb top-1 | 65.7% | 65.7% |
+| Noun top-1 | 75.7% | 75.7% |
+| Both correct | 55.7% | 55.7% |
+| Combined cross-entropy loss | 1.7401 | 1.7242 |
+
+The small run showed no top-1 gain. The app and staging ZIP use the original
+pretrained model. The calibration participants were held out from fitting
+the calibration layer. They may have been seen by the upstream TSN. The
+reported values are window classification checks. The run did not measure
+official Track 4 performance. [Configuration and learning curves](tsn-calibration-results.json).
