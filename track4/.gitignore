@@ -1,0 +1,8 @@
+/weights/*.ckpt
+/weights/*.pth
+/weights/*.pt
+/weights/encoder/
+/outputs/
+/team_id.txt
+/.venv/
+__pycache__/
