@@ -38,6 +38,10 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
         actions = nms(actions)
         actions = sorted(sorted(actions,key=lambda action:-action['confidence'])[:2000],
                          key=lambda action:(action['start'],action['end']))
+        meta_by_span = {(round(m['start'], 2), round(m['end'], 2)): m for m in details.get('action_metadata', [])}
+        details['action_metadata'] = [meta_by_span.get((round(a['start'], 2), round(a['end'], 2)),
+            {'start': a['start'], 'end': a['end'], 'category': 'Potential activity interval',
+             'quality_rank': i+1, 'rationale': 'Temporal action proposal.'}) for i, a in enumerate(actions)]
         provenance.update(**details,label_score=score,action_scores=actions,device=predictor.device,dataset=dataset)
         if tsn_calibration is not None:
             from hashlib import file_digest
@@ -87,6 +91,8 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
     evidence = []
     highlights = select(candidates, duration, strategy=strategy, ensure_highlight=True, evidence=evidence)
     provenance['highlight_evidence'] = evidence
+    from .selection import explain_highlights
+    provenance['highlight_details'] = explain_highlights(highlights, actions, activity=label or 'activity')
     if any(item.get('fallback') for item in evidence):
         provenance['highlight_fallback'] = 'Uniform first four seconds because no scored candidates were available'
     if duration * 0.15 < 4.0:

@@ -76,11 +76,26 @@ class ActionWorkspace:
         if not path.is_file():
             raise HTTPException(404, 'Analysis not found.')
         record = json.loads(path.read_text())
-        if 'scene_understanding' not in record:
+        if 'scene_understanding' not in record or record.get('scene_understanding', {}).get('version') != '2.0':
             scene_file = self.storage / run_id.hex / 'scene_understanding.json'
             if scene_file.is_file():
                 try:
-                    record['scene_understanding'] = json.loads(scene_file.read_text())
+                    cached = json.loads(scene_file.read_text())
+                    if cached.get('version') == '2.0':
+                        record['scene_understanding'] = cached
+                except Exception:
+                    pass
+        if 'action_metadata' not in record or 'highlight_details' not in record:
+            prov_file = self.storage / run_id.hex / 'provenance.json'
+            if prov_file.is_file():
+                try:
+                    prov = json.loads(prov_file.read_text())
+                    if 'action_metadata' not in record:
+                        record['action_metadata'] = prov.get('action_metadata', [])
+                    if 'proposal_stats' not in record:
+                        record['proposal_stats'] = prov.get('proposal_stats', {})
+                    if 'highlight_details' not in record:
+                        record['highlight_details'] = prov.get('highlight_details', [])
                 except Exception:
                     pass
         return record
@@ -97,7 +112,7 @@ class ActionWorkspace:
 
     def scenes(self, run_id: UUID):
         r = self.get(run_id)
-        if 'scene_understanding' in r and r['scene_understanding']:
+        if 'scene_understanding' in r and r['scene_understanding'] and r['scene_understanding'].get('version') == '2.0':
             return r['scene_understanding']
         if r.get('status') == 'ready':
             folder = self.storage / run_id.hex
@@ -124,11 +139,12 @@ class ActionWorkspace:
                     LOG.exception('On-demand scene understanding failed for %s', r['id'])
                     return {
                         'status': 'failed',
+                        'version': '2.0',
                         'model': 'Salesforce/blip-image-captioning-base',
                         'error': str(exc),
                         'scenes': [],
                     }
-        return {'status': 'pending', 'model': 'Salesforce/blip-image-captioning-base', 'scenes': []}
+        return {'status': 'pending', 'version': '2.0', 'model': 'Salesforce/blip-image-captioning-base', 'scenes': []}
 
     def result(self, run_id: UUID):
         r = self.get(run_id)
@@ -232,6 +248,9 @@ class ActionWorkspace:
                                 'warnings': checked['warnings'].get(target.name, []),
                                 'label_source': provenance.get('class_contract', 'Model prediction'),
                                 'highlight_evidence': provenance.get('highlight_evidence', []),
+                                'action_metadata': provenance.get('action_metadata', []),
+                                'proposal_stats': provenance.get('proposal_stats', {}),
+                                'highlight_details': provenance.get('highlight_details', []),
                                 'manifest_match': known,
                                 'scene_understanding': scene_data}, 'ready')
         except Exception as exc:

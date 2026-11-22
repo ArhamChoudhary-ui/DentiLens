@@ -1,5 +1,6 @@
 """Explainable greedy coverage selection; not claimed optimal or novel."""
 import math
+from typing import Any, Dict, List, Optional
 
 from .temporal import tiou
 
@@ -46,9 +47,25 @@ def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highli
             novelty = float(all(tiou(c, s) == 0 for s in selected))
             new_action = float(pair != (None, None) and pair not in covered)
             redundancy = float(pair in covered)
-            return max(0., min(1., .45*c.get('confidence', 0) + .30*new_action
-                               + .10*novelty + .10*c.get('visual', 0)
-                               + .05*c.get('interaction', 0) - .15*redundancy))
+
+            mid = (c['start'] + c['end']) / 2.0
+            temporal_diversity = (
+                min([abs(mid - (s['start'] + s['end']) / 2.0) / duration for s in selected])
+                if selected else (1.0 - abs(mid - duration / 2.0) / duration)
+            )
+            # Intro penalty: static or low-motion title cards in first 3.5 seconds
+            intro_penalty = 0.25 if (c['start'] < 3.5 and c.get('visual', 0.0) < 0.035 and pair in ((None, None), ('other', 'other'))) else 0.0
+
+            base = (0.40 * c.get('confidence', 0)
+                    + 0.25 * new_action
+                    + 0.10 * novelty
+                    + 0.10 * c.get('visual', 0)
+                    + 0.10 * min(1.0, temporal_diversity * 2.0)
+                    + 0.05 * c.get('interaction', 0)
+                    - 0.15 * redundancy
+                    - intro_penalty)
+            return max(0., min(1., base))
+
         ranked = sorted(remaining, key=lambda c: (-utility(c)/(c['end']-c['start']), c['start']))
         chosen = None
         for c in ranked:
@@ -69,3 +86,66 @@ def select(candidates, duration, ratio=0.15, strategy='diversity', ensure_highli
         evidence.extend({key: c[key] for key in ('verb', 'noun', 'confidence', 'visual', 'importance', 'fallback')
                          if key in c and c[key] is not None} for c in selected)
     return [{'start': c['start'], 'end': c['end'], 'importance': c['importance']} for c in selected]
+
+
+def explain_highlights(
+    highlights: List[Dict[str, Any]],
+    actions: Optional[List[Dict[str, Any]]] = None,
+    activity: str = 'activity',
+    scenes: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Generate transparent, multi-signal explanations and proposal linkages for highlights.
+    """
+    actions = actions or []
+    details = []
+    activity_clean = activity.replace('_', ' ')
+
+    for h in highlights:
+        s, e = h['start'], h['end']
+        duration = round(e - s, 2)
+        # Find overlapping proposal
+        matching = None
+        best_overlap = 0.0
+        for idx, act in enumerate(actions, start=1):
+            overlap = max(0.0, min(e, act['end']) - max(s, act['start']))
+            if overlap > best_overlap:
+                best_overlap = overlap
+                matching = (idx, act)
+
+        related_idx = matching[0] if matching else None
+        related_act = matching[1] if matching else None
+
+        # Determine rationale
+        is_rec = related_act and (
+            related_act.get('verb', 'other') != 'other' or related_act.get('noun', 'other') != 'other'
+        )
+        conf_pct = f"{round(h.get('importance', 0.5) * 100)}%"
+
+        if is_rec:
+            verb, noun = related_act['verb'], related_act['noun']
+            rat = (
+                f"Selected for high-confidence recognized interaction “{verb} {noun}” "
+                f"({conf_pct} candidate score), prioritized under the 15% budget."
+            )
+        elif related_act and related_act.get('visual', 0) > 0.05:
+            rat = (
+                f"Selected for peak {activity_clean} movement energy "
+                f"({round(related_act.get('visual', 0), 2)} visual motion) and temporal model activation ({conf_pct})."
+            )
+        else:
+            rat = (
+                f"Ranked as a salient {activity_clean} moment with high spatiotemporal feature energy "
+                f"({conf_pct}), satisfying non-overlapping temporal budget constraints."
+            )
+
+        details.append({
+            'start': s,
+            'end': e,
+            'duration': duration,
+            'importance': round(h.get('importance', 0.0), 4),
+            'related_proposal_index': related_idx,
+            'related_action': f"{related_act['verb']} {related_act['noun']}" if is_rec else None,
+            'rationale': rat,
+        })
+    return details

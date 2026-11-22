@@ -157,8 +157,11 @@ class EpicTSN:
                 evidence.append(dict(start=start,end=end,alternatives=options))
                 if length==4.:
                     candidates.append(best)
+        from .proposals import process_proposals
+        actions,action_metadata,proposal_stats=process_proposals([],reader.info.duration,'cooking',custom_actions=actions)
         return actions,candidates,'unclassified',0.,dict(model='EPIC-KITCHENS-100 TSN RGB ResNet50',
-            checkpoint_sha256=self.checksum,cached_samples=len(times),window_alternatives=evidence)
+            checkpoint_sha256=self.checksum,cached_samples=len(times),window_alternatives=evidence,
+            action_metadata=action_metadata,proposal_stats=proposal_stats)
 
 
 class FPVTransfer:
@@ -176,7 +179,7 @@ class FPVTransfer:
     def predict(self,reader):
         candidates=[]; evidence=[]; aggregate=[]; window_scores=[]
         with torch.inference_mode():
-            for start,end in windows(reader.info.duration,4.,4.):
+            for start,end in windows(reader.info.duration,4.,2.):
                 frames,_=reader.sample(start,end,16,128)
                 motion=float(np.mean([np.abs(b.astype(float)-a.astype(float)).mean()/255 for a,b in zip(frames,frames[1:])]))
                 inputs=self.transform(torch.from_numpy(np.stack(frames)).permute(0,3,1,2)).unsqueeze(0)
@@ -187,17 +190,27 @@ class FPVTransfer:
                 window_scores.append((start,end,scores,motion))
                 candidates.append(dict(start=start,end=end,confidence=scores[best],visual=motion,verb='other',noun='other'))
                 evidence.append(dict(start=start,end=end,category_scores=scores))
+
+        # Multi-duration candidate generation (e.g. 6.0s intervals around high activity moments)
+        if reader.info.duration >= 45.0:
+            for i in range(len(window_scores) - 1):
+                w1 = window_scores[i]
+                w2 = window_scores[i + 1]
+                s, e = w1[0], w2[1]
+                if e <= reader.info.duration and (e - s) >= 5.9:
+                    conf6 = (max(w1[2].values(), default=0.0) + max(w2[2].values(), default=0.0)) / 2.0
+                    mot6 = (w1[3] + w2[3]) / 2.0
+                    if conf6 >= 0.35 and mot6 >= 0.04:
+                        candidates.append(dict(start=s, end=e, confidence=conf6, visual=mot6, verb='other', noun='other'))
+
         pooled={name:float(np.mean([row[name] for row in aggregate])) for name in self.mapping}
         label=max(pooled,key=pooled.get)
         score=pooled[label]
         if score<.04:
             label,score='other',0.
-        actions=[]
-        for start,end,scores,motion in window_scores:
-            act_conf=scores.get(label,0.)
-            if act_conf>=.10:
-                actions.append(dict(start=start,end=end,verb='other',noun='other',
-                                    confidence=float(np.clip(act_conf,0.,1.)),visual=motion))
+        from .proposals import process_proposals
+        actions,action_metadata,proposal_stats=process_proposals(window_scores,reader.info.duration,label,min_conf=.10,iou_thresh=.30)
         return actions,candidates,label,score,dict(model='Torchvision R3D-18 Kinetics-400 transfer',
             checkpoint_sha256=self.checksum,category_scores=pooled,window_category_scores=evidence,
-            unsupported_labels=sorted(StudentKit().labels-set(self.mapping)-{'cooking','other'}))
+            unsupported_labels=sorted(StudentKit().labels-set(self.mapping)-{'cooking','other'}),
+            action_metadata=action_metadata,proposal_stats=proposal_stats)
