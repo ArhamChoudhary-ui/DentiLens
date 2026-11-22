@@ -21,7 +21,7 @@ TEAM_ID/
 `Rajasthani_Staging` while that identifier is unverified.
 
 [Track 4 code and setup](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/track4) ·
-[Submission files](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/submission/Rajasthani) ·
+[Submission files](submission/Rajasthani) ·
 [Final presentation](https://github.com/ArhamChoudhary-ui/DentiLens/tree/xr-4-video-intelligence/reference/submission/Final%20Presentation) ·
 [Package audit](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/PACKAGE_AUDIT.md) ·
 [Submission checklist](https://github.com/ArhamChoudhary-ui/DentiLens/blob/xr-4-video-intelligence/submission/FINAL_SUBMISSION_CHECKLIST.md)
