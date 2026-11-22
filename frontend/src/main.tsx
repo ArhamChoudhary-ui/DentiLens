@@ -566,7 +566,15 @@ function ActionIntelligence() {
 function App() {
   const [exams,setExams]=useState<Exam[]>([])
   const [id,setId]=useState<string|null>(null)
-  const [exam,setExam]=useState…99 tokens truncated…(data=>{if(data[0])setId(data[0].id)}).catch(e=>setError(message(e))).finally(()=>setLoading(false))
+  const [exam,setExam]=useState<Exam>()
+  const [uploading,setUploading]=useState(false)
+  const [module,setModule]=useState<'dental'|'action'>('dental')
+  const [pollVersion,setPollVersion]=useState(0)
+  const [error,setError]=useState('')
+  const [loading,setLoading]=useState(true)
+  async function list() { const data=await api<Exam[]>('/api/exams');setExams(data);return data }
+  useEffect(()=>{
+    list().then(data=>{if(data[0])setId(data[0].id)}).catch(e=>setError(message(e))).finally(()=>setLoading(false))
   },[])
   useEffect(()=>{
     if(!id)return
