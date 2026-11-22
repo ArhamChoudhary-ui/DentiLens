@@ -51,7 +51,7 @@ class Predictor:
             raise ValueError('Trained heads missing. Run scripts/train.py with licensed labeled footage first.')
         self.artifact = torch.load(checkpoint, map_location='cpu', weights_only=True)
         a = self.artifact
-        if a.get('format') != 'dentilens-linear-v1':
+        if a.get('format') != 'egosight-linear-v1':
             raise ValueError('Unsupported checkpoint format')
         from .contract import StudentKit
         kit = StudentKit()

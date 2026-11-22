@@ -3,8 +3,8 @@ import { Activity, ArrowDownToLine, ArrowRight, CheckCircle2, Clock3, FileJson, 
 import { api } from './api'
 import './egosight.css'
 
-const repo = 'https://github.com/ArhamChoudhary-ui/DentiLens'
-const guide = repo + '/tree/main/track4'
+const repo = 'https://github.com/ArhamChoudhary-ui/EgoSight-XR'
+const guide = repo + '/tree/xr-4-video-intelligence/track4'
 type Span = [number, number]
 type Result = {
   duration_sec: number

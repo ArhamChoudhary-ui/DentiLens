@@ -57,7 +57,7 @@ def test_manifest_duration_tolerance(submission, kit):
         validate_submission(submission, kit)
 
 
-@pytest.mark.parametrize('field,value', [('verb', 'examining'), ('noun', 'tooth')])
+@pytest.mark.parametrize('field,value', [('verb', 'teleport'), ('noun', 'spaceship')])
 def test_reject_untrained_taxonomy_mapping(submission, kit, field, value):
     submission['actions'][0][field] = value
     with pytest.raises(ValueError, match='Unsupported action'):

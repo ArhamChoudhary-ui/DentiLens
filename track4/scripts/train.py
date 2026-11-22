@@ -120,7 +120,7 @@ def main():
     metrics['learning_curves'] = training_log
     metrics['validation_windows'] = int((~tr).sum())
     metrics['note'] = 'Held-out window classification only; NOT action mAP, coverage, highlight F1 or FPVSum video accuracy.'
-    artifact = dict(format='dentilens-linear-v1', encoder=encoder.source, revision=encoder.revision,
+    artifact = dict(format='egosight-linear-v1', encoder=encoder.source, revision=encoder.revision,
                     classes=classes, pairs=sorted({(r['verb'],r['noun']) for r in train}),
                     heads=heads, validation=metrics,
                     annotations_sha256=hashlib.sha256(args.annotations.read_bytes()).hexdigest())
