@@ -121,3 +121,26 @@ Final packaging requires every output and runs the supplied validator.
 testing. Add `--staging-name Rajasthani --external-checkpoints` to build
 the shareable staging copy with source, hashes and valid development
 outputs. Acquire both pretrained checkpoints before offline inference.
+
+### Acquire and process a partial batch
+
+`scripts/acquire_manifest.py` uses the organizer manifest and the upstream
+EPIC and FPVSum source lists. It reuses verified JSON and partial EPIC
+downloads in the same directories. The six-worker configuration below is
+optional. Video inference runs one file at a time. Successful managed
+downloads are removed after their outputs pass validation.
+
+To run it, collect `epic_55_splits.csv`, `md5.csv`, and `errata.csv`
+from the [EPIC-KITCHENS downloader](https://github.com/epic-kitchens/epic-kitchens-download-scripts/tree/master/data)
+and save [FPVSum's video list](https://github.com/azuxmioy/fpvsum/blob/master/crawler/FPVSum_videolist.csv)
+as `fpvsum-videolist.csv` in the same metadata directory. Install `yt-dlp`
+if the selected work includes FPVSum video downloads.
+
+```bash
+.venv/bin/python scripts/acquire_manifest.py /path/to/student-kit /path/to/metadata \
+  /path/to/outputs /path/to/downloads --team-id DEVELOPMENT --target-count 100 --epic-workers 6
+```
+
+Monitor the local `acquisition.json` in the download directory. The
+target counts all valid outputs already in the output directory. A
+100-video run is partial coverage of the 187-video organizer manifest.
