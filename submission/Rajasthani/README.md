@@ -10,13 +10,13 @@
 
 ## Output disclosure
 
-This archive contains 98 of 187 manifest predictions, with 89 outstanding
+This archive contains 100 of 187 manifest predictions, with 87 outstanding
 and zero local validation errors. The download batch is continuing.
 The official validator was absent from the supplied kit. A separate Samsung
 TEAM_ID has not been verified. These outputs carry the development identifier.
 Checkpoint acquisition instructions and hashes are in the ZIP.
 
-The presentation and archive use the same 98-output snapshot.
+The presentation and archive use the same 100-output snapshot.
 
 ## Submission files
 
