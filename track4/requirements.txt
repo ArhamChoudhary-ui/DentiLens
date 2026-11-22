@@ -1,0 +1,10 @@
+# Python 3.11. VideoMAE integration tested with these runtime versions.
+numpy==2.4.6
+opencv-python==5.0.0.93
+torch==2.15.0
+torchvision==0.29.2
+transformers==5.10.1
+safetensors==0.7.0
+Pillow==10.1.0
+imageio-ffmpeg==0.8.1
+scipy==1.16.3

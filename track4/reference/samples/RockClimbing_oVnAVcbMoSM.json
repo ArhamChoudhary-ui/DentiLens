@@ -1,0 +1,30 @@
+{
+  "team_id": "DEVELOPMENT",
+  "video_id": "RockClimbing_oVnAVcbMoSM",
+  "duration_sec": 83.5,
+  "label": {
+    "name": "rockclimbing",
+    "score": 0.18704398881943365
+  },
+  "actions": [],
+  "highlights": [
+    {
+      "segment": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "segment": [
+        52.0,
+        56.0
+      ]
+    },
+    {
+      "segment": [
+        68.0,
+        72.0
+      ]
+    }
+  ]
+}

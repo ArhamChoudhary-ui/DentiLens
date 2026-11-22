@@ -1,0 +1,406 @@
+{
+  "team_id": "DEVELOPMENT",
+  "video_id": "P02_13",
+  "duration_sec": 29.51,
+  "label": {
+    "name": "cooking",
+    "score": 1.0
+  },
+  "actions": [
+    {
+      "segment": [
+        0.0,
+        2.0
+      ],
+      "verb": "turn-off",
+      "noun": "light",
+      "score": 0.07103396952152252
+    },
+    {
+      "segment": [
+        0.0,
+        4.0
+      ],
+      "verb": "take",
+      "noun": "glove",
+      "score": 0.14891979098320007
+    },
+    {
+      "segment": [
+        1.0,
+        3.0
+      ],
+      "verb": "take",
+      "noun": "alarm",
+      "score": 0.11212210357189178
+    },
+    {
+      "segment": [
+        2.0,
+        4.0
+      ],
+      "verb": "take",
+      "noun": "glove",
+      "score": 0.43300992250442505
+    },
+    {
+      "segment": [
+        2.0,
+        6.0
+      ],
+      "verb": "take",
+      "noun": "glove",
+      "score": 0.3203151226043701
+    },
+    {
+      "segment": [
+        3.0,
+        5.0
+      ],
+      "verb": "take",
+      "noun": "glove",
+      "score": 0.2000676989555359
+    },
+    {
+      "segment": [
+        4.0,
+        6.0
+      ],
+      "verb": "remove",
+      "noun": "glove",
+      "score": 0.04860786721110344
+    },
+    {
+      "segment": [
+        4.0,
+        8.0
+      ],
+      "verb": "put",
+      "noun": "oven",
+      "score": 0.04653864726424217
+    },
+    {
+      "segment": [
+        5.0,
+        7.0
+      ],
+      "verb": "open",
+      "noun": "oven",
+      "score": 0.04621349647641182
+    },
+    {
+      "segment": [
+        6.0,
+        8.0
+      ],
+      "verb": "open",
+      "noun": "oven",
+      "score": 0.04546280577778816
+    },
+    {
+      "segment": [
+        6.0,
+        10.0
+      ],
+      "verb": "put",
+      "noun": "oven",
+      "score": 0.061388980597257614
+    },
+    {
+      "segment": [
+        7.0,
+        9.0
+      ],
+      "verb": "put",
+      "noun": "oven",
+      "score": 0.03510623797774315
+    },
+    {
+      "segment": [
+        8.0,
+        10.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.1584576666355133
+    },
+    {
+      "segment": [
+        8.0,
+        12.0
+      ],
+      "verb": "put",
+      "noun": "oven",
+      "score": 0.1263873130083084
+    },
+    {
+      "segment": [
+        9.0,
+        11.0
+      ],
+      "verb": "take",
+      "noun": "tray",
+      "score": 0.13929830491542816
+    },
+    {
+      "segment": [
+        10.0,
+        12.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.5143114328384399
+    },
+    {
+      "segment": [
+        10.0,
+        14.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.2513183653354645
+    },
+    {
+      "segment": [
+        11.0,
+        13.0
+      ],
+      "verb": "open",
+      "noun": "oven",
+      "score": 0.15346477925777435
+    },
+    {
+      "segment": [
+        12.0,
+        14.0
+      ],
+      "verb": "take",
+      "noun": "oven",
+      "score": 0.05361495167016983
+    },
+    {
+      "segment": [
+        12.0,
+        16.0
+      ],
+      "verb": "close",
+      "noun": "bin",
+      "score": 0.0840555727481842
+    },
+    {
+      "segment": [
+        13.0,
+        15.0
+      ],
+      "verb": "close",
+      "noun": "bin",
+      "score": 0.18059231340885162
+    },
+    {
+      "segment": [
+        14.0,
+        16.0
+      ],
+      "verb": "close",
+      "noun": "bin",
+      "score": 0.26278647780418396
+    },
+    {
+      "segment": [
+        14.0,
+        18.0
+      ],
+      "verb": "take",
+      "noun": "tray",
+      "score": 0.09327945113182068
+    },
+    {
+      "segment": [
+        15.0,
+        17.0
+      ],
+      "verb": "put",
+      "noun": "jug",
+      "score": 0.047149863094091415
+    },
+    {
+      "segment": [
+        16.0,
+        18.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.40668603777885437
+    },
+    {
+      "segment": [
+        16.0,
+        20.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.3077555000782013
+    },
+    {
+      "segment": [
+        17.0,
+        19.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.3226771652698517
+    },
+    {
+      "segment": [
+        18.0,
+        20.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.09094628691673279
+    },
+    {
+      "segment": [
+        18.0,
+        22.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.2590842843055725
+    },
+    {
+      "segment": [
+        19.0,
+        21.0
+      ],
+      "verb": "open",
+      "noun": "oven",
+      "score": 0.6215988397598267
+    },
+    {
+      "segment": [
+        20.0,
+        22.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.5031848549842834
+    },
+    {
+      "segment": [
+        20.0,
+        24.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.2816883325576782
+    },
+    {
+      "segment": [
+        21.0,
+        23.0
+      ],
+      "verb": "put",
+      "noun": "tray",
+      "score": 0.2814352214336395
+    },
+    {
+      "segment": [
+        22.0,
+        24.0
+      ],
+      "verb": "slide",
+      "noun": "tray",
+      "score": 0.194521963596344
+    },
+    {
+      "segment": [
+        22.0,
+        26.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.29010942578315735
+    },
+    {
+      "segment": [
+        23.0,
+        25.0
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.6112616062164307
+    },
+    {
+      "segment": [
+        24.0,
+        26.0
+      ],
+      "verb": "set",
+      "noun": "alarm",
+      "score": 0.6088131070137024
+    },
+    {
+      "segment": [
+        24.0,
+        28.0
+      ],
+      "verb": "set",
+      "noun": "alarm",
+      "score": 0.439518004655838
+    },
+    {
+      "segment": [
+        25.0,
+        27.0
+      ],
+      "verb": "set",
+      "noun": "alarm",
+      "score": 0.8707606792449951
+    },
+    {
+      "segment": [
+        26.0,
+        28.0
+      ],
+      "verb": "set",
+      "noun": "oven",
+      "score": 0.2062426209449768
+    },
+    {
+      "segment": [
+        26.0,
+        29.51
+      ],
+      "verb": "close",
+      "noun": "oven",
+      "score": 0.20833340287208557
+    },
+    {
+      "segment": [
+        27.0,
+        29.0
+      ],
+      "verb": "close",
+      "noun": "drawer",
+      "score": 0.5510347485542297
+    },
+    {
+      "segment": [
+        28.0,
+        29.51
+      ],
+      "verb": "close",
+      "noun": "drawer",
+      "score": 0.045616086572408676
+    }
+  ],
+  "highlights": [
+    {
+      "segment": [
+        24.0,
+        28.0
+      ]
+    }
+  ]
+}

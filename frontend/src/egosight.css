@@ -1,0 +1,66 @@
+.egosight { --eg-text:#e8efe9; --eg-muted:#9aadae; --eg-line:#2c3c42; --eg-accent:#b3f8e0; min-height:100vh; display:grid; grid-template-columns:230px minmax(0,1fr); background:#10191e; color:var(--eg-text); }
+.egosight button, .egosight a { -webkit-tap-highlight-color:transparent; }
+.egosight :focus-visible { outline:2px solid var(--eg-accent); outline-offset:3px; }
+.eg-nav { display:flex; flex-direction:column; gap:20px; padding:26px 17px; border-right:1px solid var(--eg-line); background:#121e24; min-width:0; }
+.eg-brand { display:flex; gap:10px; align-items:center; text-align:left; font-size:1.24rem; font-weight:700; padding:0 4px; }
+.eg-brand img { width:34px;height:34px; }
+.eg-brand b { color:var(--eg-accent); }
+.eg-nav>div { display:grid; gap:4px; }
+.eg-nav>div button { display:flex; gap:9px; align-items:center; padding:10px 8px; border-radius:7px; width:100%; text-align:left; color:var(--eg-muted); font-size:.84rem; }
+.eg-nav>div button[aria-current],.eg-nav>div button:hover:hover { background:#233739; color:var(--eg-accent); }
+.eg-nav>small { color:var(--eg-muted); padding:0 8px; }
+.eg-main { width:100%; max-width:1460px; min-width:0; padding:clamp(22px,4vw,60px); margin:auto; align-self:start; }
+.egosight h1,.egosight h2 { color:var(--eg-text); letter-spacing:-.035em; margin:0 0 12px; }
+.egosight h1 { font-size:clamp(2rem,4.8vw,4.85rem); line-height:1.03; }
+.egosight h2 { font-size:1.2rem; }
+.egosight p { color:var(--eg-muted); line-height:1.55; }
+.eg-hero { display:grid; grid-template-columns:1.15fr 1fr; align-items:center; gap:clamp(20px,5vw,76px); padding:0 0 38px; border-bottom:1px solid var(--eg-line); }
+.eg-hero p { font-size:1.04rem; max-width:400px; margin:20px 0 24px; }
+.eg-hero figure { margin:0; position:relative; background:#14262d; border-radius:14px; overflow:hidden; aspect-ratio:6/7; }
+.eg-hero img { display:block; width:100%; height:100%; object-fit:cover; }
+.eg-hero figcaption { position:absolute; bottom:12px; right:12px; background:#10191e; padding:5px 9px; border-radius:5px; color:#cfdfdf; font-size:.72rem; }
+.eg-overview { padding-top:22px; }
+.eg-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:9px 13px; border:1px solid #456065; border-radius:8px; color:var(--eg-text); background:#19282d; font-size:.9rem; min-height:42px; }
+.eg-button:hover { background:#243b3c; }
+.eg-button.eg-primary { background:var(--eg-accent); border-color:var(--eg-accent); color:#102623; font-weight:700; }
+.eg-button.eg-primary:hover { background:#d2fff0; }
+.eg-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; }
+.eg-heading h1 { font-size:clamp(1.8rem,3.2vw,3rem); }
+.eg-heading p{margin:3px 0; overflow-wrap:anywhere;}
+.eg-drop,.eg-progress { min-height:300px; display:grid; align-content:center; justify-items:center; gap:8px; text-align:center; padding:30px; border:1px dashed #526c70; border-radius:14px; background:#17252b; }
+.eg-drop>svg,.eg-progress>svg { color:var(--eg-accent); }
+.eg-drop h2,.eg-drop p,.eg-progress h2,.eg-progress p { margin:0; }
+.eg-drop .eg-button { margin-top:10px; }
+.eg-selected { max-width:860px; }
+.eg-review { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(245px,1fr); gap:24px; }
+.eg-review>div { min-width:0; }
+.eg-player { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:13px; background:#090f13; }
+.eg-evidence { padding:16px; border:1px solid var(--eg-line); border-radius:12px; align-self:start; min-width:0; }
+.eg-evidence h2 { margin-top:10px; margin-bottom:4px; }
+.eg-evidence .eg-label { font-size:1.7rem; font-weight:700; color:var(--eg-text); margin:5px 0; text-transform:capitalize; }
+.eg-evidence .eg-model { font-size:.82rem; }
+.eg-evidence .eg-valid { display:flex; gap:7px; align-items:center; color:var(--eg-accent); }
+.eg-evidence p { margin:5px 0 13px; }
+.eg-warning { color:#ffd8a0!important; background:#342a23; padding:11px 13px; border-radius:8px; }
+.eg-timeline { margin-top:14px; padding:12px 0; border-bottom:1px solid var(--eg-line); }
+.eg-track { display:grid; grid-template-columns:65px minmax(0,1fr); align-items:center; gap:8px; margin-bottom:8px; }
+.eg-track-name,.eg-axis { color:var(--eg-muted); font-size:.73rem; }
+.eg-track>div{position:relative; height:13px; background:#243337; border-radius:3px;}
+.eg-track button{position:absolute; height:100%; min-width:3px; border:1px solid #10191e; border-radius:3px;}
+.eg-action-mark{background:#6ba6f3}.eg-highlight-mark{background:var(--eg-accent)}
+.eg-axis { display:flex; justify-content:space-between; padding-left:73px; }
+.eg-scrub { display:block; width:calc(100% - 73px); margin:6px 0 0 73px; accent-color:var(--eg-accent); }
+.eg-section { margin-top:22px; }
+.eg-section h2 span,.eg-evidence h2 span { color:var(--eg-muted); font-size:.8rem; margin-left:5px; }
+.eg-section summary { cursor:pointer; color:var(--eg-accent); }
+.eg-section summary svg { vertical-align:middle; }
+.eg-row { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:40px; padding:9px 5px; border-bottom:1px solid var(--eg-line); text-align:left; font-size:.82rem; }
+.eg-row:hover{background:#1b3135}.eg-row strong{flex:1;overflow-wrap:anywhere}
+.eg-row time,.eg-row>span { color:var(--eg-muted); font-variant-numeric:tabular-nums; }
+.eg-row time { white-space:nowrap; }
+.eg-action-list { max-height:330px; overflow:auto; }
+.eg-actions { display:flex; gap:7px; flex-wrap:wrap; margin:12px 0; }
+.eg-json { max-height:320px; overflow:auto; padding:14px; background:#0d1518; border-radius:8px; font-size:.78rem; }
+.eg-string { color:#a7eed1; }.eg-number { color:#a0bcff; }
+@media (max-width:900px) { .egosight { grid-template-columns:176px minmax(0,1fr); } .eg-review{grid-template-columns:1fr} .eg-hero{gap:22px} }
+@media (max-width:640px) { .egosight { display:block; } .eg-nav{padding:12px 16px; border-right:0; border-bottom:1px solid var(--eg-line); gap:8px; } .eg-nav>div{display:flex; flex-wrap:wrap; gap:1px;} .eg-nav>div button{width:auto; padding:5px 7px; font-size:.76rem;} .eg-nav>small{display:none;} .eg-main{padding:18px;} .eg-hero{grid-template-columns:1fr;} .eg-hero figure{aspect-ratio:16/9;} .eg-heading{align-items:center;} }
