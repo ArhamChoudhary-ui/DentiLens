@@ -229,19 +229,26 @@ def download_with_resume(
         'percent': round(100 * existing_bytes / max(1, file_size), 1),
     })
 
-    if existing_bytes < file_size:
+    max_download_attempts = 4
+    for attempt in range(max_download_attempts):
+        cur_bytes = partial.stat().st_size if partial.is_file() else 0
+        if cur_bytes >= file_size:
+            break
+
         curl_cmd = [
             'curl', '-fsSL',
             '--continue-at', '-',
-            '--connect-timeout', '20',
-            '--speed-time', '45',
-            '--speed-limit', '1024',
-            '--retry', '4',
-            '--retry-delay', '3',
+            '--connect-timeout', '30',
+            '--speed-time', '60',
+            '--speed-limit', '500',
+            '--retry', '8',
+            '--retry-delay', '5',
+            '--retry-connrefused',
             '--output', str(partial),
             url,
         ]
         start_time = time.monotonic()
+        existing_at_start = cur_bytes
         proc = subprocess.Popen(curl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         while proc.poll() is None:
@@ -254,7 +261,7 @@ def download_with_resume(
             time.sleep(2)
             cur_bytes = partial.stat().st_size if partial.is_file() else 0
             elapsed = time.monotonic() - start_time
-            bytes_delta = cur_bytes - existing_bytes
+            bytes_delta = cur_bytes - existing_at_start
             speed_kbps = round((bytes_delta / 1024) / max(0.1, elapsed), 1)
             eta_sec = round((file_size - cur_bytes) / max(100, speed_kbps * 1024))
             state.set_active_job({
@@ -269,7 +276,10 @@ def download_with_resume(
 
         if proc.returncode != 0:
             err = proc.stderr.read().decode('utf-8', errors='replace').strip()
-            raise RuntimeError(f'curl download failed (exit {proc.returncode}): {err}')
+            LOG.warning('Download attempt %d/%d failed for %s: %s', attempt + 1, max_download_attempts, video_id, err)
+            if attempt == max_download_attempts - 1:
+                raise RuntimeError(f'curl download failed after {max_download_attempts} attempts (exit {proc.returncode}): {err}')
+            time.sleep(5)
 
     # Download complete, verify checksum
     state.set_active_job({
