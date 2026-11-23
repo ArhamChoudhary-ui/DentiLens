@@ -35,8 +35,8 @@ def test_action_dataset_and_metrics_endpoints(tmp_path):
         dataset = dataset_res.json()
         assert dataset['summary']['total_manifest'] == 187
         assert dataset['summary']['eligible'] == 185
-        assert dataset['summary']['validated'] in (102, 185)
-        assert dataset['summary']['missing'] in (0, 83)
+        assert dataset['summary']['validated'] == 102
+        assert dataset['summary']['missing'] == 83
         assert dataset['summary']['excluded'] == 2
         assert dataset['disk']['free_gb'] > 0
         assert dataset['network']['measured_rate_kbps'] in (275.4, 319.5)
@@ -68,7 +68,7 @@ def test_action_dataset_and_metrics_endpoints(tmp_path):
         assert export_res.headers['content-type'] == 'application/zip'
         with zipfile.ZipFile(io.BytesIO(export_res.content), 'r') as zf:
             namelist = zf.namelist()
-            assert len(namelist) in (102, 187)
+            assert len(namelist) == 102
             assert 'Surfing_7bzMGVKaiCQ.json' in namelist
 
         # Test acquire endpoint

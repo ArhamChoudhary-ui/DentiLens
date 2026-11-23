@@ -1236,8 +1236,8 @@ export function EgoSight() {
             <button className="eg-button" onClick={triggerBatchRetry}>
               <RotateCcw size={15}/> Retry Failed
             </button>
-            <a href="/api/action/export/all" download="EgoSight_XR_187_Outputs_Track4.zip" className="eg-button">
-              <Download size={15}/> Download Validated ZIP ({datasetData?.summary.validated ?? 187})
+            <a href="/api/action/export/all" download="EgoSight_XR_102_Outputs_Track4.zip" className="eg-button">
+              <Download size={15}/> Download Validated ZIP ({datasetData?.summary.validated ?? 102})
             </a>
           </div>
         </header>
