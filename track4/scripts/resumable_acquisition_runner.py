@@ -20,6 +20,10 @@ except ImportError:
     cv2 = None
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / 'scripts') not in sys.path:
+    sys.path.insert(0, str(ROOT / 'scripts'))
+if str(ROOT / 'code') not in sys.path:
+    sys.path.insert(0, str(ROOT / 'code'))
 LOG = logging.getLogger('resumable_runner')
 
 GIB = 1024 ** 3

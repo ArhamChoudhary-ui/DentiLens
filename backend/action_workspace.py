@@ -326,7 +326,7 @@ class ActionWorkspace:
         return Response(
             content=buf.getvalue(),
             media_type='application/zip',
-            headers={'Content-Disposition': 'attachment; filename="EgoSight_XR_102_Outputs_Track4.zip"'},
+            headers={'Content-Disposition': f'attachment; filename="EgoSight_XR_{len(json_files)}_Outputs_Track4.zip"'},
         )
 
     def prediction(self, video_id: str):

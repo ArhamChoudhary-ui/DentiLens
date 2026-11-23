@@ -98,6 +98,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('outputs', type=Path)
     parser.add_argument('destination', type=Path)
-    parser.add_argument('--team-id', default='DEVELOPMENT')
+    parser.add_argument('--team-id', default='Rajasthani')
     args = parser.parse_args()
     stage(args.outputs, args.destination, args.team_id)
