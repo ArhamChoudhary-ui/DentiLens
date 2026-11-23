@@ -433,11 +433,23 @@ class ActionWorkspace:
             try:
                 data = json.loads(state_file.read_text())
                 reset_count = 0
+                counts = {}
                 for v in data.get('videos', {}).values():
                     if v.get('status') == 'failed':
                         v['status'] = 'pending'
                         v['error'] = None
                         reset_count += 1
+                    st = v.get('status', 'pending')
+                    counts[st] = counts.get(st, 0) + 1
+                if 'summary' in data:
+                    data['summary'].update({
+                        'validated': counts.get('validated', 0),
+                        'pending': counts.get('pending', 0),
+                        'downloading': counts.get('downloading', 0),
+                        'processing': counts.get('processing', 0),
+                        'failed': counts.get('failed', 0),
+                        'unavailable': counts.get('unavailable', 0),
+                    })
                 tmp = state_file.with_suffix('.tmp')
                 tmp.write_text(json.dumps(data, indent=2))
                 tmp.replace(state_file)
