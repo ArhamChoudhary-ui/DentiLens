@@ -210,7 +210,10 @@ def download_with_resume(
     file_size = get_upstream_file_size(url)
 
     existing_bytes = partial.stat().st_size if partial.is_file() else 0
-    if existing_bytes > file_size:
+    if existing_bytes == 0 and partial.is_file():
+        partial.unlink()
+        existing_bytes = 0
+    elif existing_bytes > file_size:
         LOG.warning('Existing .part file (%d bytes) exceeds remote size (%d). Truncating.', existing_bytes, file_size)
         partial.unlink()
         existing_bytes = 0
@@ -229,7 +232,7 @@ def download_with_resume(
         'percent': round(100 * existing_bytes / max(1, file_size), 1),
     })
 
-    max_download_attempts = 4
+    max_download_attempts = 6
     for attempt in range(max_download_attempts):
         cur_bytes = partial.stat().st_size if partial.is_file() else 0
         if cur_bytes >= file_size:
@@ -241,9 +244,10 @@ def download_with_resume(
             '--connect-timeout', '30',
             '--speed-time', '60',
             '--speed-limit', '500',
-            '--retry', '8',
+            '--retry', '10',
             '--retry-delay', '5',
             '--retry-connrefused',
+            '--retry-all-errors',
             '--output', str(partial),
             url,
         ]
@@ -279,7 +283,9 @@ def download_with_resume(
             LOG.warning('Download attempt %d/%d failed for %s: %s', attempt + 1, max_download_attempts, video_id, err)
             if attempt == max_download_attempts - 1:
                 raise RuntimeError(f'curl download failed after {max_download_attempts} attempts (exit {proc.returncode}): {err}')
-            time.sleep(5)
+            backoff = min(60, 5 * (2 ** attempt))
+            LOG.info('Retrying %s in %d seconds (attempt %d/%d)...', video_id, backoff, attempt + 2, max_download_attempts)
+            time.sleep(backoff)
 
     # Download complete, verify checksum
     state.set_active_job({
