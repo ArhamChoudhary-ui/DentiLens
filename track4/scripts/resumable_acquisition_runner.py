@@ -101,15 +101,42 @@ def verify_media_file(path: Path, expected_md5: str = None, check_opencv: bool =
     return True, None
 
 
-def get_upstream_file_size(url: str, timeout: int = 25) -> int:
-    cmd = ['curl', '-fsSL', '-I', '--connect-timeout', '15', '--max-time', str(timeout), url]
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise RuntimeError(f'HTTP HEAD failed for {url}: {res.stderr.strip()}')
-    lengths = re.findall(r'^Content-Length:\s*(\d+)', res.stdout, re.IGNORECASE | re.MULTILINE)
-    if not lengths:
-        raise RuntimeError(f'Upstream server did not supply Content-Length header for {url}')
-    return int(lengths[-1])
+def wait_for_connectivity(host: str = 'data.bris.ac.uk', max_wait_sec: int = 7200, check_interval: int = 15, stop_event=None) -> bool:
+    """Pause execution gracefully until upstream DNS/network connectivity is established."""
+    import socket
+    start = time.monotonic()
+    logged = False
+    while time.monotonic() - start < max_wait_sec:
+        if stop_event and stop_event.is_set():
+            return False
+        try:
+            socket.gethostbyname(host)
+            if logged:
+                LOG.info('Network connectivity to %s restored after %.1fs', host, time.monotonic() - start)
+            return True
+        except (socket.gaierror, socket.error):
+            if not logged:
+                LOG.warning('Network unreachable (cannot resolve %s). Pausing runner until connectivity returns...', host)
+                logged = True
+            time.sleep(check_interval)
+    LOG.error('Network connectivity could not be established within %d seconds', max_wait_sec)
+    return False
+
+
+def get_upstream_file_size(url: str, timeout: int = 25, stop_event=None) -> int:
+    from urllib.parse import urlparse
+    host = urlparse(url).hostname or 'data.bris.ac.uk'
+    wait_for_connectivity(host, stop_event=stop_event)
+    for attempt in range(6):
+        cmd = ['curl', '-fsSL', '-I', '--connect-timeout', '15', '--max-time', str(timeout), url]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0:
+            lengths = re.findall(r'^Content-Length:\s*(\d+)', res.stdout, re.IGNORECASE | re.MULTILINE)
+            if lengths:
+                return int(lengths[-1])
+        wait_for_connectivity(host, stop_event=stop_event)
+        time.sleep(min(30, 5 * (2 ** attempt)))
+    raise RuntimeError(f'HTTP HEAD failed for {url} after retries: {res.stderr.strip()}')
 
 
 class AcquisitionState:
@@ -206,8 +233,12 @@ def download_with_resume(
     video_id: str,
     stop_event,
 ) -> bool:
+    from urllib.parse import urlparse
+    host = urlparse(url).hostname or 'data.bris.ac.uk'
+    wait_for_connectivity(host, stop_event=stop_event)
+
     partial = target_mp4.with_suffix('.part')
-    file_size = get_upstream_file_size(url)
+    file_size = get_upstream_file_size(url, stop_event=stop_event)
 
     existing_bytes = partial.stat().st_size if partial.is_file() else 0
     if existing_bytes == 0 and partial.is_file():
@@ -232,11 +263,13 @@ def download_with_resume(
         'percent': round(100 * existing_bytes / max(1, file_size), 1),
     })
 
-    max_download_attempts = 6
+    max_download_attempts = 10
     for attempt in range(max_download_attempts):
         cur_bytes = partial.stat().st_size if partial.is_file() else 0
         if cur_bytes >= file_size:
             break
+
+        wait_for_connectivity(host, stop_event=stop_event)
 
         curl_cmd = [
             'curl', '-fsSL',
@@ -283,7 +316,8 @@ def download_with_resume(
             LOG.warning('Download attempt %d/%d failed for %s: %s', attempt + 1, max_download_attempts, video_id, err)
             if attempt == max_download_attempts - 1:
                 raise RuntimeError(f'curl download failed after {max_download_attempts} attempts (exit {proc.returncode}): {err}')
-            backoff = min(60, 5 * (2 ** attempt))
+            wait_for_connectivity(host, stop_event=stop_event)
+            backoff = min(120, 10 * (2 ** min(attempt, 4)))
             LOG.info('Retrying %s in %d seconds (attempt %d/%d)...', video_id, backoff, attempt + 2, max_download_attempts)
             time.sleep(backoff)
 
