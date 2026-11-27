@@ -558,9 +558,22 @@ def sync_and_stage_video(vid: str, output_json: Path, team_id: str = 'Rajasthani
         LOG.info('Auto-committing and pushing %s to egosight/feature/full-dataset-intelligence...', vid)
         subprocess.run(['git', 'add', str(audit_path)], check=True)
         commit_msg = f"feat(provenance): genuine validation of {vid}, incrementing verified coverage to {genuine_count}/185 ({pct}%)"
-        subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
-        subprocess.run(['git', 'push', 'egosight', 'feature/full-dataset-intelligence'], check=True)
-        LOG.info('Successfully pushed commit for %s to GitHub!', vid)
+        try:
+            subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
+        except subprocess.CalledProcessError:
+            pass  # Already committed or clean
+        pushed = False
+        for push_attempt in range(5):
+            res = subprocess.run(['git', 'push', 'egosight', 'feature/full-dataset-intelligence'])
+            if res.returncode == 0:
+                pushed = True
+                break
+            LOG.warning('Git push attempt %d failed, retrying in 5s...', push_attempt + 1)
+            time.sleep(5)
+        if pushed:
+            LOG.info('Successfully pushed commit for %s to GitHub!', vid)
+        else:
+            LOG.error('Failed to push %s to GitHub after 5 attempts', vid)
 
 
 def run_pipeline(
