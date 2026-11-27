@@ -316,7 +316,8 @@ def download_with_resume(
             b_start = b_idx * block_size
             b_end = min(b_start + block_size - 1, file_size - 1)
             exp_len = b_end - b_start + 1
-            for attempt in range(5):
+            max_block_retries = 15
+            for attempt in range(max_block_retries):
                 if stop_event and stop_event.is_set():
                     return None
                 try:
@@ -331,9 +332,9 @@ def download_with_resume(
                         return b_idx, len(chunk)
                 except Exception as exc:
                     wait_for_connectivity(host, stop_event=stop_event)
-                    if attempt == 4:
-                        raise RuntimeError(f'Block {b_idx} failed after retries: {exc}')
-                    time.sleep(min(15, 2 ** attempt))
+                    if attempt == max_block_retries - 1:
+                        raise RuntimeError(f'Block {b_idx} failed after {max_block_retries} retries: {exc}')
+                    time.sleep(min(30, 2 * (attempt + 1)))
 
         try:
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
