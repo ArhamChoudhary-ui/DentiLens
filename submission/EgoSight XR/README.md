@@ -8,7 +8,7 @@ Samsung R&D Institute India XR Hackathon 2026 · Track 4
 3. [Video Intelligence walkthrough](EgoSight%20XR%20Demo.mp4)
 4. [Track 4 staging archive](Rajasthani_Track4_Staging.zip)
 5. [Local verification](../../reference/egosight-verification.md)
-6. [AI disclosure](../../AI_DISCLOSURE.md)
+6. [AI disclosure](../../AI.DISCLOSURE.md)
 
 The 53-second demo records the browser workflow on `P02_13.mp4` and `RockClimbing_oVnAVcbMoSM.mp4`. It shows how the action and activity paths differ. The public recording hides the source footage while retaining processing status, the action timeline, highlight controls, Why This Moment?, and generated JSON.
 
