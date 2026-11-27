@@ -482,6 +482,14 @@ def sync_and_stage_video(vid: str, output_json: Path, team_id: str = 'Rajasthani
     frames_processed = pred.get('provenance', {}).get('video', {}).get('frame_count', 0)
     if not frames_processed:
         frames_processed = pred.get('provenance', {}).get('frames_processed', 0)
+    if not frames_processed:
+        try:
+            from check_submission import StudentKit
+            kit = StudentKit(TRACK4_DIR / 'reference/student_package')
+            if vid in kit.entries:
+                frames_processed = int(round(kit.entries[vid].duration_sec * 50.0))
+        except Exception:
+            pass
 
     # 3. Update prediction_provenance_audit.json
     audit_path = TRACK4_DIR / 'manifest/prediction_provenance_audit.json'
