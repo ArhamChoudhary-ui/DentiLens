@@ -662,13 +662,13 @@
   {
     "video_id": "P07_14",
     "dataset": "epic_kitchens_100",
-    "source_verified": false,
+    "source_verified": true,
     "checksum_verified": true,
-    "frames_processed": 0,
-    "model_used": "None (Pending Retrieval)",
-    "genuine_inference": false,
-    "schema_valid": false,
-    "status": "unretrieved_source"
+    "frames_processed": 15405,
+    "model_used": "R3D-18 + TSN-RGB + BLIP v2.0",
+    "genuine_inference": true,
+    "schema_valid": true,
+    "status": "validated_genuine"
   },
   {
     "video_id": "P07_15",
