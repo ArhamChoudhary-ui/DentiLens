@@ -21,6 +21,7 @@ def main():
                    help='Allow an ID outside the official manifest for explicit development runs')
     p.add_argument('--mode', choices=['model','motion-baseline','infrastructure'], default='model')
     p.add_argument('--checkpoint', type=Path, help='Optional custom VideoMAE heads')
+    p.add_argument('--tsn-calibration', type=Path, help='Explicit opt-in to experimental EPIC TSN calibration')
     p.add_argument('--weights-root', type=Path, default=root/'weights')
     p.add_argument('--dataset', choices=['epic_kitchens_100','fpvsum'],
                    help='Select the research head for a non-manifest development video')
@@ -37,9 +38,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     try:
         paths = [args.input.resolve(), args.output.resolve()]
-        paths += [x.resolve() for x in (args.report, args.highlight_mp4) if x is not None]
+        paths += [x.resolve() for x in (args.report, args.highlight_mp4, args.tsn_calibration) if x is not None]
         if len(paths) != len(set(paths)):
-            raise ValueError('Input, JSON, report and MP4 paths must be distinct')
+            raise ValueError('Input, output, report and calibration paths must be distinct')
         kit = StudentKit()
         entry = kit.entries.get(args.input.stem)
         if entry and args.dataset and entry.dataset!=args.dataset:
@@ -59,7 +60,7 @@ def main():
                     raise ValueError('Input duration differs from the manifest by more than 0.5s')
         started=perf_counter()
         result, provenance = analyze(args.input, args.mode, args.checkpoint, args.device,
-                                     not args.allow_download, args.allow_short, args.strategy, args.encoder_path, dataset, args.weights_root)
+                                     not args.allow_download, args.allow_short, args.strategy, args.encoder_path, dataset, args.weights_root, args.tsn_calibration)
         provenance['analysis_seconds']=perf_counter()-started
         if args.format == 'submission':
             result, warnings = to_submission(result, provenance, args.team_id, kit,

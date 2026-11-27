@@ -27,7 +27,8 @@ def test_weights_require_the_pinned_hash(tmp_path):
 def test_category_map_uses_exact_supported_vocabulary():
     kit=StudentKit()
     assert set(LABEL_MAP)<=kit.labels and 'ski' in LABEL_MAP and 'skiing' not in LABEL_MAP
-    assert 'plane' not in LABEL_MAP
+    assert 'plane' in LABEL_MAP and 'bikepolo' in LABEL_MAP and 'longboarding' in LABEL_MAP
+    assert len(LABEL_MAP) == 14
 
 
 def test_epic_metric_uses_one_to_one_matches():
@@ -41,3 +42,22 @@ def test_epic_metric_uses_one_to_one_matches():
 def test_fpv_frame_metric_counts_highlight_once():
     scores=np.arange(20.)
     assert highlight_f1(scores,[{'segment':[17.,20.]}],20.)['f1']==1.
+
+
+def test_calibration_requires_matching_base_and_finite_parameters(tmp_path):
+    import torch
+    from egosight.pretrained import load_tsn_calibration
+
+    path = tmp_path / 'calibration.pt'
+    data = {'format': 'egosight-tsn-calibration-v1', 'pretrained_sha256': 'base',
+            'bias': torch.zeros(397), 'log_scale': torch.zeros(2)}
+    torch.save(data, path)
+    scale, bias = load_tsn_calibration(path, 'base')
+    assert torch.equal(scale, torch.ones(397))
+    assert torch.equal(bias, torch.zeros(397))
+    with pytest.raises(ValueError, match='does not match'):
+        load_tsn_calibration(path, 'different')
+    data['bias'][0] = float('nan')
+    torch.save(data, path)
+    with pytest.raises(ValueError, match='Invalid'):
+        load_tsn_calibration(path, 'base')

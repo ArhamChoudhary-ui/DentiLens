@@ -139,3 +139,32 @@ if the selected work includes FPVSum video downloads.
 Monitor the local `acquisition.json` in the download directory. The
 target counts all valid outputs already in the output directory. A
 100-video run is partial coverage of the 187-video organizer manifest.
+
+## Optional TSN calibration experiment
+
+The trainer freezes the existing TSN ResNet-50 and learns two temperature
+parameters and 397 class offsets. It verifies the official training annotation
+file and source-video checksums, separates participants across splits, and logs
+held-out results against the unchanged logits on the same windows.
+
+Run from the repository root with the six complete official videos named
+`<video_id>.mp4` and the original `EPIC_100_train.csv` and downloader
+`md5.csv`. The experiment uses official EPIC training footage and excludes
+Samsung manifest IDs.
+
+```bash
+.venv/bin/python track4/scripts/train_tsn_calibration.py \
+  /path/to/EPIC_100_train.csv /path/to/training-videos runtime/tsn-calibration.pt \
+  --checksums /path/to/md5.csv \
+  --train P02_116 P08_07 P06_109 P26_15 --val P03_116 P04_103
+```
+
+Use `--tsn-calibration /path/to/checkpoint.pt` to opt in explicitly on EPIC
+inference. The normal browser and two-argument submission command use the
+original TSN weights and need no calibration checkpoint. Held-out windows are
+independent for the calibration layer. The upstream TSN may already have seen
+them during pretraining. This comparison is a development check for verb and
+noun classification on annotated windows. It does not measure localization,
+FPVSum activity recognition or official Track 4 scores.
+
+[Recorded calibration results](../reference/tsn-calibration-results.json) from the six-source CPU experiment.

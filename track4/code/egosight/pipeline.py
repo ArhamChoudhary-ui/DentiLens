@@ -8,7 +8,7 @@ from .schema import validate
 
 
 def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
-            allow_short=False, strategy='diversity', encoder_path=None, dataset=None, weights_root=None):
+            allow_short=False, strategy='diversity', encoder_path=None, dataset=None, weights_root=None, tsn_calibration=None):
     reader = VideoReader(path)
     duration = reader.info.duration
     if duration < 4:
@@ -17,6 +17,8 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
         raise ValueError('Unknown inference mode')
     # Fail before expensive decoding when inference prerequisites are absent.
     published = mode == 'model' and checkpoint is None and dataset is not None
+    if tsn_calibration is not None and (not published or dataset != 'epic_kitchens_100'):
+        raise ValueError('TSN calibration requires the pretrained EPIC action model')
     if mode == 'model' and not published and (not checkpoint or not Path(checkpoint).is_file()):
         raise ValueError('No trained action checkpoint. Train with scripts/train.py; use an explicit baseline for infrastructure QA.')
     if not (published and dataset=='epic_kitchens_100'):
@@ -31,12 +33,20 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
     if published:
         from .pretrained import EpicTSN, FPVTransfer
         root = Path(weights_root or Path(__file__).resolve().parents[2] / 'weights')
-        predictor = EpicTSN(root,device) if dataset=='epic_kitchens_100' else FPVTransfer(root,device)
+        predictor = EpicTSN(root,device,tsn_calibration) if dataset=='epic_kitchens_100' else FPVTransfer(root,device)
         actions,candidates,label,score,details = predictor.predict(reader)
         actions = nms(actions)
         actions = sorted(sorted(actions,key=lambda action:-action['confidence'])[:2000],
                          key=lambda action:(action['start'],action['end']))
+        meta_by_span = {(round(m['start'], 2), round(m['end'], 2)): m for m in details.get('action_metadata', [])}
+        details['action_metadata'] = [meta_by_span.get((round(a['start'], 2), round(a['end'], 2)),
+            {'start': a['start'], 'end': a['end'], 'category': 'Potential activity interval',
+             'quality_rank': i+1, 'rationale': 'Temporal action proposal.'}) for i, a in enumerate(actions)]
         provenance.update(**details,label_score=score,action_scores=actions,device=predictor.device,dataset=dataset)
+        if tsn_calibration is not None:
+            from hashlib import file_digest
+            with Path(tsn_calibration).open('rb') as stream:
+                provenance['tsn_calibration_sha256'] = file_digest(stream, 'sha256').hexdigest()
         if dataset=='epic_kitchens_100':
             provenance['class_contract'] = 'EPIC category prescribed by the organizer guide'
     elif mode == 'model':
@@ -78,8 +88,12 @@ def analyze(path, mode='model', checkpoint=None, device='auto', offline=True,
             candidates.append(dict(start=start, end=end, visual=motion, confidence=0.0))
         strategy = 'motion'
         provenance['limitations'].append('Motion-only baseline: no recognized actions or predicted video category.')
-    highlights = select(candidates, duration, strategy=strategy, ensure_highlight=True)
-    if not candidates:
+    evidence = []
+    highlights = select(candidates, duration, strategy=strategy, ensure_highlight=True, evidence=evidence)
+    provenance['highlight_evidence'] = evidence
+    from .selection import explain_highlights
+    provenance['highlight_details'] = explain_highlights(highlights, actions, activity=label or 'activity')
+    if any(item.get('fallback') for item in evidence):
         provenance['highlight_fallback'] = 'Uniform first four seconds because no scored candidates were available'
     if duration * 0.15 < 4.0:
         provenance['budget_warning'] = 'Four-second minimum exceeds 15% for this short source video'

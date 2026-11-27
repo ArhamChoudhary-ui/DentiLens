@@ -9,6 +9,6 @@ Watch our project demonstration for the Samsung R&D Institute India XR Hackathon
 
 ### ▶ [CLICK HERE TO WATCH THE DEMO](https://youtu.be/xbGrm-yJKU0)
 
-**Developed by:** Team Rajasthani  
-**Institution:** Vellore Institute of Technology, Vellore  
+**Developed by:** Team Rajasthani
+**Institution:** Vellore Institute of Technology, Vellore
 **Track:** Track 4 — Action-Aware Egocentric Video Understanding and Intelligent Summarization

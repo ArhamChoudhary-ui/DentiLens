@@ -1,0 +1,749 @@
+[
+  {
+    "video_id": "P01_11",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 561.53,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P01/P01_11.MP4",
+    "expected_md5": "647c9e4764d4ca96e73d26cdd1595062",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P01_12",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 173.81,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P01/P01_12.MP4",
+    "expected_md5": "14f7ccee6acf6787ef3b85384849c742",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P01_14",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1352.59,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P01/P01_14.MP4",
+    "expected_md5": "73c669d6f7e7031b11becda8105af433",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P01_15",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 924.96,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P01/P01_15.MP4",
+    "expected_md5": "d99b68d705662450a0be1d0a36fc09bf",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P02_12",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1315.33,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P02/P02_12.MP4",
+    "expected_md5": "36be53bad45d750c517d6b7d81631e49",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P03_23",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 509.64,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P03/P03_23.MP4",
+    "expected_md5": "3aaee9fcc24be29fd7a1675e92d1846a",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P03_24",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 821.79,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P03/P03_24.MP4",
+    "expected_md5": "d331ec65e2cb11f83ed7af73c98dc20d",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_24",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 502.05,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_24.MP4",
+    "expected_md5": "0a4358fa4683f9931dc6cf97bc13a749",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_25",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 381.51,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_25.MP4",
+    "expected_md5": "44185c61116aed983c5bc9988cb3173f",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_28",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 158.49,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_28.MP4",
+    "expected_md5": "c51606a1608892f37514f561598862ee",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_29",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 425.41,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_29.MP4",
+    "expected_md5": "4960841734afd0d5ff5102c517e33c2e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_30",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 312.7,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_30.MP4",
+    "expected_md5": "cbc9828f738208e0bee2584ef9ee1f97",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_31",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 825.46,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_31.MP4",
+    "expected_md5": "a67445439a2ae4a91215f0d76f2377df",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P04_33",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 184.1,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P04/P04_33.MP4",
+    "expected_md5": "db9f1d5cc43c533f442975eb994fb018",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P05_07",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 801.87,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P05/P05_07.MP4",
+    "expected_md5": "eb8b7da953ffac8256e9d62023c72b81",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P05_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 421.1,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P05/P05_09.MP4",
+    "expected_md5": "7431b8c8c1dd8b36526427d872f3498e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P06_10",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 242.98,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P06/P06_10.MP4",
+    "expected_md5": "3f8f4afaa3b1c60098da4743e97675eb",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P06_12",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 193.94,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P06/P06_12.MP4",
+    "expected_md5": "9ffd591ef16875d580928f581624dac7",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P06_13",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 240.37,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P06/P06_13.MP4",
+    "expected_md5": "85d786e5553e64dfbf31c2411c0911a5",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P07_14",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 257.01,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P07/P07_14.MP4",
+    "expected_md5": "e827bf3294ff355e262c604e39b747b0",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P07_16",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 163.06,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P07/P07_16.MP4",
+    "expected_md5": "b92420477da2be677357adb7da2c820e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 620.49,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_09.MP4",
+    "expected_md5": "7c88b591e63dae438377f3b5fdcd44b0",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_10",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 242.43,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_10.MP4",
+    "expected_md5": "d8a1f70ec7ce5c3f862bebad05cbab82",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_14",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 151.92,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_14.MP4",
+    "expected_md5": "0452daa5bad2cec013ebb26a656ff6aa",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_15",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 563.31,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_15.MP4",
+    "expected_md5": "c9e95bca19031b884aea4be71359b853",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_16",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 589.12,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_16.MP4",
+    "expected_md5": "3324ffa5ef931dcdd349e678eb06dfa2",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P08_17",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 586.1,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P08/P08_17.MP4",
+    "expected_md5": "47302a9665ef517f33d02eedbc127059",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P10_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1842.44,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P10/P10_03.MP4",
+    "expected_md5": "f1d588b34bd0bea0d2bb6b42ff5e045a",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P11_17",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 521.45,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P11/P11_17.MP4",
+    "expected_md5": "5f4a3f267fc724dee5a62a0c694e0e5c",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P11_20",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 559.56,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P11/P11_20.MP4",
+    "expected_md5": "e3433d5d993eee6c633ccdfe8c68cc12",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P12_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1465.87,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P12/P12_03.MP4",
+    "expected_md5": "62057f0e4480fbe2e0ec4b8e8bae0633",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P13_01",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 553.92,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P13/P13_01.MP4",
+    "expected_md5": "40e07d83ee2eb606560c6a23112b4cf0",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P13_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 350.23,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P13/P13_03.MP4",
+    "expected_md5": "6e9c2f924fcfc93069958f4fd319419c",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P14_08",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 398.03,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P14/P14_08.MP4",
+    "expected_md5": "bafb132ecf5e5d5a9f2243edd9deb4fb",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P15_04",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 471.2,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P15/P15_04.MP4",
+    "expected_md5": "5a3741f2c4a79f186a978a1fec725bda",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P15_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 503.5,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P15/P15_06.MP4",
+    "expected_md5": "db7e362f1f95a13762809d8e4d30f24a",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P16_04",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 929.83,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P16/P16_04.MP4",
+    "expected_md5": "f38f8cb670ab97df61218d9b4f69baa8",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P17_02",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 545.77,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P17/P17_02.MP4",
+    "expected_md5": "bdea7eee70cb05e4d354e8ccc2a8a7d1",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_01",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 166.43,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_01.MP4",
+    "expected_md5": "225ee82ed858903fc7f624d761794941",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_02",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 190.39,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_02.MP4",
+    "expected_md5": "07c8c7210ccecf1d1c48f1f45c8c7579",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 427.43,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_03.MP4",
+    "expected_md5": "002ffc88a08efc96637135a41fa448eb",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_04",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 203.77,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_04.MP4",
+    "expected_md5": "30872fe1570c0d6574caec8c4d6843eb",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 594.24,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_05.MP4",
+    "expected_md5": "ce22c7020381de6f280ec9b0b397aa29",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 416.33,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_06.MP4",
+    "expected_md5": "f5b650aa4ec7d5c9fffa939c4bb0eb38",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_07",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 240.07,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_07.MP4",
+    "expected_md5": "672eee8f433c4759c58862acd1f5db87",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 276.81,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_09.MP4",
+    "expected_md5": "a6a08e31612e42c526808c3d0eb1922e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_11",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 410.18,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_11.MP4",
+    "expected_md5": "bb46dde2d37feb9fe398cb51ab7d6098",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P18_12",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 207.91,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P18/P18_12.MP4",
+    "expected_md5": "25ea4c5933771dc0482d03efdefd1e9a",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P19_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 233.58,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P19/P19_06.MP4",
+    "expected_md5": "6642431a2d5b7356256b4818effd0869",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P20_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 467.15,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P20/P20_05.MP4",
+    "expected_md5": "fc34ce1e4ebf0ad91411f941ba7ad250",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P20_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 272.67,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P20/P20_06.MP4",
+    "expected_md5": "4a3a5e8d55505d34a884ea0b06705cfa",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P21_02",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 490.61,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P21/P21_02.MP4",
+    "expected_md5": "e435fe82162d4ac5ffe5f152feefdfcf",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P22_01",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1091.29,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P22/P22_01.MP4",
+    "expected_md5": "96bb2de426fdd2eb18c712b5bd8301cd",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P22_02",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 508.74,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P22/P22_02.MP4",
+    "expected_md5": "a06f0ebb4722afbf03fa9b78c7aca2f5",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P22_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1187.97,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P22/P22_03.MP4",
+    "expected_md5": "09c6d62d0ab4b8865ed5970ae0048ca6",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P22_04",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 389.07,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P22/P22_04.MP4",
+    "expected_md5": "6fa6841900e03638b80c7cf0a9989f31",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P23_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1168.9,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P23/P23_05.MP4",
+    "expected_md5": "0f3eb3e2530f9259e3ab870b5f2e62ce",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P24_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1968.6,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P24/P24_09.MP4",
+    "expected_md5": "8d7385f315a909a64c555bca266dc2db",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P25_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 207.29,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P25/P25_06.MP4",
+    "expected_md5": "3643f10b0975bb642cbdf112c8acdab1",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P25_07",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 275.26,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P25/P25_07.MP4",
+    "expected_md5": "798c0021342483ff54de737bc9759567",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P26_35",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 164.4,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P26/P26_35.MP4",
+    "expected_md5": "506e6fb92cdf00b4c318e9608df8498a",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P26_36",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 209.89,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P26/P26_36.MP4",
+    "expected_md5": "b339e63552fe8bfa6c4ba7fdd2161264",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P27_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 615.41,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P27/P27_05.MP4",
+    "expected_md5": "a9974532d6faca332ab44975a49cb740",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P28_16",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 313.38,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P28/P28_16.MP4",
+    "expected_md5": "fb35090ea6a65b41305826c3426ccf81",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P28_22",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 146.8,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P28/P28_22.MP4",
+    "expected_md5": "9b7b5f29f55cdff7850419f0e99778ce",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P28_25",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 396.88,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P28/P28_25.MP4",
+    "expected_md5": "736e73a0927a0ae09a311443aa032e64",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P29_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1821.74,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P29/P29_05.MP4",
+    "expected_md5": "7d297fd45bb33abe66e39f58e9c24e7d",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P29_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 169.07,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P29/P29_06.MP4",
+    "expected_md5": "e8bdd73e74b1fccbd2f96766ef346651",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P30_07",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 305.44,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P30/P30_07.MP4",
+    "expected_md5": "4abef13f1df08280d76ef42e1df17406",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P30_08",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 1122.14,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P30/P30_08.MP4",
+    "expected_md5": "bd32d6e5c5815beb42310563b0ce750e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P30_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 433.73,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P30/P30_09.MP4",
+    "expected_md5": "7181a076afd0a26aa2ae2481e0645c1b",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P31_10",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 540.09,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P31/P31_10.MP4",
+    "expected_md5": "d400c28d06a4c4302312549a34008309",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P31_11",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 254.94,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P31/P31_11.MP4",
+    "expected_md5": "2d58959f10451493eb84775b8a2078bf",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P31_12",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 205.79,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P31/P31_12.MP4",
+    "expected_md5": "7e2756656211c8305caa170208919560",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_01",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 494.86,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_01.MP4",
+    "expected_md5": "82d5465796f3e2af9a43abe07c81fb63",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_02",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 222.47,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_02.MP4",
+    "expected_md5": "9b87df89ac3aa393ada15267ab12d49e",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_03",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 242.09,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_03.MP4",
+    "expected_md5": "871a37d1523bd7fbdc5adc2ebccb131d",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_04",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 364.93,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_04.MP4",
+    "expected_md5": "482e3dcef106160e5fecae7078a813ae",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_05",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 426.29,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_05.MP4",
+    "expected_md5": "72a1d37e07645bc66f11369d6cb40b93",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_06",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 589.79,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_06.MP4",
+    "expected_md5": "4796542bfffb0b2b7b07bd26ce3215a2",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_08",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 199.18,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_08.MP4",
+    "expected_md5": "3b923108fa24ab053d62a8a47b8fe2ee",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_09",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 281.53,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_09.MP4",
+    "expected_md5": "971730e7170b3d9048f7dd3ee4388b8c",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  },
+  {
+    "video_id": "P32_10",
+    "dataset": "epic_kitchens_100",
+    "duration_sec": 406.07,
+    "upstream_url": "https://data.bris.ac.uk/datasets/3h91syskeag572hl6tvuovwv4d/videos/test/P32/P32_10.MP4",
+    "expected_md5": "1a07ca3a8ef378d5c25d68c114916619",
+    "status": "missing_source",
+    "host": "data.bris.ac.uk"
+  }
+]

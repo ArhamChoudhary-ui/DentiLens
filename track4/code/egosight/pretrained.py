@@ -17,16 +17,19 @@ from .video import windows
 
 LABEL_MAP={
     'bike':('riding a bike','riding mountain bike'),
-    'boxing':('punching person (boxing)',),
-    'horse':('riding or walking with horse',),
-    'jumping':('bungee jumping','high jump','long jump','triple jump','jumping into pool'),
+    'bikepolo':('riding a bike','riding mountain bike','hitting baseball'),
+    'boxing':('punching person (boxing)','punching bag'),
+    'horse':('riding or walking with horse','grooming horse'),
+    'jumping':('high jump','long jump','triple jump','jumping into pool','jumpstyle dancing'),
+    'longboarding':('skateboarding','hoverboarding','snowboarding','roller skating'),
     'motor':('motorcycling',),
-    'parkour':('parkour',),
-    'rockclimbing':('rock climbing',),
-    'scuba':('scuba diving',),
-    'skate':('skateboarding',),
-    'ski':('skiing (not slalom or crosscountry)','skiing crosscountry','skiing slalom','ski jumping'),
-    'surfing':('surfing water','windsurfing','kitesurfing'),
+    'parkour':('parkour','vault','gymnastics tumbling'),
+    'plane':('paragliding','parasailing','skydiving','flying kite'),
+    'rockclimbing':('rock climbing','ice climbing','climbing a rope','climbing ladder','climbing tree'),
+    'scuba':('scuba diving','snorkeling'),
+    'skate':('skateboarding','hoverboarding','riding scooter','roller skating'),
+    'ski':('skiing (not slalom or crosscountry)','skiing crosscountry','skiing slalom','ski jumping','snowboarding'),
+    'surfing':('surfing water','windsurfing','kitesurfing','surfing crowd'),
 }
 
 
@@ -48,8 +51,23 @@ def frame_tensor(image):
     return torch.from_numpy(rgb).permute(2,0,1)
 
 
+def load_tsn_calibration(path, base_sha256):
+    artifact = torch.load(path, map_location='cpu', weights_only=True)
+    if (not isinstance(artifact, dict) or artifact.get('format') != 'egosight-tsn-calibration-v1'
+            or artifact.get('pretrained_sha256') != base_sha256):
+        raise ValueError('Calibration checkpoint does not match the source TSN weights')
+    bias, log_scale = artifact.get('bias'), artifact.get('log_scale')
+    if not all(isinstance(t, torch.Tensor) and t.shape == shape and torch.is_floating_point(t)
+               and bool(torch.isfinite(t).all()) for t, shape in ((bias, (397,)), (log_scale, (2,)))):
+        raise ValueError('Invalid TSN calibration parameters')
+    scale = log_scale.exp().repeat_interleave(torch.tensor([97, 300]))
+    if not torch.isfinite(scale).all() or not (scale > 0).all():
+        raise ValueError('Invalid TSN calibration scale')
+    return scale, bias
+
+
 class EpicTSN:
-    def __init__(self,root,device):
+    def __init__(self,root,device,calibration=None):
         manifest=json.loads((root/'receipt.json').read_text())
         annotation=root/'epic-classes.json'
         with annotation.open('rb') as stream:
@@ -75,6 +93,10 @@ class EpicTSN:
         self.model.load_state_dict(weights)
         self.model.to(self.device).eval()
         self.checksum=manifest['tsn_rgb.ckpt']
+
+        self.calibration = None
+        if calibration is not None:
+            self.calibration = load_tsn_calibration(calibration, self.checksum)
 
     def features(self,reader):
         """Decode once at half-second cadence and cache only logits and motion."""
@@ -118,6 +140,9 @@ class EpicTSN:
                 if not len(indices):
                     continue
                 mean=logits[indices].mean(0)
+                if self.calibration is not None:
+                    scale, bias = self.calibration
+                    mean = mean * scale + bias
                 verb=mean[:97].softmax(0).numpy()
                 noun=mean[97:].softmax(0).numpy()
                 probabilities=verb[self.pairs[:,0]]*noun[self.pairs[:,1]]
@@ -132,8 +157,11 @@ class EpicTSN:
                 evidence.append(dict(start=start,end=end,alternatives=options))
                 if length==4.:
                     candidates.append(best)
+        from .proposals import process_proposals
+        actions,action_metadata,proposal_stats=process_proposals([],reader.info.duration,'cooking',custom_actions=actions)
         return actions,candidates,'unclassified',0.,dict(model='EPIC-KITCHENS-100 TSN RGB ResNet50',
-            checkpoint_sha256=self.checksum,cached_samples=len(times),window_alternatives=evidence)
+            checkpoint_sha256=self.checksum,cached_samples=len(times),window_alternatives=evidence,
+            action_metadata=action_metadata,proposal_stats=proposal_stats)
 
 
 class FPVTransfer:
@@ -149,22 +177,40 @@ class FPVTransfer:
         self.mapping={name:[self.categories.index(label) for label in labels] for name,labels in LABEL_MAP.items()}
 
     def predict(self,reader):
-        candidates=[]; evidence=[]; aggregate=[]
+        candidates=[]; evidence=[]; aggregate=[]; window_scores=[]
         with torch.inference_mode():
-            for start,end in windows(reader.info.duration,4.,4.):
-                frames,_=reader.sample(start,end,8,128)
+            for start,end in windows(reader.info.duration,4.,2.):
+                frames,_=reader.sample(start,end,16,128)
+                motion=float(np.mean([np.abs(b.astype(float)-a.astype(float)).mean()/255 for a,b in zip(frames,frames[1:])]))
                 inputs=self.transform(torch.from_numpy(np.stack(frames)).permute(0,3,1,2)).unsqueeze(0)
                 probability=self.model(inputs.to(self.device)).softmax(1).cpu()[0]
                 scores={name:float(probability[classes].sum()) for name,classes in self.mapping.items()}
                 aggregate.append(scores)
                 best=max(scores,key=scores.get)
-                candidates.append(dict(start=start,end=end,confidence=scores[best],verb=None,noun=best))
+                window_scores.append((start,end,scores,motion))
+                candidates.append(dict(start=start,end=end,confidence=scores[best],visual=motion,verb='other',noun='other'))
                 evidence.append(dict(start=start,end=end,category_scores=scores))
+
+        # Multi-duration candidate generation (e.g. 6.0s intervals around high activity moments)
+        if reader.info.duration >= 45.0:
+            for i in range(len(window_scores) - 1):
+                w1 = window_scores[i]
+                w2 = window_scores[i + 1]
+                s, e = w1[0], w2[1]
+                if e <= reader.info.duration and (e - s) >= 5.9:
+                    conf6 = (max(w1[2].values(), default=0.0) + max(w2[2].values(), default=0.0)) / 2.0
+                    mot6 = (w1[3] + w2[3]) / 2.0
+                    if conf6 >= 0.35 and mot6 >= 0.04:
+                        candidates.append(dict(start=s, end=e, confidence=conf6, visual=mot6, verb='other', noun='other'))
+
         pooled={name:float(np.mean([row[name] for row in aggregate])) for name in self.mapping}
         label=max(pooled,key=pooled.get)
         score=pooled[label]
-        if score<.10:
+        if score<.04:
             label,score='other',0.
-        return [],candidates,label,score,dict(model='Torchvision R3D-18 Kinetics-400 transfer',
+        from .proposals import process_proposals
+        actions,action_metadata,proposal_stats=process_proposals(window_scores,reader.info.duration,label,min_conf=.10,iou_thresh=.30)
+        return actions,candidates,label,score,dict(model='Torchvision R3D-18 Kinetics-400 transfer',
             checkpoint_sha256=self.checksum,category_scores=pooled,window_category_scores=evidence,
-            unsupported_labels=sorted(StudentKit().labels-set(self.mapping)-{'cooking','other'}))
+            unsupported_labels=sorted(StudentKit().labels-set(self.mapping)-{'cooking','other'}),
+            action_metadata=action_metadata,proposal_stats=proposal_stats)
